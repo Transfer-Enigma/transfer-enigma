@@ -118,6 +118,8 @@ services:
       target: "python-apps"
     env_file:
       - ".env"
+    volumes:
+      - "./apps/back_admin/resources/:/apps/back_admin/resources/:ro"
     restart: always
     cap_drop:
       - ALL
