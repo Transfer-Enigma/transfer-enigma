@@ -34,6 +34,8 @@ uvicorn = { extras = ["standard"], version = "*" }
 sqlparse = "^0.5.5"
 python-multipart = "^0.0.22"
 alembic = "^1.18.4"
+gspread = "^6.2.1"
+gspread-dataframe = "^4.0.0"
 
 [tool.poetry.group.dev.dependencies]
 black = {version = "*", python = "^3.12"}
