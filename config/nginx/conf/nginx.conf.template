@@ -1,4 +1,7 @@
 server {
+    listen 80;
+    listen 443;
+
     client_max_body_size 20M;
 
     location /api/user/ {
