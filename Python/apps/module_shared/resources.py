@@ -33,7 +33,6 @@ Example usage:
 """
 
 import json
-from io import TextIOWrapper
 from pathlib import Path
 from typing import IO, Any
 
