@@ -19,30 +19,48 @@ Read this first to understand conventions, structure, and constraints.
 
 ### Python Backend (`Python/`)
 
-Three FastAPI microservices + shared libraries:
+Three FastAPI microservices + shared libraries + CLI tools + Alembic migrations:
 
 ```
-Python/apps/
-├── backend_auth/         # Port 8081 — Auth & demo guest login
-│   ├── main.py           # FastAPI app: /login, /token/refresh, /logout, /me
-├── backend_user/         # Port 8080 — Route calculator (user-facing API)
-│   ├── main.py
-│   ├── autodiscover.py   # Auto-discovers routers from api/ subpackages
-│   ├── config.py
-│   ├── api/v1/, api/v2/  # Versioned API endpoints (routes, points, rates)
-│   │   └── v2/demo/      # Demo endpoints (validate, feature_flags)
-│   ├── dependencies/     # FastAPI dependencies (auth, auth_context)
-│   └── services/         # Business logic (route_calculation, profit, get_rates)
-├── backend_admin/        # Port 8082 — Admin data management
-│   ├── main.py
-│   ├── autodiscover.py
-│   ├── api/              # Auto-discovered routers (routes_loading, data_manager, demo_guests)
-│   └── service/          # Business logic (routes_loading/, db_management/)
-├── module_shared/        # Shared infrastructure (config, database, responses, jwt_handler,
-│                         #   feature_flags, models/route, repositories/demo_guest, schemas/demo_guest)
-├── module_data_internal/ # ORM models + internal data aggregators
-│   └── schemas/          # CompanyModel, ContainerModel, PointModel, RouteModel, etc.
-└── module_data_fesco_api_adapter/  # External FESCO API client
+Python/
+├── cli/                   # CLI debugging tools (AI-assisted route debugging)
+│   ├── main.py            # click group: login, route-query, db, sheets
+│   ├── auth.py            # JWT login, token storage (~/.opencode-token)
+│   ├── config.py          # CLISettings: API_BASE_URL, ADMIN_API_BASE_URL, etc.
+│   ├── route_query.py     # Tool 1: Query /v2/routes/calculate via API
+│   ├── db_explorer.py     # Tool 2: Admin CRUD client (list, get, create, update, patch, delete)
+│   └── sheets_reader.py   # Tool 3: Google Sheets reader (worksheets, show, search)
+├── apps/
+│   ├── backend_auth/         # Port 8081 — Auth & demo guest login
+│   │   └── main.py           # FastAPI app: /login, /token/refresh, /logout, /me
+│   ├── backend_user/         # Port 8080 — Route calculator (user-facing API)
+│   │   ├── main.py
+│   │   ├── autodiscover.py
+│   │   ├── config.py
+│   │   ├── api/v1/, api/v2/  # Versioned API endpoints
+│   │   ├── dependencies/
+│   │   └── services/
+│   ├── backend_admin/        # Port 8082 — Admin data management
+│   │   ├── main.py
+│   │   ├── autodiscover.py
+│   │   ├── api/
+│   │   │   ├── routes_loading.py  # Import routes from Google Sheets
+│   │   │   ├── data_manager.py    # DB dump/erase/load
+│   │   │   ├── demo_guests.py     # CRUD demo guests
+│   │   │   └── data_browser.py    # Thin CRUD routes (delegates to service/)
+│   │   ├── schemas/
+│   │   │   └── data_browser.py    # Pydantic request/response models
+│   │   └── service/
+│   │       ├── crud_base.py           # Generic CRUD template (CRUDBase)
+│   │       ├── crud_companies.py      # Company CRUD service
+│   │       ├── crud_points.py         # Point CRUD service
+│   │       ├── crud_containers.py     # Container CRUD service
+│   │       ├── crud_route_segments.py # Route segment CRUD (composite)
+│   │       ├── crud_services.py       # Service CRUD service
+│   │       └── crud_drop_off.py      # Drop-off CRUD service
+│   ├── module_shared/
+│   ├── module_data_internal/
+│   └── module_data_fesco_api_adapter/
 ```
 
 ### Node Frontends (`Node/apps/`)
@@ -303,6 +321,60 @@ module_shared ───┬── backend_auth
 - Models defined in `module_data_internal/schemas/` and `module_shared/schemas/`
 - Both use the same `Base` class from `module_shared.database`
 
+### CLI Tools (`Python/cli/`)
+
+**Entry point:** `python -m cli <command>` (requires `PYTHONPATH=Python/apps`).
+For sheets commands, also set `GSHEETS_URL` and `GOOGLE_SERVICE_ACCOUNT_PATH` env vars
+(or put them in `Python/.env`).
+**Framework:** `click` (transitive dep via uvicorn; no explicit dependency needed)
+**Auth:** JWT login via `POST /login` on backend_auth; token stored in `~/.opencode-token`; sent as `Cookie: access_token_cookie=<token>` in subsequent requests. `api/user/` nginx route is used by default.
+
+**Commands:**
+
+```
+python -m cli login                         # Authenticate and save JWT
+python -m cli logout                        # Clear saved JWT
+python -m cli route-query                   # Query route calculator API
+python -m cli db list <resource>            # List resources via Admin API
+python -m cli db get <resource>/<id>        # Get single resource
+python -m cli db create <resource>          # Create resource (--data JSON)
+python -m cli db update <resource>/<id>     # Full update PUT (--data JSON)
+python -m cli db patch <resource>/<id>      # Partial update PATCH (--data JSON)
+python -m cli db delete <resource>/<id>     # Delete resource
+python -m cli sheets worksheets             # List worksheets
+python -m cli sheets columns <ws>           # List column names + 0-based indices
+python -m cli sheets show <ws>              # Show data (--filter, --search, --columns, --csv, --output, --count)
+python -m cli sheets search <ws>            # Search (--column optional, --columns, --limit)
+python -m cli sheets find <company>         # Cross-worksheet company search (--columns, --csv, --output, --count)
+```
+
+All output is JSON by default (for AI/script parsing).
+
+### Admin CRUD API (`data_browser.py`)
+
+**File:** `Python/apps/backend_admin/api/data_browser.py`
+**Prefix:** `/db` (auto-discovered by `autodiscover.py`)
+**Auth:** JWT via `Depends(request_auth)`
+
+**Resources and endpoints:**
+
+| Resource | Endpoints | Description |
+|----------|-----------|-------------|
+| Companies | `GET/POST /db/companies`, `GET/PUT/PATCH/DELETE /db/companies/{id}` | `name: str` |
+| Points | `GET/POST /db/points`, `GET/PUT/PATCH/DELETE /db/points/{id}` | `city, country, RU_city?, RU_country?` |
+| Containers | `GET/POST /db/containers`, `GET/PUT/PATCH/DELETE /db/containers/{id}` | `size, type(DC/HC), weight_from, weight_to, name` |
+| Route Segments | `GET/POST /db/route-segments`, `GET/PUT/PATCH/DELETE /db/route-segments/{id}` | Composite: route fields + nested `prices[]` + `services[]` |
+| Services | `GET/POST /db/services`, `GET/PUT/PATCH/DELETE /db/services/{id}` | `name, internal_name, description, hint?, mandatory, default` |
+| Drop-off | `GET/POST /db/drop-off`, `GET/PUT/PATCH/DELETE /db/drop-off/{id}` | `container_id, company_id, dates, price, currency` |
+
+**Architecture:**
+- `api/data_browser.py` — thin route definitions only (delegates to service layer)
+- `schemas/data_browser.py` — all Pydantic request/response models with `from_model()` classmethods
+- `service/crud_base.py` — generic `CRUDBase` template (ABC) with `list`, `get`, `create`, `update`, `patch`, `delete` + filter definitions via `FilterDef`
+- `service/crud_*.py` — per-entity service classes that override `_build_instance`, `_apply_update`, `_apply_patch` for entity-specific conversion logic (strip, enum/date parsing, nested prices/services)
+
+**Route Segment** is a composite resource — `crud_route_segments.py` overrides `create`/`update` to handle nested `prices[]` and `services[]` (fully replaced on PUT); PATCH only touches route-level fields via `_apply_patch`. The `get` method uses `selectinload` for eager relationship loading.
+
 ---
 
 ## Makefile (`Makefile`)
@@ -317,8 +389,69 @@ module_shared ───┬── backend_auth
 | `make alembic [args]` | `./scripts/alembic-proxy.sh` — pass alembic subcommand via args |
 | `make migrate [args]` | `./scripts/prod-db-migrate.sh` — pass alembic subcommand via args |
 
-## Known Gaps
-- **Backend docs** (`docs/backend/`) are empty
+## Route Calculation — Debugging Findings
+
+### `containerType` is actually container size, not DC/HC type
+- The API field `containerType` is passed as `size` to `search_container_ids()` (`containers.py:19-24`), which filters by `ContainerModel.size` column (20 or 40 feet).
+- The DC/HC type (`ContainerModel.type`) is never used for filtering in the calculate endpoint.
+- CLI `--type` help was fixed to read "Container size in feet (20 or 40)" — previously said "Container type (0=DC, 1=HC)".
+- Frontend sends `containerType` as string `"20"` or `"40"` — correct.
+
+### COC/SOC matching logic
+File: `routes.py:_apply_container_owner_filter` (lines 270-296):
+- Same company → Rail must be `container_owner == COC`
+- Different companies → Rail must be `container_owner == SOC`
+- Both sea and rail must be from the same `RouteDate` (same effective range)
+
+### Through-route condition
+File: `routes.py` — the sea-rail JOIN includes:
+```python
+or_(
+    ~RailRoute.is_through & ~SeaRoute.is_through,  # both non-through
+    SeaRoute.company_id == RailRoute.company_id,    # same company
+)
+```
+A `is_through: true` rail segment cannot pair with a non-through sea segment from a different company.
+
+### NECOLINE (965/1109) findings
+- **May** (2026-05-15 to 2026-05-31): Has COC sea segments from Ningbo/Shanghai → Vostochniy/ППК-1 (7299) → COC+COC combo works.
+- **June** (2026-06-01 to 2026-06-30): Only SOC sea segments from Ningbo/Shanghai → Vostochniy/ППК-1 (7299) + COC rail → SOC+COC combo works (same-company rule requires COC rail ✓). COC sea simply doesn't exist for June.
+- **No COC-only route possible** because there's no COC-only path (you'd need a direct route, or both sea and rail COC + same company = same result).
+
+### DPN (984/1103) findings
+- **30 segments, all RAIL, zero SEA.** Start points: 7299 (ППК-1), 7300 (ВРАНГЕЛЬ), 6787 (Nahodka) — all to Moscow (7037).
+- `is_through: true` in DB (sheet says `0` = not through), `container_owner: SOC` on all checked segments.
+- Cannot form sea+rail routes because:
+  1. No SEA segments at all.
+  2. Through rail cannot pair with other companies' non-through sea (through condition blocks it).
+  3. Even if it could pair, NECOLINE's non-through sea would be blocked by through condition.
+
+### RTG (1010/1066) findings
+- Has SEA segments (from Taiwan, other Asian ports — NOT from Ningbo/Shanghai) to Vostochniy/ВРАНГЕЛЬ (7300).
+- Has RAIL segments from 7300 → Moscow, `container_owner: SOC`, `is_through: true` in DB (sheet says `0` = not through).
+- Through rail + different company non-through sea → blocked by through-route condition.
+- Even without the through condition, no sea from Chinese ports exists for RTG.
+
+### Root cause: `is_through` importer bug in uploader.py:249
+- The importer inverts the `is_through` flag for ALL segments.
+- Sheet column "Сквозной маршрут (1 - да, 0 - нет)": `1` = through, `0` = not through.
+- Buggy code: `is_throw = pd.isna(...) or is_throw_raw == 0.0 or is_throw_raw == "0"` — treats `"0"` (not through) as `True` (through).
+- Fix: invert the condition to `not (pd.isna(...) or is_throw_raw == 0.0 or is_throw_raw == "0")`.
+
+### Impact of the bug
+- **DPN / RTG** (rail `is_through=0` in sheets → DB `true`): blocked from pairing with other companies' non-through sea. DPN has 30 rail segments (SOC, from Врангель/ППК-1), zero sea. RTG has its own sea but same-company COC/SOC rule blocks internal pairing (rail SOC + sea requires rail COC).
+- **NECOLINE** (rail/sea `is_through=1` in sheets → DB `false`): MORE permissive than intended — current route display works because same-company combos bypass through-route check.
+- **All carriers** have inverted `is_through` — the bug is universal.
+
+### After the fix, these routes should appear:
+- DPN SOC rail + any non-through sea from another company to Врангель/ППК-1 (e.g., MOHILL, RUSCON, HUA XIN)
+- RTG SOC rail + any non-through sea from another company to Врангель
+- NECOLINE sea+rail (same company) still works as before
+
+### Terminal mapping
+- ППК‑1 = DB point 7299 (exclusive NECOLINE terminal, 650 sea segments)
+- Врангель = DB point 7300 (shared terminal, 1457 sea segments from 24 companies)
+- Early (April) data may have used different point IDs (6803/6804) — after re-import, all use the new IDs.
 
 ---
 
