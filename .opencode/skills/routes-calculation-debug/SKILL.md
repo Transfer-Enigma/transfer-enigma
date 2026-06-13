@@ -28,41 +28,42 @@ Or use inline env vars:
 PYTHONPATH=Python/apps python -m cli <command>
 ```
 
-### Setting up Google Sheets access
+### Configuration
 
-The sheets tool needs two env vars to connect to Google Sheets:
+CLI settings (URLs, secrets) are loaded from `Python/.env.cli`
+
+Copy the example and fill in the values:
 
 ```bash
-export GSHEETS_URL='https://docs.google.com/spreadsheets/d/1McNjioNGZH2UgyUsJsMQ435kzLSOnjr2B2e4uc2aR58'
-export GOOGLE_SERVICE_ACCOUNT_PATH='/full/path/to/google_service_account.json'
-# The service account file is at: /home/daniel/Projects/routes-calculator/resources/backend_admin/google_service_account.json
+cp .env.cli.example .env.cli
+# Edit .env.cli with your values:
+#   GSHEETS_URL — Google Sheets URL
+#   GOOGLE_SERVICE_ACCOUNT_PATH — path to service account JSON
+#   ADMIN_USER / ADMIN_PASSWORD — admin credentials
+#   API_BASE_URL, ADMIN_API_BASE_URL, AUTH_API_URL — API endpoints
 ```
 
-Alternatively, put these in `Python/.env` file (the CLI reads `.env` automatically):
-```
-GSHEETS_URL=https://docs.google.com/spreadsheets/d/...
-GOOGLE_SERVICE_ACCOUNT_PATH=/path/to/service_account.json
-```
+`.env.cli` is in `.gitignore` — it won't be committed.
 
 ### Authentication
 
 ```bash
-python -m cli login --username <admin> --password <pass>
+python -m cli login
 # Token saved to ~/.opencode-token
 python -m cli logout
 ```
 
-If the standard ADMIN/PASS login/password pair for dev doesn't work, ask the user!
+Requires `ADMIN_LOGIN` and `ADMIN_PASSWORD` env vars (see above).
 
 ### Tool 1: Route Query — Test route calculation
 
 ```bash
 python -m cli route-query \
   --date 2024-06-01 \
-  --departure 1 2 \
-  --destination 3 4 \
+  --departure "1,2" \
+  --destination "3,4" \
   --weight 12 \
-  --type 0
+  --type 20
 ```
 
 _Weight limit - 28_

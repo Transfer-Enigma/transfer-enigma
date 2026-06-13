@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 
 import aiohttp
 import click
@@ -8,22 +9,33 @@ from .auth import ensure_token, make_cookie_header
 from .config import get_cli_settings
 
 
+def _parse_ids(value: str):
+    """Parse comma or whitespace-separated IDs into a list of ints."""
+    if not value:
+        return []
+    return [int(x) for x in re.split(r"[\s,]+", value) if x]
+
+
 @click.command()
 @click.option("--date", required=True, help="Dispatch date (YYYY-MM-DD)")
-@click.option("--departure", "departure_ids", multiple=True, type=int, help="Internal departure point ID")
-@click.option("--destination", "destination_ids", multiple=True, type=int, help="Internal destination point ID")
-@click.option("--departure-ext", "departure_ext_ids", multiple=True, type=str, help="External departure point ID")
-@click.option("--destination-ext", "destination_ext_ids", multiple=True, type=str, help="External destination point ID")
+@click.option("--departure", "departure_raw", default="",
+              help="Internal departure point IDs (comma or space-separated, e.g. '1,2,3')")
+@click.option("--destination", "destination_raw", default="",
+              help="Internal destination point IDs (comma or space-separated)")
+@click.option("--departure-ext", "departure_ext_raw", default="",
+              help="External departure point IDs (comma or space-separated)")
+@click.option("--destination-ext", "destination_ext_raw", default="",
+              help="External destination point IDs (comma or space-separated)")
 @click.option("--weight", required=True, type=float, help="Cargo weight")
 @click.option("--type", "container_type", required=True, type=int, help="Container size in feet (20 or 40)")
 @click.option("--demo-uid", default=None, help="Demo user UID (uses X-Demo-User-UID header)")
 @click.option("--api-url", default=None, help="API base URL override")
 def route_query(
     date: str,
-    departure_ids: tuple[int, ...],
-    destination_ids: tuple[int, ...],
-    departure_ext_ids: tuple[str, ...],
-    destination_ext_ids: tuple[str, ...],
+    departure_raw: str,
+    destination_raw: str,
+    departure_ext_raw: str,
+    destination_ext_raw: str,
     weight: float,
     container_type: int,
     demo_uid: str | None,
@@ -33,12 +45,17 @@ def route_query(
     settings = get_cli_settings()
     url = f"{api_url or settings.API_BASE_URL}/v2/routes/calculate"
 
+    departure_ids = _parse_ids(departure_raw)
+    destination_ids = _parse_ids(destination_raw)
+    departure_ext_ids = [x for x in departure_ext_raw.replace(",", " ").split() if x]
+    destination_ext_ids = [x for x in destination_ext_raw.replace(",", " ").split() if x]
+
     payload = {
         "dispatchDate": date,
-        "departureInternalIds": list(departure_ids),
-        "destinationInternalIds": list(destination_ids),
-        "departureExternalIds": list(departure_ext_ids),
-        "destinationExternalIds": list(destination_ext_ids),
+        "departureInternalIds": departure_ids,
+        "destinationInternalIds": destination_ids,
+        "departureExternalIds": departure_ext_ids,
+        "destinationExternalIds": destination_ext_ids,
         "cargoWeight": weight,
         "containerType": container_type,
     }

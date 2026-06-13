@@ -325,7 +325,7 @@ module_shared ───┬── backend_auth
 
 **Entry point:** `python -m cli <command>` (requires `PYTHONPATH=Python/apps`).
 For sheets commands, also set `GSHEETS_URL` and `GOOGLE_SERVICE_ACCOUNT_PATH` env vars
-(or put them in `Python/.env`).
+(or put them in `.env.cli` in the project root — see `.env.cli.example`).
 **Framework:** `click` (transitive dep via uvicorn; no explicit dependency needed)
 **Auth:** JWT login via `POST /login` on backend_auth; token stored in `~/.opencode-token`; sent as `Cookie: access_token_cookie=<token>` in subsequent requests. `api/user/` nginx route is used by default.
 

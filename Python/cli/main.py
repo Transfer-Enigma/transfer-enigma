@@ -18,8 +18,19 @@ def cli():
 
 
 @cli.command("login")
-@click.option("--username", prompt=True, help="Admin username")
-@click.option("--password", prompt=True, hide_input=True, help="Admin password")
+@click.option(
+    "--username",
+    default=get_cli_settings().ADMIN_USER,
+    prompt=True,
+    help="Admin username",
+)
+@click.option(
+    "--password",
+    default=get_cli_settings().ADMIN_PASSWORD,
+    prompt=True,
+    hide_input=True,
+    help="Admin password",
+)
 @click.option("--api-url", default=None, help="Auth API URL")
 def login_command(username: str, password: str, api_url: str | None):
     """Authenticate and store JWT token."""
