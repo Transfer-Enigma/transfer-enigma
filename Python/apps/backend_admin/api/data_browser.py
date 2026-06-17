@@ -17,6 +17,9 @@ from backend_admin.schemas.data_browser import (
     PointCreate,
     PointPatch,
     PointResponse,
+    RateCreate,
+    RatePatch,
+    RateResponse,
     RouteSegmentCreate,
     RouteSegmentListResponse,
     RouteSegmentPatch,
@@ -30,6 +33,7 @@ from backend_admin.service.crud_companies import crud_companies
 from backend_admin.service.crud_containers import crud_containers
 from backend_admin.service.crud_drop_off import crud_drop_off
 from backend_admin.service.crud_points import crud_points
+from backend_admin.service.crud_rates import crud_rates
 from backend_admin.service.crud_route_segments import crud_route_segments
 from backend_admin.service.crud_services import crud_services
 from module_shared.database import Database, get_database
@@ -444,3 +448,69 @@ async def delete_drop_off(
 ):
     async with db.session_context() as session:
         await crud_drop_off.delete(session, drop_id)
+
+
+# ─── Rates ────────────────────────────────────────────────────────────────────
+
+
+@router.get("/rates", response_model=list[RateResponse])
+async def list_rates(
+    _: Annotated[None, Depends(request_auth)],
+    db: Annotated[Database, Depends(get_database)],
+    code: str = Query("", description="Filter by currency code"),
+    date: str = Query("", description="Filter by date YYYY-MM-DD"),
+):
+    async with db.session_context() as session:
+        return await crud_rates.list(session, code=code, date=date)
+
+
+@router.get("/rates/{rate_id}", response_model=RateResponse)
+async def get_rate(
+    rate_id: int,
+    _: Annotated[None, Depends(request_auth)],
+    db: Annotated[Database, Depends(get_database)],
+):
+    async with db.session_context() as session:
+        return await crud_rates.get(session, rate_id)
+
+
+@router.post("/rates", response_model=RateResponse, status_code=201)
+async def create_rate(
+    payload: RateCreate,
+    _: Annotated[None, Depends(request_auth)],
+    db: Annotated[Database, Depends(get_database)],
+):
+    async with db.session_context() as session:
+        return await crud_rates.create(session, payload)
+
+
+@router.put("/rates/{rate_id}", response_model=RateResponse)
+async def update_rate(
+    rate_id: int,
+    payload: RateCreate,
+    _: Annotated[None, Depends(request_auth)],
+    db: Annotated[Database, Depends(get_database)],
+):
+    async with db.session_context() as session:
+        return await crud_rates.update(session, rate_id, payload)
+
+
+@router.patch("/rates/{rate_id}", response_model=RateResponse)
+async def patch_rate(
+    rate_id: int,
+    payload: RatePatch,
+    _: Annotated[None, Depends(request_auth)],
+    db: Annotated[Database, Depends(get_database)],
+):
+    async with db.session_context() as session:
+        return await crud_rates.patch(session, rate_id, payload)
+
+
+@router.delete("/rates/{rate_id}", status_code=204)
+async def delete_rate(
+    rate_id: int,
+    _: Annotated[None, Depends(request_auth)],
+    db: Annotated[Database, Depends(get_database)],
+):
+    async with db.session_context() as session:
+        await crud_rates.delete(session, rate_id)

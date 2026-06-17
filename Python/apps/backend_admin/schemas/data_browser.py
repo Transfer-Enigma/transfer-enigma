@@ -5,6 +5,7 @@ from module_data_internal.schemas import (
     PointModel,
     ServiceModel,
 )
+from module_shared.schemas.rate import RateModel
 from module_data_internal.schemas.route import PriceModel, RouteModel, ServicePriceModel
 from pydantic import BaseModel
 
@@ -362,4 +363,37 @@ class DropOffResponse(BaseModel):
             price=model.price,
             conversation_percents=model.conversation_percents,
             currency=model.currency,
+        )
+
+
+# ─── Rates ────────────────────────────────────────────────────────────────────
+
+
+class RateCreate(BaseModel):
+    code: str
+    rate: float
+    date: str  # YYYY-MM-DD
+
+
+class RatePatch(BaseModel):
+    code: str | None = None
+    rate: float | None = None
+    date: str | None = None
+
+
+class RateResponse(BaseModel):
+    id: int  # noqa: A003
+    code: str
+    rate: float
+    date: str
+    created_at: str
+
+    @classmethod
+    def from_model(cls, model: RateModel) -> "RateResponse":
+        return cls(
+            id=model.id,
+            code=model.code,
+            rate=float(model.rate) if hasattr(model.rate, "__float__") else model.rate,
+            date=model.date.isoformat(),
+            created_at=model.created_at.isoformat() if model.created_at else "",
         )
