@@ -27,6 +27,20 @@ WORKDIR "${APP_DIR}"
 COPY ./apps/ ./
 ENTRYPOINT ["python3", "-m", "uvicorn"]
 
+FROM python-apps AS scheduler
+
+USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends cron && rm -rf /var/lib/apt/lists/*
+
+COPY ./scheduler/crontab /apps/scheduler/crontab
+COPY ./scheduler/entrypoint.sh /apps/scheduler/entrypoint.sh
+RUN chmod +x /apps/scheduler/entrypoint.sh
+
+RUN mkdir -p /var/log/app && chown ${USERNAME}:${USERNAME} /var/log/app
+
+ENTRYPOINT ["/apps/scheduler/entrypoint.sh"]
+
 FROM python:3.12-slim AS db-migration
 
 ARG USERNAME="appuser"
