@@ -124,6 +124,7 @@ The `.txt` files are what the Docker build uses, so they must stay in sync with 
 | Stage | Base | Purpose |
 |-------|------|---------|
 | `python-apps` | `python:3.12-slim` | Runs FastAPI microservices via uvicorn |
+| `scheduler` | `python-apps` | Runs cron (task scheduler) |
 | `db-migration` | `python:3.12-slim` | Runs Alembic database migrations |
 | `test-runner` | `python:3.12-slim` | Runs pytest (install from `requirements-tests.txt`) |
 
@@ -436,6 +437,64 @@ All output is JSON by default (for AI/script parsing).
 **Route Segment** is a composite resource — `crud_route_segments.py` overrides `create`/`update` to handle nested `prices[]` and `services[]` (fully replaced on PUT); PATCH only touches route-level fields via `_apply_patch`. The `get` method uses `selectinload` for eager relationship loading.
 - `RouteSegmentListResponse` includes `is_through` and `container_owner`
 - `RouteSegmentStatsResponse` is returned by `GET /db/route-segments/stats`: totals, type/through/owner distribution, top 20 companies
+
+---
+
+## Scheduler
+
+Cron-based task scheduler. Runs as a separate Docker service.
+
+### Structure
+```
+Python/
+├── scheduler/
+│   └── crontab                  # Cron schedule definitions
+├── apps/scheduler/
+│   ├── run_job.py               # Universal entry point (run via cron)
+│   └── jobs/
+│       ├── __init__.py
+│       └── hello.py             # Template / test job
+├── apps/module_shared/schemas/
+│   ├── job_log.py               # JobLogModel (tracks job runs in DB)
+│   └── ...
+```
+
+### Job contract
+1. Create `Python/apps/scheduler/jobs/<name>.py`
+2. Implement `async def main()` — no required args, returns None, raises on error
+3. Use `logging.getLogger(__name__)` for logging
+4. Add cron expression to `Python/scheduler/crontab`
+5. Rebuild the scheduler image
+
+### Manual run
+```bash
+# From scheduler container:
+python /app/scheduler/run_job.py --job-name hello
+
+# Via docker exec:
+docker compose exec scheduler python /app/scheduler/run_job.py --job-name hello
+```
+
+### Job tracking table
+`job_logs` in MariaDB — each run creates a row:
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | PK | Auto-increment |
+| `job_name` | VARCHAR(128) | Unique job identifier |
+| `status` | VARCHAR(32) | `in_progress` → `completed` or `error` |
+| `started_at` | DATETIME | When job started |
+| `finished_at` | DATETIME | Null while running, set on finish |
+| `error_message` | TEXT | Null on success, error trace on failure |
+
+### Dockerfile stage
+- Stage `scheduler` in `Python/Dockerfile` (`FROM python-apps`)
+- Installs `cron` via `apt-get`
+- `entrypoint.sh` dumps env vars to `/etc/environment`, installs crontab via `crontab -u appuser`, starts `cron -f`
+
+### docker-compose service
+- `scheduler` service inherits `.env`, connects to `db` network
+- Depends on `database` and `redis`
+- Uses same security config as other services (`cap_drop: ALL`, etc.)
 
 ---
 
