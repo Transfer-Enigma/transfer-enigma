@@ -57,7 +57,8 @@ Python/
 │   │       ├── crud_containers.py     # Container CRUD service
 │   │       ├── crud_route_segments.py # Route segment CRUD (composite)
 │   │       ├── crud_services.py       # Service CRUD service
-│   │       └── crud_drop_off.py      # Drop-off CRUD service
+│   │       ├── crud_drop_off.py      # Drop-off CRUD service
+│   │       └── crud_rates.py         # Exchange rate CRUD service
 │   ├── module_shared/
 │   ├── module_data_internal/
 │   └── module_data_fesco_api_adapter/
@@ -80,7 +81,7 @@ Node/apps/
 │       └── providers/    # Auth provider
 ├── admin-frontend/       # React 19 + Vite — Admin dashboard
 │   └── src/
-│       ├── pages/        # Login, Dashboard, DataImport, DemoGuests
+│       ├── pages/        # Login, Dashboard, DataImport, DemoGuests, RatesManagement
 │       ├── api/          # Axios API clients (Auth, Data, DemoGuests)
 │       ├── services/     # Auth service
 │       ├── widgets/      # Sidebar, LoginForm
@@ -155,10 +156,13 @@ Low-level cache-aside logic is in `module_data_fesco_api_adapter/cache.py` (`get
 | FESCO routes | `backend_user:fesco:routes:{date}:{dep}:{dest}:{weight}:{type}` | 12h | volatile-lru |
 
 **Rates fetch logic** (`services/get_rates.py`):
-1. Always try CBR API first (`ExchangeRates`)
-2. On success: return `(rates, today)` + `asyncio.create_task()` writes to Redis
-3. On failure: fallback to Redis — return `(rates, cached_date)` from cache
-4. If both fail: `RuntimeError`
+1. Try Redis cache first (`backend_user:rates:latest`)
+2. On cache hit: return `(rates, cached_date)` immediately
+3. On cache miss: query `exchange_rates` table for the latest date (DB fallback)
+4. On DB hit: write rates to Redis cache, return `(rates, date)`
+5. If both miss: `RuntimeError`
+
+The API endpoint no longer fetches from CBR directly — the scheduler job `update_rates` owns fetching + writing both DB and cache.
 
 **API endpoints:**
 - `GET /v1/rates` — returns `{USD: 90.0, ...}` (rates only, async now)
@@ -362,6 +366,18 @@ module_shared ───┬── backend_auth
 - Models defined in `module_data_internal/schemas/` and `module_shared/schemas/`
 - Both use the same `Base` class from `module_shared.database`
 
+**`exchange_rates` table** (`module_shared/schemas/rate.py`):
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | PK | Auto-increment |
+| `code` | VARCHAR(3) | Currency code (e.g. USD, EUR, CNY) |
+| `rate` | NUMERIC(12,6) | Exchange rate relative to RUB |
+| `date` | DATE | Date the rate was fetched for |
+| `created_at` | DATETIME | When row was inserted |
+- UniqueConstraint on `(code, date)`
+- Populated by the scheduler's `update_rates` job (daily at 06:00 via cron)
+- Read by `get_rates` as DB fallback when Redis cache misses
+
 ### Route Calculation — Key Logic
 
 **`containerType` parameter** is container size in feet (20 or 40), NOT DC/HC type.
@@ -427,6 +443,7 @@ All output is JSON by default (for AI/script parsing).
 | Route Segments | `GET/POST /db/route-segments`, `GET /db/route-segments/stats`, `GET/PUT/PATCH/DELETE /db/route-segments/{id}` | Composite: route fields + nested `prices[]` + `services[]` |
 | Services | `GET/POST /db/services`, `GET/PUT/PATCH/DELETE /db/services/{id}` | `name, internal_name, description, hint?, mandatory, default` |
 | Drop-off | `GET/POST /db/drop-off`, `GET/PUT/PATCH/DELETE /db/drop-off/{id}` | `container_id, company_id, dates, price, currency` |
+| Rates | `GET/POST /db/rates`, `GET/PUT/PATCH/DELETE /db/rates/{id}` | `code, rate, date` |
 
 **Architecture:**
 - `api/data_browser.py` — thin route definitions only (delegates to service layer)
@@ -453,7 +470,7 @@ Python/
 │   ├── run_job.py               # Universal entry point (run via cron)
 │   └── jobs/
 │       ├── __init__.py
-│       └── hello.py             # Template / test job
+│       └── update_rates.py      # Fetch CBR rates, write to DB + cache
 ├── apps/module_shared/schemas/
 │   ├── job_log.py               # JobLogModel (tracks job runs in DB)
 │   └── ...
@@ -469,10 +486,10 @@ Python/
 ### Manual run
 ```bash
 # From scheduler container:
-python /app/scheduler/run_job.py --job-name hello
+python /app/scheduler/run_job.py --job-name update_rates
 
 # Via docker exec:
-docker compose exec scheduler python /app/scheduler/run_job.py --job-name hello
+docker compose exec scheduler python /app/scheduler/run_job.py --job-name update_rates
 ```
 
 ### Job tracking table

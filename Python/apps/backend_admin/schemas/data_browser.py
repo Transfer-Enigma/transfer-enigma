@@ -5,8 +5,8 @@ from module_data_internal.schemas import (
     PointModel,
     ServiceModel,
 )
-from module_shared.schemas.rate import RateModel
 from module_data_internal.schemas.route import PriceModel, RouteModel, ServicePriceModel
+from module_shared.schemas.rate import RateModel
 from pydantic import BaseModel
 
 # ─── Companies ────────────────────────────────────────────────────────────────
