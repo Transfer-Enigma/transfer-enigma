@@ -5,4 +5,5 @@
 PYTHONPATH=/apps
 HOME=/apps
 
-# No scheduled jobs yet
+# Fetch exchange rates from CBR every day at 06:00
+* * * * * python /apps/scheduler/run_job.py --job-name update_rates > /proc/1/fd/1 2>/proc/1/fd/2
