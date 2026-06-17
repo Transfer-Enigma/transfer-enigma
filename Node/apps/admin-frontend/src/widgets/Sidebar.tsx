@@ -44,6 +44,7 @@ export default function Sidebar() {
                 <div className="nav-btn disabled">Управление точками</div>
                 <NavLink to={ ROUTES.DATA_IMPORT } className="nav-btn">Загрузка данных</NavLink>
                 <NavLink to={ ROUTES.DEMO_GUESTS } className="nav-btn">Демо-ссылки</NavLink>
+                <NavLink to={ ROUTES.RATES_MANAGEMENT } className="nav-btn">Курсы валют</NavLink>
             </div>
 
             <div>
