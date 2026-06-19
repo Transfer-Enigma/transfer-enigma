@@ -5,7 +5,7 @@ set -e
 printenv > /etc/environment
 
 # Install crontab for appuser
-crontab -u appuser /apps/scheduler/crontab
+crontab -u appuser /scheduler/crontab
 
 # Start cron in foreground
-exec cron -f
+exec cron -f -P /tmp/crond.pid

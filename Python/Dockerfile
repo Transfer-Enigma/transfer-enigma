@@ -31,15 +31,20 @@ FROM python-apps AS scheduler
 
 USER root
 
+RUN chmod a+wr /etc/environment
+
 RUN apt-get update && apt-get install -y --no-install-recommends cron && rm -rf /var/lib/apt/lists/*
 
-COPY ./scheduler/crontab /apps/scheduler/crontab
-COPY ./scheduler/entrypoint.sh /apps/scheduler/entrypoint.sh
-RUN chmod +x /apps/scheduler/entrypoint.sh
+RUN mkdir -p /var/spool && chown -R ${USERNAME}:${USERNAME} /var/spool
 
-RUN mkdir -p /var/log/app && chown ${USERNAME}:${USERNAME} /var/log/app
+COPY ./scheduler/entrypoint.sh /scheduler/entrypoint.sh
+RUN chmod +x /scheduler/entrypoint.sh
 
-ENTRYPOINT ["/apps/scheduler/entrypoint.sh"]
+COPY ./scheduler/crontab /scheduler/crontab
+
+USER ${USER_UID}
+
+ENTRYPOINT ["/scheduler/entrypoint.sh"]
 
 FROM python:3.12-slim AS db-migration
 

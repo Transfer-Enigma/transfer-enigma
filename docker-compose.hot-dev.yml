@@ -65,6 +65,7 @@ services:
   scheduler:
     volumes:
       - "./Python/apps/scheduler/:/apps/scheduler/:ro"
+      - "./Python/scheduler/crontab:/scheduler/crontab:ro"
       - "./Python/apps/module_shared/:/apps/module_shared/:ro"
       - "./logs/:/var/log/app/:rw"
 
