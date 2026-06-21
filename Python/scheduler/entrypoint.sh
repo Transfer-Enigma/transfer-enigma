@@ -8,4 +8,4 @@ printenv > /etc/environment
 crontab -u appuser /scheduler/crontab
 
 # Start cron in foreground
-exec cron -f -P /tmp/crond.pid
+exec cron -f

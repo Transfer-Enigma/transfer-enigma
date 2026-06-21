@@ -36,6 +36,7 @@ RUN chmod a+wr /etc/environment
 RUN apt-get update && apt-get install -y --no-install-recommends cron && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /var/spool && chown -R ${USERNAME}:${USERNAME} /var/spool
+RUN mkdir -p /var/run && chmod 777 /var/run
 
 COPY ./scheduler/entrypoint.sh /scheduler/entrypoint.sh
 RUN chmod +x /scheduler/entrypoint.sh
