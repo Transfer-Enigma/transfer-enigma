@@ -79,6 +79,16 @@ services:
       - "8082"
       - "--reload"
 
+  ### SCHEDULER
+  scheduler:
+    extends:
+      service: scheduler
+      file: docker-compose.yml
+    volumes:
+      - "./Python/apps/scheduler/:/apps/scheduler/:ro"
+      - "./Python/apps/module_shared/:/apps/module_shared/:ro"
+      - "./logs/:/var/log/app/:rw"
+
   ### PROXY
   reverseproxy:
     extends:

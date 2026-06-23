@@ -3,13 +3,19 @@ variable "TAG" {
 }
 
 group "default" {
-  targets = ["python-apps", "db-migration", "reverseproxy"]
+  targets = ["python-apps", "db-migration", "reverseproxy", "scheduler"]
 }
 
 target "python-apps" {
   context = "./Python/"
   target = "python-apps"
   tags = ["danielgreen1806/calculator-python-apps:${TAG}"]
+}
+
+target "scheduler" {
+  context = "./Python/"
+  target = "scheduler"
+  tags = ["danielgreen1806/calculator-scheduler:${TAG}"]
 }
 
 target "db-migration" {

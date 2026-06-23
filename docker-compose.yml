@@ -181,6 +181,34 @@ services:
       - "--port"
       - "8082"
 
+  ### SCHEDULER
+  scheduler:
+    image: danielgreen1806/calculator-scheduler:${DOCKER_PROD_IMAGES_TAG}
+    env_file:
+      - ".env"
+    environment:
+      - PYTHONPATH=/apps
+    working_dir: /apps
+    depends_on:
+      database:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges
+    volumes:
+      - "./logs/:/var/log/app/:rw"
+    networks:
+      db:
+
   ### PROXY
   reverseproxy:
     image: danielgreen1806/calculator-reverseproxy:${DOCKER_PROD_IMAGES_TAG}

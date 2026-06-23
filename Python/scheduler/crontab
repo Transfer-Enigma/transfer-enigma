@@ -1,0 +1,8 @@
+# Transfer Enigma Scheduler
+# Format: minute hour day month weekday command
+# Output is redirected to /proc/1/fd/1 (Docker stdout) so it appears in container logs.
+
+PYTHONPATH=/apps
+HOME=/apps
+
+# No scheduled jobs yet

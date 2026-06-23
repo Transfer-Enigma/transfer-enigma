@@ -61,6 +61,13 @@ services:
       - "8082"
       - "--reload"
 
+  ### SCHEDULER
+  scheduler:
+    volumes:
+      - "./Python/apps/scheduler/:/apps/scheduler/:ro"
+      - "./Python/apps/module_shared/:/apps/module_shared/:ro"
+      - "./logs/:/var/log/app/:rw"
+
   ### FRONT
   frontend:
     build:
