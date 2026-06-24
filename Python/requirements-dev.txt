@@ -33,7 +33,7 @@ greenlet==3.3.2 ; python_version >= "3.12" and python_version < "4.0" and (platf
 gspread-dataframe==4.0.0 ; python_version >= "3.12" and python_version < "4.0"
 gspread==6.2.1 ; python_version >= "3.12" and python_version < "4.0"
 h11==0.16.0 ; python_version >= "3.12" and python_version < "4.0"
-httptools==0.7.1 ; python_version >= "3.12" and python_version < "4.0"
+httptools==0.8.0 ; python_version >= "3.12" and python_version < "4.0"
 icecream==2.1.10 ; python_version >= "3.12" and python_version < "4.0"
 identify==2.6.18 ; python_version >= "3.12" and python_version < "4.0"
 idna==3.11 ; python_version >= "3.12" and python_version < "4.0"
