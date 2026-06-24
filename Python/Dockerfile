@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS python-apps
+FROM python:3.14-slim AS python-apps
 
 ARG USERNAME="appuser"
 ARG USER_UID=1000
@@ -27,7 +27,7 @@ WORKDIR "${APP_DIR}"
 COPY ./apps/ ./
 ENTRYPOINT ["python3", "-m", "uvicorn"]
 
-FROM python:3.12-slim AS db-migration
+FROM python:3.14-slim AS db-migration
 
 ARG USERNAME="appuser"
 ARG USER_UID=1000
@@ -56,7 +56,7 @@ COPY ./apps/ ./apps/
 
 ENTRYPOINT ["python3", "-m", "alembic"]
 
-FROM python:3.12-slim AS test-runner
+FROM python:3.14-slim AS test-runner
 
 ARG USERNAME="appuser"
 ARG USER_UID=1000
