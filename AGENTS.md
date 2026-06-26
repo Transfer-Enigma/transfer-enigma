@@ -358,7 +358,7 @@ module_shared ───┬── backend_auth
 ### Domain Models
 
 **`module_shared/models/route.py`** — Route entities (Pydantic V2 `BaseModel`):
-- Models: `ContainerItem`, `PriceItem`, `OnePrice`, `ServiceItem`, `DropItem`, `RouteSegment`, `RouteResult`
+- Models: `ContainerItem`, `PriceItem`, `OnePrice`, `ServiceItem`, `DropOffItem`, `RouteSegment`, `Route`
 - `OnePrice` represents FESCO single-price format with `beginCond`/`finishCond` (price-level conditions, set only for sea segments)
 - `PriceItem` represents internal multi-price format (always has `value: float`)
 - `RouteSegment.prices` can be `list[PriceItem]` (internal) or `OnePrice` (FESCO) or `None`
@@ -378,13 +378,13 @@ module_shared ───┬── backend_auth
 - **Services** (`backend_user/services/`) handle data work: fetching, aggregating, manipulating (e.g., `_strip_demo_fields`)
 - **API handlers** (`backend_user/api/`) handle format conversion: model → tuple for HTTP response
 - Models in `module_shared/models/route.py` are Pydantic V2 `BaseModel` (not dataclasses) — they serve as both domain objects and response schemas
-- `calculate_routes()` returns `tuple[list[RouteResult], list[RouteError]]` (raw Pydantic models + errors)
+- `calculate_routes()` returns `tuple[list[Route], list[RouteError]]` (raw Pydantic models + errors)
 - V2 handler (`api/v2/routes/post.py`) owns: `_route_result_to_tuple`, `_normalize_routes`, `_apply_demo_transforms`
   - `_seg_to_price_dict` was removed — models are returned as-is (no OnePrice flattening to `price`/`currency`/`container`/`beginCond`/`finishCond` flat fields)
-  - Response format: `[segments: list[RouteSegment], drop: DropItem | None, bool, services: list[ServiceItem]]` — tuple with raw model objects
+  - Response format: `[segments: list[RouteSegment], drop: DropOffItem | None, bool, services: list[ServiceItem]]` — tuple with raw model objects
 - V1 handler (`api/v1/routes/post.py`) has its own copies of these functions (legacy, separate format)
 - `_strip_demo_fields` stays in `services/route_calculation.py` (data manipulation, not format conversion)
-- No duplicate Pydantic response models — `backend_user/schemas/routes_responses.py` imports `RouteSegment`, `DropItem`, `ServiceItem` from `module_shared.models.route`
+- No duplicate Pydantic response models — `backend_user/schemas/routes_responses.py` imports `RouteSegment`, `DropOffItem`, `ServiceItem` from `module_shared.models.route`
 
 ### Database
 - MariaDB, accessed via SQLAlchemy async + `aiomysql`
@@ -403,7 +403,7 @@ module_shared ───┬── backend_auth
 | `feature-flag` | `hide-sea-soc` | `BOOL` | `false` | When `true`, sea segments with `container_owner == SOC` are excluded from SQL queries (both direct SEA and combined sea+rail) |
 
 - Read in `module_data_internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached(session, "feature-flag", "hide-sea-soc")`
-- Affects `build_usual_query(RouteType.SEA, ...)` and `build_base_sea_rail_query(...)`
+- Affects `build_usual_query(RouteSegmentType.SEA, ...)` and `build_base_sea_rail_query(...)`
 - Falls back to `False` if setting not found or Redis/DB unavailable
 - Created via Admin API: `POST /admin/api/db/settings` with `{"group": "feature-flag", "name": "hide-sea-soc", "value_type": "BOOL", "value": "false"}`
 
