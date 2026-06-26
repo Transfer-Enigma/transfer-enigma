@@ -2,7 +2,7 @@ from module_data_internal.schemas import DropModel, PriceModel, RouteModel
 from module_shared.database import Base
 from module_shared.models.route import (
     ContainerItem,
-    DropItem,
+    DropOffItem,
     PriceItem,
     RouteResult,
     RouteSegment,
@@ -86,9 +86,9 @@ def _route_from_orm(
         mapped_segments.append(seg)
         all_services.extend(_services_from_segment(segment, seg.id))
 
-    drop: DropItem | None = None
+    drop: DropOffItem | None = None
     if drop_model is not None:
-        drop = DropItem(
+        drop = DropOffItem(
             price=drop_model.price,
             conversation_percents=drop_model.conversation_percents,
             currency=drop_model.currency,

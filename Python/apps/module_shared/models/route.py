@@ -30,7 +30,7 @@ class ServiceItem(BaseModel):
     mandatory: bool = False
 
 
-class DropItem(BaseModel):
+class DropOffItem(BaseModel):
     price: float
     conversation_percents: float
     currency: str
@@ -56,6 +56,6 @@ class RouteSegment(BaseModel):
 
 class RouteResult(BaseModel):
     segments: list[RouteSegment]
-    drop: DropItem | None = None
+    drop: DropOffItem | None = None
     may_be_invalid: bool = False
     services: list[ServiceItem] = []
