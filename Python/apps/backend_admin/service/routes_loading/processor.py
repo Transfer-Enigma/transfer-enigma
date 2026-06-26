@@ -60,7 +60,7 @@ def process_numeric_and_string_cols(processed_df: DataFrame, numeric_cols: set[s
     return processed_df
 
 
-def process_points_services_effectivity(
+def process_points_company_effectivity(
     processed_df: DataFrame,
     warnings,
     fields_config:
@@ -133,7 +133,7 @@ def process_dropp_df(processed_dropp_df: DataFrame, warnings, fields_config: Upl
     processed_dropp_df[fields_config.drop20] = processed_dropp_df[fields_config.drop20].apply(price_filter)
     processed_dropp_df[fields_config.drop40] = processed_dropp_df[fields_config.drop40].apply(price_filter)
 
-    processed_dropp_df = process_points_services_effectivity(processed_dropp_df, warnings, fields_config, "DROP_OFF")
+    processed_dropp_df = process_points_company_effectivity(processed_dropp_df, warnings, fields_config, "DROP_OFF")
     processed_dropp_df = process_conversion_percents(processed_dropp_df, fields_config)
     processed_dropp_df[fields_config.container_condition] = (
         processed_dropp_df[fields_config.container_condition].apply(none_filter)
@@ -193,7 +193,7 @@ def process_routes_df(processed_routes_df, route_type: RouteSegmentType, warning
         },
     )
 
-    processed_routes_df = process_points_services_effectivity(
+    processed_routes_df = process_points_company_effectivity(
         processed_routes_df,
         warnings,
         fields_config,
