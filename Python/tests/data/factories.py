@@ -11,7 +11,7 @@ from module_data_internal.schemas import (
     PointModel,
     PriceModel,
     RouteSegmentModel,
-    RouteType,
+    RouteSegmentType,
     ServiceModel,
     ServicePriceModel,
 )
@@ -58,7 +58,7 @@ def RouteSegmentFactory(**kwargs) -> RouteSegmentModel:
     defaults = {
         "effective_from": datetime.date(2024, 1, 1),
         "effective_to": datetime.date(2025, 12, 31),
-        "type": RouteType.RAIL,
+        "type": RouteSegmentType.RAIL,
         "container_transfer_terms": ContainerTransferTerms.FIFO,
         "container_shipment_terms": ContainerShipmentTerms.FOB,
         "container_owner": ContainerOwner.COC,

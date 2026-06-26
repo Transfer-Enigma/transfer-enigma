@@ -17,14 +17,14 @@ from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
 from backend_admin.service.routes_loading.errors import (
     InvalidDropOffRow,
     InvalidRouteConditionException,
-    InvalidRouteTypeException,
+    InvalidRouteSegmentTypeException,
     NoPriceInRouteException,
     PointNotFoundException,
     PointsWithNanException,
 )
 from backend_admin.service.routes_loading.processor import load_data
 from gspread_dataframe import get_as_dataframe
-from module_data_internal.schemas import RouteType
+from module_data_internal.schemas import RouteSegmentType
 from module_shared.database import get_database
 from module_shared.resources import Resources
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -170,7 +170,7 @@ def parse_all_warning_types(warnings, fc):
 
 def parse_error(error, row_number, routes_ws_type):
     row_number += 2
-    routes_ws = {RouteType.SEA: "МОРЕ", RouteType.RAIL: "ЖД", None: "ДРОП-ОФФ"}.get(routes_ws_type, "Неизвестный")
+    routes_ws = {RouteSegmentType.SEA: "МОРЕ", RouteSegmentType.RAIL: "ЖД", None: "ДРОП-ОФФ"}.get(routes_ws_type, "Неизвестный")
 
     if isinstance(error, InvalidRouteConditionException):
         return f"Неверные условия поставки: '{error.condition}' (лист {routes_ws}, строка {row_number})"
@@ -178,7 +178,7 @@ def parse_error(error, row_number, routes_ws_type):
     elif isinstance(error, PointNotFoundException):
         return f"Не найден город или порт: '{error.error_key}' (лист {routes_ws}, строка {row_number})"
 
-    elif isinstance(error, InvalidRouteTypeException):
+    elif isinstance(error, InvalidRouteSegmentTypeException):
         return f"Неверный тип маршрута: '{error.route_type}' (лист {routes_ws}, строка {row_number})"
 
     elif isinstance(error, NoPriceInRouteException):

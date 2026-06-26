@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 from module_data_internal.aggregators.points import get_departure_points, get_destination_points
-from module_data_internal.schemas import RouteType
+from module_data_internal.schemas import RouteSegmentType
 from module_shared.database import Database
 
 from .data import CompanyFactory, PointFactory, RouteSegmentFactory
@@ -34,7 +34,7 @@ async def test_get_departure_points(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             effective_from=datetime.date(2024, 1, 1),
             effective_to=datetime.date(2025, 12, 31),
         )
@@ -64,7 +64,7 @@ async def test_get_destination_points(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             effective_from=datetime.date(2024, 1, 1),
             effective_to=datetime.date(2025, 12, 31),
         )
@@ -111,13 +111,13 @@ async def test_get_points_multiple_companies(sqlite_db: Database):
             company_id=company_a.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
         )
         route_b = RouteSegmentFactory(
             company_id=company_b.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
         )
         session.add_all([route_a, route_b])
         await session.commit()

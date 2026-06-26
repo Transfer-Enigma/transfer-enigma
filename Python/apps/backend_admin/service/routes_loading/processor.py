@@ -8,11 +8,11 @@ from module_data_internal.schemas import (
     ContainerOwner,
     ContainerShipmentTerms,
     ContainerTransferTerms,
-    RouteType,
+    RouteSegmentType,
 )
 from pandas import DataFrame
 
-from .errors import InvalidRouteTypeException, LoadingErrorException, PointsWithNanException
+from .errors import InvalidRouteSegmentTypeException, LoadingErrorException, PointsWithNanException
 from .helpers import format_date, none_filter, price_filter
 from .uploader import (
     create_drop_off,
@@ -173,7 +173,7 @@ def process_dropp_df(processed_dropp_df: DataFrame, warnings, fields_config: Upl
     return processed_dropp_df
 
 
-def process_routes_df(processed_routes_df, route_type: RouteType, warnings, fields_config: UploaderFieldsConfig):
+def process_routes_df(processed_routes_df, route_type: RouteSegmentType, warnings, fields_config: UploaderFieldsConfig):
     processed_routes_df = select_cols(
         processed_routes_df,
         fields_config.model_dump(exclude={"services", "services_with_container"}).values(),
@@ -235,14 +235,14 @@ def process_routes_df(processed_routes_df, route_type: RouteType, warnings, fiel
 
     processed_routes_df = processed_routes_df.dropna(subset=routes_df_dropna_subset)
 
-    if route_type is RouteType.SEA:
+    if route_type is RouteSegmentType.SEA:
         processed_routes_df[fields_config.sea_20dc] = (
             processed_routes_df[fields_config.sea_20dc].apply(price_filter)
         )
         processed_routes_df[fields_config.sea_40hc] = (
             processed_routes_df[fields_config.sea_40hc].apply(price_filter)
         )
-    elif route_type is RouteType.RAIL:
+    elif route_type is RouteSegmentType.RAIL:
         processed_routes_df[fields_config.rail_40hc] = (
             processed_routes_df[fields_config.rail_40hc].apply(price_filter)
         )
@@ -253,7 +253,7 @@ def process_routes_df(processed_routes_df, route_type: RouteType, warnings, fiel
             processed_routes_df[fields_config.rail_20dc28t].apply(price_filter)
         )
     else:
-        raise InvalidRouteTypeException(route_type)
+        raise InvalidRouteSegmentTypeException(route_type)
 
     # Default values
     processed_routes_df = processed_routes_df.astype({
@@ -356,11 +356,11 @@ async def load_data(  # noqa: C901
     services_df = services_df.drop_duplicates(subset=services_fingerprint, ignore_index=False)
 
     # process routes and setup new index for correct concatenation
-    sea_routes_df = process_routes_df(sea_routes_df, RouteType.SEA, warnings, fields_config)
+    sea_routes_df = process_routes_df(sea_routes_df, RouteSegmentType.SEA, warnings, fields_config)
     sea_routes_df["Index"] = sea_routes_df.index.to_series()
     sea_routes_df = sea_routes_df.set_index([fields_config.route_type, "Index"])
 
-    rail_routes_df = process_routes_df(rail_routes_df, RouteType.RAIL, warnings, fields_config)
+    rail_routes_df = process_routes_df(rail_routes_df, RouteSegmentType.RAIL, warnings, fields_config)
     rail_routes_df["Index"] = rail_routes_df.index.to_series()
     rail_routes_df = rail_routes_df.set_index([fields_config.route_type, "Index"])
 
@@ -385,13 +385,13 @@ async def load_data(  # noqa: C901
     points_df_merged_with_terminal = pd.concat((
         merge_points_with_terminal(
             points_df,
-            routes_with_terminal.loc[[RouteType.SEA]],
+            routes_with_terminal.loc[[RouteSegmentType.SEA]],
             fields_config,
             fields_config.end_point,
         ),
         merge_points_with_terminal(
             points_df,
-            routes_with_terminal.loc[[RouteType.RAIL]],
+            routes_with_terminal.loc[[RouteSegmentType.RAIL]],
             fields_config,
             fields_config.start_point,
         ),
@@ -413,12 +413,12 @@ async def load_data(  # noqa: C901
     mask = routes_df[fields_config.terminal].notna()
     mask &= routes_df[fields_config.terminal].str.strip() != ""
 
-    sea_mask = (routes_df.index.get_level_values(fields_config.route_type) == RouteType.SEA) & mask
+    sea_mask = (routes_df.index.get_level_values(fields_config.route_type) == RouteSegmentType.SEA) & mask
     routes_df.loc[sea_mask, fields_config.end_point] = (
         routes_df.loc[sea_mask, fields_config.end_point] + " (" + routes_df.loc[sea_mask, fields_config.terminal] + ")"
     )
 
-    rail_mask = (routes_df.index.get_level_values(fields_config.route_type) == RouteType.RAIL) & mask
+    rail_mask = (routes_df.index.get_level_values(fields_config.route_type) == RouteSegmentType.RAIL) & mask
     routes_df.loc[rail_mask, fields_config.start_point] = (
         routes_df.loc[rail_mask, fields_config.start_point]
         + " (" + routes_df.loc[rail_mask, fields_config.terminal] + ")"

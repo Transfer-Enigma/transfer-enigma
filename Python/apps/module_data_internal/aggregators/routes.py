@@ -7,7 +7,7 @@ from module_data_internal.schemas import (
     DropOffModel,
     PriceModel,
     RouteSegmentModel,
-    RouteType,
+    RouteSegmentType,
     ServicePriceModel,
 )
 from module_shared.cache_settings import get_setting_cached
@@ -28,7 +28,7 @@ async def _execute_query(q):
 
 
 def build_usual_query(
-    route_type: RouteType,
+    route_type: RouteSegmentType,
     date: datetime.date,
     start_point_id: int,
     end_point_id: int,
@@ -95,8 +95,8 @@ def build_base_sea_rail_query(
     SeaRoute, RailRoute, SeaPrice, RailPrice, SeaServicePrice, RailServicePrice = _create_aliases()
     where_conditions = [
         # Types
-        SeaRoute.type == RouteType.SEA,
-        RailRoute.type == RouteType.RAIL,
+        SeaRoute.type == RouteSegmentType.SEA,
+        RailRoute.type == RouteSegmentType.RAIL,
         # Dates
         SeaRoute.effective_from <= date,
         RailRoute.effective_from <= date,
@@ -249,14 +249,14 @@ async def find_all_paths(
         logger.warning("Failed to read hide-sea-soc setting, defaulting to False")
 
     query_rail = build_usual_query(
-        RouteType.RAIL,
+        RouteSegmentType.RAIL,
         date,
         start_point_id,
         end_point_id,
         container_ids,
     )
     query_sea = build_usual_query(
-        RouteType.SEA,
+        RouteSegmentType.SEA,
         date,
         start_point_id,
         end_point_id,

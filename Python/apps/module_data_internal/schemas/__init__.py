@@ -12,6 +12,6 @@ from .route import (  # isort:skip  # noqa: F401
     ContainerTransferTerms,
     PriceModel,
     RouteSegmentModel,
-    RouteType,
+    RouteSegmentType,
     ServicePriceModel,
 )

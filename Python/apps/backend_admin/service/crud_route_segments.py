@@ -20,7 +20,7 @@ from module_data_internal.schemas.route import (
     ContainerTransferTerms,
     PriceModel,
     RouteSegmentModel,
-    RouteType,
+    RouteSegmentType,
     ServicePriceModel,
 )
 from sqlalchemy import func, select
@@ -42,7 +42,7 @@ _ROUTE_FIELD_CONVERTERS: dict[str, Callable[[Any], Any]] = {
     "comment": lambda v: v,
     "timetable": lambda v: v,
     "is_through": lambda v: v,
-    "type": RouteType,
+    "type": RouteSegmentType,
     "container_transfer_terms": ContainerTransferTerms,
     "container_shipment_terms": ContainerShipmentTerms,
     "container_owner": ContainerOwner,
@@ -59,7 +59,7 @@ def _build_route_kwargs(data: RouteSegmentCreate | RouteSegmentPatch) -> dict[st
 _PATCH_CONVERTERS: dict[str, Callable[[Any], Any]] = {
     "effective_from": _parse_date,
     "effective_to": _parse_date,
-    "type": RouteType,
+    "type": RouteSegmentType,
     "container_transfer_terms": ContainerTransferTerms,
     "container_shipment_terms": ContainerShipmentTerms,
     "container_owner": ContainerOwner,
@@ -101,7 +101,7 @@ class CRUDRouteSegment(CRUDBase):
         stmt = super()._apply_list_filters(stmt, **filters)
         type_filter = filters.get("type")
         if type_filter is not None and type_filter != "":
-            stmt = stmt.where(RouteSegmentModel.type == RouteType(type_filter.upper()))
+            stmt = stmt.where(RouteSegmentModel.type == RouteSegmentType(type_filter.upper()))
         return stmt
 
     async def stats(

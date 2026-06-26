@@ -16,7 +16,7 @@ class NoPriceInRouteException(LoadingErrorException):
         super().__init__("Error: routes table contains a row without any prices")
 
 
-class InvalidRouteTypeException(LoadingErrorException):
+class InvalidRouteSegmentTypeException(LoadingErrorException):
     def __init__(self, route_type):
         self.route_type = route_type
         super().__init__(f"Error: invalid route type: {route_type}")

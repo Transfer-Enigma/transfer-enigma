@@ -9,7 +9,7 @@ from . import CompanyModel, ContainerModel, ServiceModel
 from .point import PointModel
 
 
-class RouteType(enum.Enum):
+class RouteSegmentType(enum.Enum):
     SEA = "SEA"
     RAIL = "RAIL"
 
@@ -89,9 +89,9 @@ class RouteSegmentModel(Base):
 
     is_through: Mapped[bool] = mapped_column(default=True)
 
-    type: Mapped[RouteType] = mapped_column(  # noqa: A003
+    type: Mapped[RouteSegmentType] = mapped_column(  # noqa: A003
         Enum(
-            RouteType,
+            RouteSegmentType,
             create_constraint=True,
             check_constraint=True,
             validate_strings=True,

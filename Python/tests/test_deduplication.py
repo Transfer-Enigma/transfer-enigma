@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 from module_data_internal.aggregators.routes import find_all_paths
-from module_data_internal.schemas import ContainerOwner, ContainerType, RouteType
+from module_data_internal.schemas import ContainerOwner, ContainerType, RouteSegmentType
 from module_shared.database import Database
 
 from .data import CompanyFactory, ContainerFactory, PointFactory, PriceFactory, RouteSegmentFactory
@@ -44,7 +44,7 @@ async def test_find_all_paths_dedup_preserves_distinct_routes(sqlite_db: Databas
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             effective_from=datetime.date(2024, 1, 1),
             effective_to=datetime.date(2025, 6, 30),
             container_owner=ContainerOwner.COC,
@@ -53,7 +53,7 @@ async def test_find_all_paths_dedup_preserves_distinct_routes(sqlite_db: Databas
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             effective_from=datetime.date(2024, 1, 1),
             effective_to=datetime.date(2025, 12, 31),
             container_owner=ContainerOwner.SOC,
@@ -94,7 +94,7 @@ async def test_find_all_paths_dedup_multiple_prices(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
         )
         session.add(route)
         await session.flush()

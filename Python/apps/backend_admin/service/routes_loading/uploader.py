@@ -13,7 +13,7 @@ from module_data_internal.schemas import (
     PointModel,
     PriceModel,
     RouteSegmentModel,
-    RouteType,
+    RouteSegmentType,
     ServiceModel,
     ServicePriceModel,
 )
@@ -23,7 +23,7 @@ from sqlalchemy.orm import joinedload
 
 from .errors import (
     InvalidDropOffRow,
-    InvalidRouteTypeException,
+    InvalidRouteSegmentTypeException,
     NoPriceInRouteException,
     PointNotFoundException,
 )
@@ -198,7 +198,7 @@ def create_route(  # noqa: C901
     services: ServicesStore,
     row,
     fc: UploaderFieldsConfig,
-    route_type: RouteType,
+    route_type: RouteSegmentType,
 ):
     # Container terms
     ctt = ContainerTransferTerms(row[fc.container_transfer_terms].upper())
@@ -208,7 +208,7 @@ def create_route(  # noqa: C901
     sea_prices = None, None
     rail_prices = None, None, None
 
-    if route_type is RouteType.SEA:
+    if route_type is RouteSegmentType.SEA:
         sea_prices = tuple(map(nan_to_none_mapper, (
             row[fc.sea_20dc],
             row[fc.sea_40hc],
@@ -217,7 +217,7 @@ def create_route(  # noqa: C901
         if not any(sea_prices):
             raise NoPriceInRouteException
 
-    elif route_type is RouteType.RAIL:
+    elif route_type is RouteSegmentType.RAIL:
         rail_prices = tuple(map(nan_to_none_mapper, (
             row[fc.rail_20dc24t],
             row[fc.rail_20dc28t],
@@ -228,7 +228,7 @@ def create_route(  # noqa: C901
             raise NoPriceInRouteException
 
     else:
-        raise InvalidRouteTypeException(route_type)
+        raise InvalidRouteSegmentTypeException(route_type)
 
     company = companies[row[fc.company].upper()]
 
@@ -249,7 +249,7 @@ def create_route(  # noqa: C901
     is_through = pd.isna(is_through_raw) or is_through_raw == 1.0 or is_through_raw == "1"
 
     route = RouteSegmentModel(
-        type=RouteType(route_type),
+        type=RouteSegmentType(route_type),
         company=company,
         start_point=start_point,
         end_point=end_point,
@@ -266,14 +266,14 @@ def create_route(  # noqa: C901
 
     conversation = nan_to_none_mapper(row[fc.conversation_percents])
 
-    if route.type is RouteType.SEA:
+    if route.type is RouteSegmentType.SEA:
         dc20_24t = sea_prices[0]
         dc20_24t_currency = "USD" if pd.isna(row[fc.sea_20dc_currency]) else row[fc.sea_20dc_currency].strip().upper()
         dc20_28t = dc20_24t
         dc20_28t_currency = dc20_24t_currency
         hc40 = sea_prices[1]
         hc40_currency = "USD" if pd.isna(row[fc.sea_40hc_currency]) else row[fc.sea_40hc_currency].strip().upper()
-    elif route.type is RouteType.RAIL:
+    elif route.type is RouteSegmentType.RAIL:
         dc20_24t = rail_prices[0]
         dc20_24t_currency = (
             "РУБ" if pd.isna(row[fc.rail_20dc24t_currency]) else row[fc.rail_20dc24t_currency].strip().upper()
@@ -285,7 +285,7 @@ def create_route(  # noqa: C901
         hc40 = rail_prices[2]
         hc40_currency = "РУБ" if pd.isna(row[fc.rail_40hc_currency]) else row[fc.rail_40hc_currency].strip().upper()
     else:
-        raise InvalidRouteTypeException(route_type)
+        raise InvalidRouteSegmentTypeException(route_type)
 
     if dc20_24t is not None:
         PriceModel(

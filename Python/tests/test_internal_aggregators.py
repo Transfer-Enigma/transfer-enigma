@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 from module_data_internal.aggregators.containers import get_containers, search_container_ids
 from module_data_internal.aggregators.routes import find_all_paths, process_results
-from module_data_internal.schemas import ContainerOwner, ContainerType, RouteType
+from module_data_internal.schemas import ContainerOwner, ContainerType, RouteSegmentType
 from module_shared.database import Database
 from module_shared.models.route import ContainerItem
 from module_shared.models.setting import SettingItem
@@ -112,7 +112,7 @@ async def test_find_all_paths_rail(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
         )
         session.add(route_model)
         await session.flush()
@@ -146,7 +146,7 @@ async def test_find_all_paths_sea(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
         )
         session.add(route)
         await session.flush()
@@ -181,7 +181,7 @@ async def test_find_all_paths_sea_rail_same_company_coc(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=drop_point.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -189,7 +189,7 @@ async def test_find_all_paths_sea_rail_same_company_coc(sqlite_db: Database):
             company_id=company.id,
             start_point_id=drop_point.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -235,7 +235,7 @@ async def test_find_all_paths_expired_route(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             effective_from=datetime.date(2023, 1, 1),
             effective_to=datetime.date(2023, 12, 31),
         )
@@ -267,7 +267,7 @@ async def test_find_all_paths_no_matching_container(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
         )
         session.add(route)
         await session.commit()
@@ -300,7 +300,7 @@ async def test_find_all_paths_sea_rail_different_company_soc(sqlite_db: Database
             company_id=company_a.id,
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -308,7 +308,7 @@ async def test_find_all_paths_sea_rail_different_company_soc(sqlite_db: Database
             company_id=company_b.id,
             start_point_id=point_mid.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             container_owner=ContainerOwner.SOC,
             is_through=False,
         )
@@ -361,7 +361,7 @@ async def test_find_all_paths_sea_rail_same_company_soc(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -369,7 +369,7 @@ async def test_find_all_paths_sea_rail_same_company_soc(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_mid.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             container_owner=ContainerOwner.SOC,
             is_through=False,
         )
@@ -440,7 +440,7 @@ async def test_find_all_paths_sea_rail_with_drop_price(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -448,7 +448,7 @@ async def test_find_all_paths_sea_rail_with_drop_price(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_mid.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -504,14 +504,14 @@ async def test_find_all_paths_with_dropp_off_point(sqlite_db: Database):
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
             dropp_off_point_id=point_dropp.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
             container_owner=ContainerOwner.COC,
         )
         rail_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_mid.id,
             end_point_id=point_dropp.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             container_owner=ContainerOwner.COC,
         )
         session.add_all([sea_route, rail_route])
@@ -547,7 +547,7 @@ async def test_find_all_paths_with_services(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
         )
         session.add(route_model)
         await session.flush()
@@ -617,7 +617,7 @@ async def test_find_all_paths_sea_rail_drop_valid_on_shipping_date(sqlite_db: Da
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -625,7 +625,7 @@ async def test_find_all_paths_sea_rail_drop_valid_on_shipping_date(sqlite_db: Da
             company_id=company.id,
             start_point_id=point_mid.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -681,7 +681,7 @@ async def test_find_all_paths_sea_rail_no_drop_filtered_out(sqlite_db: Database)
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
             dropp_off_point_id=None,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -689,7 +689,7 @@ async def test_find_all_paths_sea_rail_no_drop_filtered_out(sqlite_db: Database)
             company_id=company.id,
             start_point_id=point_mid.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -727,7 +727,7 @@ async def test_find_all_paths_sea_soc_shown_when_flag_off(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=drop_point.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
             container_owner=ContainerOwner.SOC,
             is_through=False,
         )
@@ -735,7 +735,7 @@ async def test_find_all_paths_sea_soc_shown_when_flag_off(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=drop_point.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -743,7 +743,7 @@ async def test_find_all_paths_sea_soc_shown_when_flag_off(sqlite_db: Database):
             company_id=company.id,
             start_point_id=drop_point.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -801,7 +801,7 @@ async def test_find_all_paths_sea_soc_default_when_setting_missing(sqlite_db: Da
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=drop_point.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
             container_owner=ContainerOwner.SOC,
             is_through=False,
         )
@@ -809,7 +809,7 @@ async def test_find_all_paths_sea_soc_default_when_setting_missing(sqlite_db: Da
             company_id=company.id,
             start_point_id=drop_point.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
@@ -860,7 +860,7 @@ async def test_find_all_paths_sea_soc_hidden_by_flag(sqlite_db: Database):
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=drop_point.id,
-            type=RouteType.SEA,
+            type=RouteSegmentType.SEA,
             container_owner=ContainerOwner.SOC,
             is_through=False,
         )
@@ -868,7 +868,7 @@ async def test_find_all_paths_sea_soc_hidden_by_flag(sqlite_db: Database):
             company_id=company.id,
             start_point_id=drop_point.id,
             end_point_id=point_b.id,
-            type=RouteType.RAIL,
+            type=RouteSegmentType.RAIL,
             container_owner=ContainerOwner.SOC,
             is_through=False,
         )
