@@ -6,7 +6,7 @@ from module_data_internal.schemas import (
     ContainerOwner,
     DropOffModel,
     PriceModel,
-    RouteModel,
+    RouteSegmentModel,
     RouteType,
     ServicePriceModel,
 )
@@ -35,49 +35,49 @@ def build_usual_query(
     container_ids: list[int],
 ):
     where_clause = and_(
-        RouteModel.effective_from <= date,
-        RouteModel.effective_to >= date,
-        RouteModel.start_point_id == start_point_id,
-        RouteModel.end_point_id == end_point_id,
-        RouteModel.type == route_type,
-        RouteModel.dropp_off_point_id.is_(None),
+        RouteSegmentModel.effective_from <= date,
+        RouteSegmentModel.effective_to >= date,
+        RouteSegmentModel.start_point_id == start_point_id,
+        RouteSegmentModel.end_point_id == end_point_id,
+        RouteSegmentModel.type == route_type,
+        RouteSegmentModel.dropp_off_point_id.is_(None),
     )
 
     return (  # noqa: ECE001
-        select(RouteModel)
+        select(RouteSegmentModel)
         .where(where_clause)
         .join(
             PriceModel,
             and_(
-                RouteModel.id == PriceModel.route_id,
+                RouteSegmentModel.id == PriceModel.route_id,
                 PriceModel.container_id.in_(container_ids)
             ),
         )
         .outerjoin(
             ServicePriceModel,
             and_(
-                RouteModel.id == ServicePriceModel.route_id,
+                RouteSegmentModel.id == ServicePriceModel.route_id,
                 or_(
                     ServicePriceModel.container_id.is_(None),
                     ServicePriceModel.container_id.in_(container_ids),
                 ),
             ),
         )
-        .order_by(desc(RouteModel.effective_to))
+        .order_by(desc(RouteSegmentModel.effective_to))
         # note: I tried using 'group by' statement, but it cuts off prices
         .options(
-            joinedload(RouteModel.start_point),
-            joinedload(RouteModel.end_point),
-            joinedload(RouteModel.company),
-            contains_eager(RouteModel.services).joinedload(ServicePriceModel.service),
-            contains_eager(RouteModel.prices).joinedload(PriceModel.container),
+            joinedload(RouteSegmentModel.start_point),
+            joinedload(RouteSegmentModel.end_point),
+            joinedload(RouteSegmentModel.company),
+            contains_eager(RouteSegmentModel.services).joinedload(ServicePriceModel.service),
+            contains_eager(RouteSegmentModel.prices).joinedload(PriceModel.container),
         )
     )
 
 
 def _create_aliases():
-    SeaRoute = aliased(RouteModel, name="sea_route")
-    RailRoute = aliased(RouteModel, name="rail_route")
+    SeaRoute = aliased(RouteSegmentModel, name="sea_route")
+    RailRoute = aliased(RouteSegmentModel, name="rail_route")
     SeaPrice = aliased(PriceModel, name="sea_price")
     RailPrice = aliased(PriceModel, name="rail_price")
     SeaServicePrice = aliased(ServicePriceModel, name="sea_service_price")
@@ -208,7 +208,7 @@ def process_results(
             if not row:
                 continue
 
-            routes: list[RouteModel] = row[:-1] if not row[-1] or isinstance(row[-1], DropOffModel) else row
+            routes: list[RouteSegmentModel] = row[:-1] if not row[-1] or isinstance(row[-1], DropOffModel) else row
 
             ids = tuple(segment.id for segment in routes)
 

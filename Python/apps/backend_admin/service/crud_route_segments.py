@@ -19,7 +19,7 @@ from module_data_internal.schemas.route import (
     ContainerShipmentTerms,
     ContainerTransferTerms,
     PriceModel,
-    RouteModel,
+    RouteSegmentModel,
     RouteType,
     ServicePriceModel,
 )
@@ -72,7 +72,7 @@ def _convert_patch_field(key: str, value: Any) -> Any:
 
 
 class CRUDRouteSegment(CRUDBase):
-    model = RouteModel
+    model = RouteSegmentModel
     create_schema = RouteSegmentCreate
     update_schema = RouteSegmentCreate
     patch_schema = RouteSegmentPatch
@@ -84,14 +84,14 @@ class CRUDRouteSegment(CRUDBase):
         FilterDef("end_point_id", "end_point_id", "eq"),
     ]
 
-    def _build_instance(self, data: RouteSegmentCreate) -> RouteModel:
-        return RouteModel(**_build_route_kwargs(data))
+    def _build_instance(self, data: RouteSegmentCreate) -> RouteSegmentModel:
+        return RouteSegmentModel(**_build_route_kwargs(data))
 
-    def _apply_update(self, model: RouteModel, data: RouteSegmentCreate) -> None:
+    def _apply_update(self, model: RouteSegmentModel, data: RouteSegmentCreate) -> None:
         for key, value in _build_route_kwargs(data).items():
             setattr(model, key, value)
 
-    def _apply_patch(self, model: RouteModel, data: RouteSegmentPatch) -> None:
+    def _apply_patch(self, model: RouteSegmentModel, data: RouteSegmentPatch) -> None:
         data_dump = data.model_dump(exclude_unset=True)
         for key, value in data_dump.items():
             if value is not None:
@@ -101,42 +101,42 @@ class CRUDRouteSegment(CRUDBase):
         stmt = super()._apply_list_filters(stmt, **filters)
         type_filter = filters.get("type")
         if type_filter is not None and type_filter != "":
-            stmt = stmt.where(RouteModel.type == RouteType(type_filter.upper()))
+            stmt = stmt.where(RouteSegmentModel.type == RouteType(type_filter.upper()))
         return stmt
 
     async def stats(
         self, session: AsyncSession
     ) -> RouteSegmentStatsResponse:
         # Total
-        total_result = await session.execute(select(func.count(RouteModel.id)))
+        total_result = await session.execute(select(func.count(RouteSegmentModel.id)))
         total = total_result.scalar() or 0
 
         # By type
         type_result = await session.execute(
-            select(RouteModel.type, func.count(RouteModel.id))
-            .group_by(RouteModel.type)
+            select(RouteSegmentModel.type, func.count(RouteSegmentModel.id))
+            .group_by(RouteSegmentModel.type)
         )
         by_type: dict[str, int] = {str(r[0].value): r[1] for r in type_result}
 
         # By is_through
         through_result = await session.execute(
-            select(RouteModel.is_through, func.count(RouteModel.id))
-            .group_by(RouteModel.is_through)
+            select(RouteSegmentModel.is_through, func.count(RouteSegmentModel.id))
+            .group_by(RouteSegmentModel.is_through)
         )
         by_is_through: dict[str, int] = {str(r[0]).lower(): r[1] for r in through_result}
 
         # By container_owner
         owner_result = await session.execute(
-            select(RouteModel.container_owner, func.count(RouteModel.id))
-            .group_by(RouteModel.container_owner)
+            select(RouteSegmentModel.container_owner, func.count(RouteSegmentModel.id))
+            .group_by(RouteSegmentModel.container_owner)
         )
         by_container_owner: dict[str, int] = {str(r[0].value): r[1] for r in owner_result}
 
         # Top companies (limit 20)
-        cnt_col = func.count(RouteModel.id).label("cnt")
-        sq = select(RouteModel.company_id, CompanyModel.name, cnt_col)
-        sq = sq.join(CompanyModel, RouteModel.company_id == CompanyModel.id)
-        sq = sq.group_by(RouteModel.company_id, CompanyModel.name)
+        cnt_col = func.count(RouteSegmentModel.id).label("cnt")
+        sq = select(RouteSegmentModel.company_id, CompanyModel.name, cnt_col)
+        sq = sq.join(CompanyModel, RouteSegmentModel.company_id == CompanyModel.id)
+        sq = sq.group_by(RouteSegmentModel.company_id, CompanyModel.name)
         sq = sq.order_by(cnt_col.desc())
         sq = sq.limit(20)
         companies_result = await session.execute(sq)
@@ -202,16 +202,16 @@ class CRUDRouteSegment(CRUDBase):
     async def list(  # noqa: A003
         self, session: AsyncSession, **filters: Any
     ) -> list[RouteSegmentListResponse]:
-        stmt = select(RouteModel)
+        stmt = select(RouteSegmentModel)
         stmt = self._apply_list_filters(stmt, **filters)
-        result = await session.execute(stmt.order_by(RouteModel.id))
+        result = await session.execute(stmt.order_by(RouteSegmentModel.id))
         return [RouteSegmentListResponse.from_model(m) for m in result.scalars()]
 
-    async def _load_with_relations(self, session: AsyncSession, id: int) -> RouteModel:  # noqa: A002
+    async def _load_with_relations(self, session: AsyncSession, id: int) -> RouteSegmentModel:  # noqa: A002
         stmt = (
-            select(RouteModel)
-            .options(selectinload(RouteModel.prices), selectinload(RouteModel.services))
-            .where(RouteModel.id == id)
+            select(RouteSegmentModel)
+            .options(selectinload(RouteSegmentModel.prices), selectinload(RouteSegmentModel.services))
+            .where(RouteSegmentModel.id == id)
         )
         result = await session.execute(stmt)
         model = result.scalar_one_or_none()

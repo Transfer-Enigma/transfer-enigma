@@ -6,7 +6,7 @@ from module_data_internal.aggregators.routes import find_all_paths
 from module_data_internal.schemas import ContainerOwner, ContainerType, RouteType
 from module_shared.database import Database
 
-from .data import CompanyFactory, ContainerFactory, PointFactory, PriceFactory, RouteFactory
+from .data import CompanyFactory, ContainerFactory, PointFactory, PriceFactory, RouteSegmentFactory
 
 
 def _id_counter():
@@ -40,7 +40,7 @@ async def test_find_all_paths_dedup_preserves_distinct_routes(sqlite_db: Databas
         session.add_all([company, point_a, point_b, container])
         await session.flush()
 
-        route1 = RouteFactory(
+        route1 = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
@@ -49,7 +49,7 @@ async def test_find_all_paths_dedup_preserves_distinct_routes(sqlite_db: Databas
             effective_to=datetime.date(2025, 6, 30),
             container_owner=ContainerOwner.COC,
         )
-        route2 = RouteFactory(
+        route2 = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
@@ -90,7 +90,7 @@ async def test_find_all_paths_dedup_multiple_prices(sqlite_db: Database):
         session.add_all([company, point_a, point_b, container_20, container_40])
         await session.flush()
 
-        route = RouteFactory(
+        route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,

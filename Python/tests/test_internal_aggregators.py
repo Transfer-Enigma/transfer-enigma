@@ -16,7 +16,7 @@ from .data import (
     DropOffFactory,
     PointFactory,
     PriceFactory,
-    RouteFactory,
+    RouteSegmentFactory,
     ServiceFactory,
     ServicePriceFactory,
 )
@@ -108,7 +108,7 @@ async def test_find_all_paths_rail(sqlite_db: Database):
     async with sqlite_db.session_context() as session:
         company, point_a, point_b, container = await _seed_basic_data(session)
 
-        route_model = RouteFactory(
+        route_model = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
@@ -142,7 +142,7 @@ async def test_find_all_paths_sea(sqlite_db: Database):
     async with sqlite_db.session_context() as session:
         company, point_a, point_b, container = await _seed_basic_data(session)
 
-        route = RouteFactory(
+        route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
@@ -177,7 +177,7 @@ async def test_find_all_paths_sea_rail_same_company_coc(sqlite_db: Database):
         session.add(drop_point)
         await session.flush()
 
-        sea_route = RouteFactory(
+        sea_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=drop_point.id,
@@ -185,7 +185,7 @@ async def test_find_all_paths_sea_rail_same_company_coc(sqlite_db: Database):
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
-        rail_route = RouteFactory(
+        rail_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=drop_point.id,
             end_point_id=point_b.id,
@@ -231,7 +231,7 @@ async def test_find_all_paths_expired_route(sqlite_db: Database):
     async with sqlite_db.session_context() as session:
         company, point_a, point_b, container = await _seed_basic_data(session)
 
-        route = RouteFactory(
+        route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
@@ -263,7 +263,7 @@ async def test_find_all_paths_no_matching_container(sqlite_db: Database):
     async with sqlite_db.session_context() as session:
         company, point_a, point_b, container = await _seed_basic_data(session)
 
-        route = RouteFactory(
+        route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
@@ -296,7 +296,7 @@ async def test_find_all_paths_sea_rail_different_company_soc(sqlite_db: Database
         session.add_all([company_a, company_b, point_a, point_mid, point_b, container])
         await session.flush()
 
-        sea_route = RouteFactory(
+        sea_route = RouteSegmentFactory(
             company_id=company_a.id,
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
@@ -304,7 +304,7 @@ async def test_find_all_paths_sea_rail_different_company_soc(sqlite_db: Database
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
-        rail_route = RouteFactory(
+        rail_route = RouteSegmentFactory(
             company_id=company_b.id,
             start_point_id=point_mid.id,
             end_point_id=point_b.id,
@@ -357,7 +357,7 @@ async def test_find_all_paths_sea_rail_same_company_soc(sqlite_db: Database):
         session.add(point_mid)
         await session.flush()
 
-        sea_route = RouteFactory(
+        sea_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
@@ -365,7 +365,7 @@ async def test_find_all_paths_sea_rail_same_company_soc(sqlite_db: Database):
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
-        rail_route = RouteFactory(
+        rail_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_mid.id,
             end_point_id=point_b.id,
@@ -436,7 +436,7 @@ async def test_find_all_paths_sea_rail_with_drop_price(sqlite_db: Database):
         session.add_all([company, point_a, point_mid, point_b, container])
         await session.flush()
 
-        sea_route = RouteFactory(
+        sea_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
@@ -444,7 +444,7 @@ async def test_find_all_paths_sea_rail_with_drop_price(sqlite_db: Database):
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
-        rail_route = RouteFactory(
+        rail_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_mid.id,
             end_point_id=point_b.id,
@@ -499,7 +499,7 @@ async def test_find_all_paths_with_dropp_off_point(sqlite_db: Database):
         session.add_all([company, point_a, point_mid, point_dropp, container])
         await session.flush()
 
-        sea_route = RouteFactory(
+        sea_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
@@ -507,7 +507,7 @@ async def test_find_all_paths_with_dropp_off_point(sqlite_db: Database):
             type=RouteType.SEA,
             container_owner=ContainerOwner.COC,
         )
-        rail_route = RouteFactory(
+        rail_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_mid.id,
             end_point_id=point_dropp.id,
@@ -543,7 +543,7 @@ async def test_find_all_paths_with_services(sqlite_db: Database):
     async with sqlite_db.session_context() as session:
         company, point_a, point_b, container = await _seed_basic_data(session)
 
-        route_model = RouteFactory(
+        route_model = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
@@ -613,7 +613,7 @@ async def test_find_all_paths_sea_rail_drop_valid_on_shipping_date(sqlite_db: Da
         session.add_all([company, point_a, point_mid, point_b, container])
         await session.flush()
 
-        sea_route = RouteFactory(
+        sea_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
@@ -621,7 +621,7 @@ async def test_find_all_paths_sea_rail_drop_valid_on_shipping_date(sqlite_db: Da
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
-        rail_route = RouteFactory(
+        rail_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_mid.id,
             end_point_id=point_b.id,
@@ -676,7 +676,7 @@ async def test_find_all_paths_sea_rail_no_drop_filtered_out(sqlite_db: Database)
         session.add_all([company, point_a, point_mid, point_b, container])
         await session.flush()
 
-        sea_route = RouteFactory(
+        sea_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_mid.id,
@@ -685,7 +685,7 @@ async def test_find_all_paths_sea_rail_no_drop_filtered_out(sqlite_db: Database)
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
-        rail_route = RouteFactory(
+        rail_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_mid.id,
             end_point_id=point_b.id,
@@ -723,7 +723,7 @@ async def test_find_all_paths_sea_soc_shown_when_flag_off(sqlite_db: Database):
         session.add(drop_point)
         await session.flush()
 
-        sea_soc_route = RouteFactory(
+        sea_soc_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=drop_point.id,
@@ -731,7 +731,7 @@ async def test_find_all_paths_sea_soc_shown_when_flag_off(sqlite_db: Database):
             container_owner=ContainerOwner.SOC,
             is_through=False,
         )
-        sea_coc_route = RouteFactory(
+        sea_coc_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=drop_point.id,
@@ -739,7 +739,7 @@ async def test_find_all_paths_sea_soc_shown_when_flag_off(sqlite_db: Database):
             container_owner=ContainerOwner.COC,
             is_through=False,
         )
-        rail_route = RouteFactory(
+        rail_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=drop_point.id,
             end_point_id=point_b.id,
@@ -797,7 +797,7 @@ async def test_find_all_paths_sea_soc_default_when_setting_missing(sqlite_db: Da
         session.add(drop_point)
         await session.flush()
 
-        sea_soc_route = RouteFactory(
+        sea_soc_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=drop_point.id,
@@ -805,7 +805,7 @@ async def test_find_all_paths_sea_soc_default_when_setting_missing(sqlite_db: Da
             container_owner=ContainerOwner.SOC,
             is_through=False,
         )
-        rail_route = RouteFactory(
+        rail_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=drop_point.id,
             end_point_id=point_b.id,
@@ -856,7 +856,7 @@ async def test_find_all_paths_sea_soc_hidden_by_flag(sqlite_db: Database):
         session.add(drop_point)
         await session.flush()
 
-        sea_soc_route = RouteFactory(
+        sea_soc_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=drop_point.id,
@@ -864,7 +864,7 @@ async def test_find_all_paths_sea_soc_hidden_by_flag(sqlite_db: Database):
             container_owner=ContainerOwner.SOC,
             is_through=False,
         )
-        rail_route = RouteFactory(
+        rail_route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=drop_point.id,
             end_point_id=point_b.id,

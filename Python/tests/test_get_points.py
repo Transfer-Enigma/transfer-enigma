@@ -6,7 +6,7 @@ from module_data_internal.aggregators.points import get_departure_points, get_de
 from module_data_internal.schemas import RouteType
 from module_shared.database import Database
 
-from .data import CompanyFactory, PointFactory, RouteFactory
+from .data import CompanyFactory, PointFactory, RouteSegmentFactory
 
 
 def _unique_point(prefix: str, counter: list) -> dict:
@@ -30,7 +30,7 @@ async def test_get_departure_points(sqlite_db: Database):
         session.add_all([company, point_a, point_b])
         await session.flush()
 
-        route = RouteFactory(
+        route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
@@ -60,7 +60,7 @@ async def test_get_destination_points(sqlite_db: Database):
         session.add_all([company, point_a, point_b])
         await session.flush()
 
-        route = RouteFactory(
+        route = RouteSegmentFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
@@ -107,13 +107,13 @@ async def test_get_points_multiple_companies(sqlite_db: Database):
         session.add_all([company_a, company_b, point_a, point_b])
         await session.flush()
 
-        route_a = RouteFactory(
+        route_a = RouteSegmentFactory(
             company_id=company_a.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
             type=RouteType.SEA,
         )
-        route_b = RouteFactory(
+        route_b = RouteSegmentFactory(
             company_id=company_b.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,

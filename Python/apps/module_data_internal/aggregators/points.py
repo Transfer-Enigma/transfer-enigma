@@ -1,6 +1,6 @@
 from functools import partial
 
-from module_data_internal.schemas import CompanyModel, PointModel, RouteModel
+from module_data_internal.schemas import CompanyModel, PointModel, RouteSegmentModel
 from module_shared.database import get_database
 from sqlalchemy import select
 
@@ -9,7 +9,7 @@ def _build_stmt_joined_with_company_by_route(id_field):
     return (
         select(PointModel, CompanyModel).distinct()
         .join(
-            RouteModel,
+            RouteSegmentModel,
             id_field == PointModel.id,
         )
         .join(CompanyModel)
@@ -24,5 +24,5 @@ async def get_points(*, id_field):
     return response.all()
 
 
-get_departure_points = partial(get_points, id_field=RouteModel.start_point_id)
-get_destination_points = partial(get_points, id_field=RouteModel.end_point_id)
+get_departure_points = partial(get_points, id_field=RouteSegmentModel.start_point_id)
+get_destination_points = partial(get_points, id_field=RouteSegmentModel.end_point_id)

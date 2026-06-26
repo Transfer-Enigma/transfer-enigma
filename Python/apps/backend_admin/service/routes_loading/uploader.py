@@ -12,7 +12,7 @@ from module_data_internal.schemas import (
     DropOffModel,
     PointModel,
     PriceModel,
-    RouteModel,
+    RouteSegmentModel,
     RouteType,
     ServiceModel,
     ServicePriceModel,
@@ -146,7 +146,7 @@ async def load_containers(db_session, containers: list[ContainerRawType]) -> Con
 
 
 def create_route_service(
-    route: RouteModel,
+    route: RouteSegmentModel,
     services: ServicesStore,
     container: ContainerModel | None,
     service_column_name: str,
@@ -176,7 +176,7 @@ def create_route_service(
 
 
 def create_route_services(
-    route: RouteModel,
+    route: RouteSegmentModel,
     services: ServicesStore,
     containers: ContainerStore,
     row,
@@ -248,7 +248,7 @@ def create_route(  # noqa: C901
     is_through_raw = row[fc.is_through]
     is_through = pd.isna(is_through_raw) or is_through_raw == 1.0 or is_through_raw == "1"
 
-    route = RouteModel(
+    route = RouteSegmentModel(
         type=RouteType(route_type),
         company=company,
         start_point=start_point,
@@ -361,10 +361,10 @@ def create_drop_off(
 
 
 async def load_routes(db_session, routes):
-    existing_routes = (await db_session.execute(select(RouteModel).options(
-        joinedload(RouteModel.start_point),
-        joinedload(RouteModel.end_point),
-        joinedload(RouteModel.company),
+    existing_routes = (await db_session.execute(select(RouteSegmentModel).options(
+        joinedload(RouteSegmentModel.start_point),
+        joinedload(RouteSegmentModel.end_point),
+        joinedload(RouteSegmentModel.company),
     ))).scalars().all()
 
     existing_routes_set = {(  # noqa: ECE001

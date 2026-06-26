@@ -5,7 +5,7 @@ from module_data_internal.schemas import (
     PointModel,
     ServiceModel,
 )
-from module_data_internal.schemas.route import PriceModel, RouteModel, ServicePriceModel
+from module_data_internal.schemas.route import PriceModel, RouteSegmentModel, ServicePriceModel
 from module_shared.schemas import SettingType
 from module_shared.schemas.setting import SettingModel
 from pydantic import BaseModel
@@ -213,7 +213,7 @@ class RouteSegmentListResponse(BaseModel):
     container_owner: str
 
     @classmethod
-    def from_model(cls, model: RouteModel) -> "RouteSegmentListResponse":
+    def from_model(cls, model: RouteSegmentModel) -> "RouteSegmentListResponse":
         return cls(
             id=model.id,
             company_id=model.company_id,
@@ -248,7 +248,7 @@ class RouteSegmentResponse(BaseModel):
     services: list[ServicePriceResponse]
 
     @classmethod
-    def from_model(cls, model: RouteModel) -> "RouteSegmentResponse":
+    def from_model(cls, model: RouteSegmentModel) -> "RouteSegmentResponse":
         return cls(
             id=model.id,
             company_id=model.company_id,

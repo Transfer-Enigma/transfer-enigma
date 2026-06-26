@@ -1,4 +1,4 @@
-from module_data_internal.schemas import DropOffModel, PriceModel, RouteModel
+from module_data_internal.schemas import DropOffModel, PriceModel, RouteSegmentModel
 from module_shared.database import Base
 from module_shared.models.route import (
     ContainerItem,
@@ -22,7 +22,7 @@ def _transform_container_from_orm(price: PriceModel) -> ContainerItem:
     )
 
 
-def _segment_from_orm(route: RouteModel) -> RouteSegment:
+def _segment_from_orm(route: RouteSegmentModel) -> RouteSegment:
     prices: list[PriceItem] = [
         PriceItem(
             container=_transform_container_from_orm(p),
@@ -52,7 +52,7 @@ def _segment_from_orm(route: RouteModel) -> RouteSegment:
     )
 
 
-def _services_from_segment(route: RouteModel, segment_id: int | str) -> list[ServiceItem]:
+def _services_from_segment(route: RouteSegmentModel, segment_id: int | str) -> list[ServiceItem]:
     return [
         ServiceItem(
             segment_id=segment_id,

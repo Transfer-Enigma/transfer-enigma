@@ -10,7 +10,7 @@ from module_data_internal.schemas import (
     DropOffModel,
     PointModel,
     PriceModel,
-    RouteModel,
+    RouteSegmentModel,
     RouteType,
     ServiceModel,
     ServicePriceModel,
@@ -20,7 +20,7 @@ __all__ = (
     "CompanyFactory",
     "PointFactory",
     "ContainerFactory",
-    "RouteFactory",
+    "RouteSegmentFactory",
     "PriceFactory",
     "ServiceFactory",
     "ServicePriceFactory",
@@ -54,7 +54,7 @@ def ContainerFactory(**kwargs) -> ContainerModel:
     return ContainerModel(**{**defaults, **kwargs})
 
 
-def RouteFactory(**kwargs) -> RouteModel:
+def RouteSegmentFactory(**kwargs) -> RouteSegmentModel:
     defaults = {
         "effective_from": datetime.date(2024, 1, 1),
         "effective_to": datetime.date(2025, 12, 31),
@@ -66,7 +66,7 @@ def RouteFactory(**kwargs) -> RouteModel:
         "comment": None,
         "timetable": None,
     }
-    return RouteModel(**{**defaults, **kwargs})
+    return RouteSegmentModel(**{**defaults, **kwargs})
 
 
 def PriceFactory(**kwargs) -> PriceModel:

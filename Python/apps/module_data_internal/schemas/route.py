@@ -51,10 +51,10 @@ class PriceModel(Base):
     conversation_percents: Mapped[float] = mapped_column(default=0)
 
     container: Mapped[ContainerModel] = relationship()
-    route: Mapped['RouteModel'] = relationship("RouteModel", back_populates="prices")
+    route: Mapped['RouteSegmentModel'] = relationship("RouteSegmentModel", back_populates="prices")
 
 
-class RouteModel(Base):
+class RouteSegmentModel(Base):
     uid = (
         "company_id",
         "start_point_id",
@@ -138,7 +138,7 @@ class ServicePriceModel(Base):
     id: Mapped[int] = mapped_column(primary_key=True)  # noqa: A003
 
     route_id: Mapped[int] = mapped_column(
-        ForeignKey(f"{RouteModel.__tablename__}.id", name="fk__service_prices_route"),
+        ForeignKey(f"{RouteSegmentModel.__tablename__}.id", name="fk__service_prices_route"),
         nullable=False,
     )
     service_id: Mapped[int] = mapped_column(
@@ -154,6 +154,6 @@ class ServicePriceModel(Base):
     currency: Mapped[str] = mapped_column(String(10), nullable=False)
     price: Mapped[float] = mapped_column(nullable=False)
 
-    route: Mapped[RouteModel] = relationship(back_populates="services")
+    route: Mapped[RouteSegmentModel] = relationship(back_populates="services")
     service: Mapped[ServiceModel] = relationship()
     container: Mapped[ContainerModel | None] = relationship()
