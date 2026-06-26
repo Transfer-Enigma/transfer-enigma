@@ -1,4 +1,4 @@
-from module_data_internal.schemas import DropModel, PriceModel, RouteModel
+from module_data_internal.schemas import DropOffModel, PriceModel, RouteModel
 from module_shared.database import Base
 from module_shared.models.route import (
     ContainerItem,
@@ -72,9 +72,9 @@ def _route_from_orm(
     route_and_drop: tuple[list[Base], bool],
 ) -> Route:
     segments_raw, may_route_be_invalid = route_and_drop
-    drop_model: DropModel | None = None
+    drop_model: DropOffModel | None = None
 
-    if isinstance(segments_raw[-1], DropModel) or not segments_raw[-1]:
+    if isinstance(segments_raw[-1], DropOffModel) or not segments_raw[-1]:
         drop_model = segments_raw[-1]
         segments_raw = segments_raw[:-1]
 

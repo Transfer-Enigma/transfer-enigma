@@ -15,11 +15,11 @@ from pandas import DataFrame
 from .errors import InvalidRouteTypeException, LoadingErrorException, PointsWithNanException
 from .helpers import format_date, none_filter, price_filter
 from .uploader import (
-    create_dropp,
+    create_drop_off,
     create_route,
     load_companies,
     load_containers,
-    load_dropp,
+    load_drop_off,
     load_points,
     load_routes,
     load_services,
@@ -133,7 +133,7 @@ def process_dropp_df(processed_dropp_df: DataFrame, warnings, fields_config: Upl
     processed_dropp_df[fields_config.drop20] = processed_dropp_df[fields_config.drop20].apply(price_filter)
     processed_dropp_df[fields_config.drop40] = processed_dropp_df[fields_config.drop40].apply(price_filter)
 
-    processed_dropp_df = process_points_services_effectivity(processed_dropp_df, warnings, fields_config, "DROPP")
+    processed_dropp_df = process_points_services_effectivity(processed_dropp_df, warnings, fields_config, "DROP_OFF")
     processed_dropp_df = process_conversion_percents(processed_dropp_df, fields_config)
     processed_dropp_df[fields_config.container_condition] = (
         processed_dropp_df[fields_config.container_condition].apply(none_filter)
@@ -159,7 +159,7 @@ def process_dropp_df(processed_dropp_df: DataFrame, warnings, fields_config: Upl
     )
 
     if missing_info:
-        warnings.append(("MissingRouteDataException", missing_info, "DROPP"))
+        warnings.append(("MissingRouteDataException", missing_info, "DROP_OFF"))
 
     processed_dropp_df = processed_dropp_df.dropna(subset=df_dropna_subset)
 
@@ -480,7 +480,7 @@ async def load_data(  # noqa: C901
 
     for i, row in dropp_df.iterrows():
         try:
-            drop = create_dropp(containers, companies, points, row, fields_config)
+            drop = create_drop_off(containers, companies, points, row, fields_config)
         except (LoadingErrorException, ValueError) as e:
             warnings.append((e, i, None))
             continue
@@ -494,5 +494,5 @@ async def load_data(  # noqa: C901
         return False, len(routes_lst), warnings
 
     await load_routes(db_session, routes_lst)
-    await load_dropp(db_session, dropp_lst)
+    await load_drop_off(db_session, dropp_lst)
     return True, len(routes_lst), warnings

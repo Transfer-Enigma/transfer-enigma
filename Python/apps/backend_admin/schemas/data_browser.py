@@ -1,7 +1,7 @@
 from module_data_internal.schemas import (
     CompanyModel,
     ContainerModel,
-    DropModel,
+    DropOffModel,
     PointModel,
     ServiceModel,
 )
@@ -352,7 +352,7 @@ class DropOffResponse(BaseModel):
     currency: str
 
     @classmethod
-    def from_model(cls, model: DropModel) -> "DropOffResponse":
+    def from_model(cls, model: DropOffModel) -> "DropOffResponse":
         return cls(
             id=model.id,
             container_id=model.container_id,

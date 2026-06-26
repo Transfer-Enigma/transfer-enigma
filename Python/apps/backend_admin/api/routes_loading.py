@@ -15,7 +15,7 @@ from backend_admin.config import get_settings
 from backend_admin.dependencies.auth import request_auth
 from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
 from backend_admin.service.routes_loading.errors import (
-    InvalidDroppRow,
+    InvalidDropOffRow,
     InvalidRouteConditionException,
     InvalidRouteTypeException,
     NoPriceInRouteException,
@@ -170,7 +170,7 @@ def parse_all_warning_types(warnings, fc):
 
 def parse_error(error, row_number, routes_ws_type):
     row_number += 2
-    routes_ws = {RouteType.SEA: "МОРЕ", RouteType.RAIL: "ЖД", None: "ДРОПП"}.get(routes_ws_type, "Неизвестный")
+    routes_ws = {RouteType.SEA: "МОРЕ", RouteType.RAIL: "ЖД", None: "ДРОП-ОФФ"}.get(routes_ws_type, "Неизвестный")
 
     if isinstance(error, InvalidRouteConditionException):
         return f"Неверные условия поставки: '{error.condition}' (лист {routes_ws}, строка {row_number})"
@@ -184,7 +184,7 @@ def parse_error(error, row_number, routes_ws_type):
     elif isinstance(error, NoPriceInRouteException):
         return f"Отсутствуют цены в маршруте (лист {routes_ws}, строка {row_number})"
 
-    elif isinstance(error, InvalidDroppRow):
+    elif isinstance(error, InvalidDropOffRow):
         return f"Неверный формат данных в листе {routes_ws} на строке {row_number}"
 
     return f"Неизвестная ошибка {type(error).__name__}: '{error}' (лист {routes_ws}, строка {row_number})"

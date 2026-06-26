@@ -7,7 +7,7 @@ from module_data_internal.schemas import (
     ContainerShipmentTerms,
     ContainerTransferTerms,
     ContainerType,
-    DropModel,
+    DropOffModel,
     PointModel,
     PriceModel,
     RouteModel,
@@ -24,7 +24,7 @@ __all__ = (
     "PriceFactory",
     "ServiceFactory",
     "ServicePriceFactory",
-    "DropFactory",
+    "DropOffFactory",
 )
 
 
@@ -98,7 +98,7 @@ def ServicePriceFactory(**kwargs) -> ServicePriceModel:
     return ServicePriceModel(**{**defaults, **kwargs})
 
 
-def DropFactory(**kwargs) -> DropModel:
+def DropOffFactory(**kwargs) -> DropOffModel:
     defaults = {
         "effective_from": datetime.date(2024, 1, 1),
         "effective_to": datetime.date(2025, 12, 31),
@@ -106,4 +106,4 @@ def DropFactory(**kwargs) -> DropModel:
         "conversation_percents": 0,
         "currency": "USD",
     }
-    return DropModel(**{**defaults, **kwargs})
+    return DropOffModel(**{**defaults, **kwargs})

@@ -8,7 +8,7 @@ from . import CompanyModel, ContainerModel
 from .point import PointModel
 
 
-class DropModel(Base):
+class DropOffModel(Base):
     uid = (
         "start_point_id",
         "end_point_id",

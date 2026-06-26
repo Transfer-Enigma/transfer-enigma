@@ -3,7 +3,7 @@ from typing import Any
 
 from backend_admin.schemas.data_browser import DropOffCreate, DropOffPatch, DropOffResponse
 from backend_admin.service.crud_base import CRUDBase, FilterDef
-from module_data_internal.schemas import DropModel
+from module_data_internal.schemas import DropOffModel
 
 
 def _parse_date(value: str) -> datetime.date:
@@ -11,7 +11,7 @@ def _parse_date(value: str) -> datetime.date:
 
 
 class CRUDDropOff(CRUDBase):
-    model = DropModel
+    model = DropOffModel
     create_schema = DropOffCreate
     update_schema = DropOffCreate
     patch_schema = DropOffPatch
@@ -21,8 +21,8 @@ class CRUDDropOff(CRUDBase):
         FilterDef("container_id", "container_id", "eq"),
     ]
 
-    def _build_instance(self, data: DropOffCreate) -> DropModel:
-        return DropModel(
+    def _build_instance(self, data: DropOffCreate) -> DropOffModel:
+        return DropOffModel(
             container_id=data.container_id,
             company_id=data.company_id,
             start_point_id=data.start_point_id,
@@ -34,7 +34,7 @@ class CRUDDropOff(CRUDBase):
             currency=data.currency,
         )
 
-    def _apply_update(self, model: DropModel, data: DropOffCreate) -> None:
+    def _apply_update(self, model: DropOffModel, data: DropOffCreate) -> None:
         model.container_id = data.container_id
         model.company_id = data.company_id
         model.start_point_id = data.start_point_id
@@ -45,7 +45,7 @@ class CRUDDropOff(CRUDBase):
         model.conversation_percents = data.conversation_percents
         model.currency = data.currency
 
-    def _apply_patch(self, model: DropModel, data: DropOffPatch) -> None:
+    def _apply_patch(self, model: DropOffModel, data: DropOffPatch) -> None:
         data_dump = data.model_dump(exclude_unset=True)
         for key, value in data_dump.items():
             if value is not None:

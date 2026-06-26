@@ -4,7 +4,7 @@ import logging
 
 from module_data_internal.schemas import (
     ContainerOwner,
-    DropModel,
+    DropOffModel,
     PriceModel,
     RouteModel,
     RouteType,
@@ -124,7 +124,7 @@ def build_base_sea_rail_query(
         # Drop-off must exist: either via dropp_off_point_id or via DROPS table
         or_(
             SeaRoute.dropp_off_point_id.isnot(None),
-            DropModel.id.isnot(None),
+            DropOffModel.id.isnot(None),
         ),
     ]
     if hide_sea_soc:
@@ -133,19 +133,19 @@ def build_base_sea_rail_query(
     drop_join_clause = and_(
         SeaRoute.dropp_off_point_id.is_(None),  # if not, drop is already included!
         # Points
-        RailRoute.start_point_id == DropModel.start_point_id,
-        RailRoute.end_point_id == DropModel.end_point_id,
+        RailRoute.start_point_id == DropOffModel.start_point_id,
+        RailRoute.end_point_id == DropOffModel.end_point_id,
         # Container
-        RailPrice.container_id == DropModel.container_id,
+        RailPrice.container_id == DropOffModel.container_id,
         # Company
-        SeaRoute.company_id == DropModel.company_id,
+        SeaRoute.company_id == DropOffModel.company_id,
         # Drop-off must be valid on the shipping date
-        DropModel.effective_from <= date,
-        DropModel.effective_to >= date,
+        DropOffModel.effective_from <= date,
+        DropOffModel.effective_to >= date,
     )
 
     return (  # noqa: ECE001
-        select(SeaRoute, RailRoute, DropModel)
+        select(SeaRoute, RailRoute, DropOffModel)
         .where(and_(*where_conditions))
         .join(SeaPrice, SeaRoute.id == SeaPrice.route_id)
         .join(RailRoute, and_(
@@ -156,7 +156,7 @@ def build_base_sea_rail_query(
             ),
         ))
         .join(RailPrice, RailRoute.id == RailPrice.route_id)
-        .outerjoin(DropModel, drop_join_clause)
+        .outerjoin(DropOffModel, drop_join_clause)
         .order_by(desc(SeaRoute.effective_to), desc(RailRoute.effective_to))
         # note: I tried using 'group by' statement, but it cuts off prices
         # here could be 'group_by', but it doesn't work correctly with 'joinedload'
@@ -208,7 +208,7 @@ def process_results(
             if not row:
                 continue
 
-            routes: list[RouteModel] = row[:-1] if not row[-1] or isinstance(row[-1], DropModel) else row
+            routes: list[RouteModel] = row[:-1] if not row[-1] or isinstance(row[-1], DropOffModel) else row
 
             ids = tuple(segment.id for segment in routes)
 

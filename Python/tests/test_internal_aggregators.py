@@ -13,7 +13,7 @@ from module_shared.schemas.setting import SettingType
 from .data import (
     CompanyFactory,
     ContainerFactory,
-    DropFactory,
+    DropOffFactory,
     PointFactory,
     PriceFactory,
     RouteFactory,
@@ -201,7 +201,7 @@ async def test_find_all_paths_sea_rail_same_company_coc(sqlite_db: Database):
         session.add_all([price_sea, price_rail])
         await session.flush()
 
-        drop = DropFactory(
+        drop = DropOffFactory(
             company_id=company.id,
             container_id=container.id,
             start_point_id=drop_point.id,
@@ -320,7 +320,7 @@ async def test_find_all_paths_sea_rail_different_company_soc(sqlite_db: Database
         session.add_all([price_sea, price_rail])
         await session.flush()
 
-        drop = DropFactory(
+        drop = DropOffFactory(
             company_id=company_a.id,
             container_id=container.id,
             start_point_id=point_mid.id,
@@ -381,7 +381,7 @@ async def test_find_all_paths_sea_rail_same_company_soc(sqlite_db: Database):
         session.add_all([price_sea, price_rail])
         await session.flush()
 
-        drop = DropFactory(
+        drop = DropOffFactory(
             company_id=company.id,
             container_id=container.id,
             start_point_id=point_mid.id,
@@ -460,7 +460,7 @@ async def test_find_all_paths_sea_rail_with_drop_price(sqlite_db: Database):
         session.add_all([price_sea, price_rail])
         await session.flush()
 
-        drop = DropFactory(
+        drop = DropOffFactory(
             company_id=company.id,
             container_id=container.id,
             start_point_id=point_mid.id,
@@ -637,7 +637,7 @@ async def test_find_all_paths_sea_rail_drop_valid_on_shipping_date(sqlite_db: Da
         session.add_all([price_sea, price_rail])
         await session.flush()
 
-        drop = DropFactory(
+        drop = DropOffFactory(
             company_id=company.id,
             container_id=container.id,
             start_point_id=point_mid.id,
@@ -756,7 +756,7 @@ async def test_find_all_paths_sea_soc_shown_when_flag_off(sqlite_db: Database):
         session.add_all([price_sea_soc, price_sea_coc, price_rail])
         await session.flush()
 
-        drop = DropFactory(
+        drop = DropOffFactory(
             company_id=company.id,
             container_id=container.id,
             start_point_id=drop_point.id,
@@ -821,7 +821,7 @@ async def test_find_all_paths_sea_soc_default_when_setting_missing(sqlite_db: Da
         session.add_all([price_sea, price_rail])
         await session.flush()
 
-        drop = DropFactory(
+        drop = DropOffFactory(
             company_id=company.id,
             container_id=container.id,
             start_point_id=drop_point.id,
@@ -880,7 +880,7 @@ async def test_find_all_paths_sea_soc_hidden_by_flag(sqlite_db: Database):
         session.add_all([price_sea, price_rail])
         await session.flush()
 
-        drop = DropFactory(
+        drop = DropOffFactory(
             company_id=company.id,
             container_id=container.id,
             start_point_id=drop_point.id,

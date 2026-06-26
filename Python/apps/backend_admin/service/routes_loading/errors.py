@@ -28,7 +28,7 @@ class PointsWithNanException(LoadingErrorException):
         self.row_numbers = row_numbers
 
 
-class InvalidDroppRow(LoadingErrorException):
+class InvalidDropOffRow(LoadingErrorException):
     pass
 
 
