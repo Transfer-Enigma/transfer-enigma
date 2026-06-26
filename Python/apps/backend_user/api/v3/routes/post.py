@@ -9,12 +9,12 @@ from backend_user.schemas.form_requests import CalculateFormRequest
 from backend_user.services.profit import apply_demo_profit_to_route
 from backend_user.services.route_calculation import calculate_routes_stream
 from module_shared.config import get_settings as get_shared_settings
-from module_shared.models.route import RouteResult
+from module_shared.models.route import Route
 
 router = APIRouter(prefix="/v3/routes", tags=["v3", "routes"])
 
 
-async def _apply_demo_transforms_to_route(route: RouteResult, auth: AuthContext) -> None:
+async def _apply_demo_transforms_to_route(route: Route, auth: AuthContext) -> None:
     if auth.sea_profit or auth.rail_profit:
         await apply_demo_profit_to_route(
             route,
@@ -38,10 +38,10 @@ async def _sse_generator(
     current_id = last_event_id + 1 if last_event_id is not None else 0
 
     async for item in calculate_routes_stream(request):
-        if isinstance(item, RouteResult) and auth.is_demo:
+        if isinstance(item, Route) and auth.is_demo:
             await _apply_demo_transforms_to_route(item, auth)
 
-        event_type = "route" if isinstance(item, RouteResult) else "error"
+        event_type = "route" if isinstance(item, Route) else "error"
         yield ServerSentEvent(data=item, event=event_type, id=str(current_id))
         current_id += 1
 
@@ -57,7 +57,7 @@ async def _sse_generator(
         "## SSE Event Types\n\n"
         "| Event | Description |\n"
         "|-------|-------------|\n"
-        "| `route` | A single calculated route (`RouteResult`) |\n"
+        "| `route` | A single calculated route (`Route`) |\n"
         "| `error` | A calculation error with type, text, and source |\n\n"
         "## SSE Format\n\n"
         "```\n"

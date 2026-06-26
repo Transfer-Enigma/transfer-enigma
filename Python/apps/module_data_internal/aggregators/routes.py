@@ -12,7 +12,7 @@ from module_data_internal.schemas import (
 )
 from module_shared.cache_settings import get_setting_cached
 from module_shared.database import Base, get_database
-from module_shared.models.route import RouteResult
+from module_shared.models.route import Route
 from sqlalchemy import and_, desc, or_, select
 from sqlalchemy.orm import aliased, contains_eager, joinedload, selectinload
 
@@ -238,7 +238,7 @@ async def find_all_paths(
     start_point_id: int,
     end_point_id: int,
     container_ids: list[int],
-) -> list[RouteResult]:
+) -> list[Route]:
     hide_sea_soc = False
     try:
         async with get_database().session_context() as session:

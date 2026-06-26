@@ -54,7 +54,7 @@ class RouteSegment(BaseModel):
     prices: list[PriceItem] = []
 
 
-class RouteResult(BaseModel):
+class Route(BaseModel):
     segments: list[RouteSegment]
     drop: DropOffItem | None = None
     may_be_invalid: bool = False

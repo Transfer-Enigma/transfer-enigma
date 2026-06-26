@@ -7,12 +7,12 @@ from backend_user.schemas.form_requests import CalculateFormRequest
 from backend_user.schemas.routes import NormalizedRoutes, RoutesDataResponse
 from backend_user.services.profit import apply_demo_profit_to_routes
 from backend_user.services.route_calculation import _strip_demo_fields, calculate_routes
-from module_shared.models.route import RouteResult
+from module_shared.models.route import Route
 
 router = APIRouter(prefix="/v2/routes", tags=["v2", "routes"])
 
 
-def _normalize_routes(routes: list[RouteResult]) -> NormalizedRoutes:
+def _normalize_routes(routes: list[Route]) -> NormalizedRoutes:
     return [(r.segments, r.drop, r.may_be_invalid, r.services) for r in routes]
 
 

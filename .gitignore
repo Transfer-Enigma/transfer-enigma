@@ -8,3 +8,4 @@ venv
 .python-version
 poetry.lock
 logs/
+0001-*.patch

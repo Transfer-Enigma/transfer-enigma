@@ -6,7 +6,7 @@ from backend_user.api.v2.routes.post import _apply_demo_transforms, _normalize_r
 from backend_user.dependencies.auth_context import AuthContext
 from backend_user.schemas.form_requests import CalculateFormRequest
 from backend_user.services.route_calculation import _strip_demo_fields, calculate_routes
-from module_shared.models.route import ContainerItem, PriceItem, RouteResult, RouteSegment
+from module_shared.models.route import ContainerItem, PriceItem, Route, RouteSegment
 
 
 def _make_segment(company: str = "CompanyA", **overrides) -> RouteSegment:
@@ -40,12 +40,12 @@ def _make_segment(company: str = "CompanyA", **overrides) -> RouteSegment:
     return RouteSegment(**kwargs)
 
 
-def _make_full_route(company: str = "CompanyA", segments_count: int = 1, **segment_overrides) -> RouteResult:
+def _make_full_route(company: str = "CompanyA", segments_count: int = 1, **segment_overrides) -> Route:
     segment = _make_segment(company=company, **segment_overrides)
     segments = [segment]
     if segments_count > 1:
         segments.append(_make_segment(company=company, id=2, type="SEA"))
-    return RouteResult(segments=segments)
+    return Route(segments=segments)
 
 
 def _make_request(
@@ -69,7 +69,7 @@ def _make_request(
 
 
 # ──────────────────────────────────────────────
-# Service-level tests — calculate_routes returns RouteResult dataclasses
+# Service-level tests — calculate_routes returns Route dataclasses
 # ──────────────────────────────────────────────
 
 
@@ -334,7 +334,7 @@ async def test_container_fetch_fails_gracefully():
 @pytest.mark.asyncio
 async def test_apply_demo_transforms_strips_company():
     seg = _make_segment(company="CompanyA")
-    route = RouteResult(segments=[seg])
+    route = Route(segments=[seg])
     formatted = _normalize_routes([route])
     auth = AuthContext(is_demo=True)
     await _apply_demo_transforms(formatted, auth)
@@ -345,7 +345,7 @@ async def test_apply_demo_transforms_strips_company():
 @pytest.mark.asyncio
 async def test_apply_demo_transforms_does_not_strip_for_non_demo():
     seg = _make_segment(company="CompanyA")
-    route = RouteResult(segments=[seg])
+    route = Route(segments=[seg])
     formatted = _normalize_routes([route])
     auth = AuthContext(is_demo=False)
     await _apply_demo_transforms(formatted, auth)
@@ -356,7 +356,7 @@ async def test_apply_demo_transforms_does_not_strip_for_non_demo():
 @pytest.mark.asyncio
 async def test_apply_demo_transforms_with_profit():
     seg = _make_segment(company="CompanyA", type="sea")
-    route = RouteResult(segments=[seg])
+    route = Route(segments=[seg])
     formatted = _normalize_routes([route])
     auth = AuthContext(is_demo=True, sea_profit=100.0, sea_profit_currency="USD")
 
@@ -370,7 +370,7 @@ async def test_apply_demo_transforms_with_profit():
 @pytest.mark.asyncio
 async def test_apply_demo_transforms_with_profit_and_rail():
     seg = _make_segment(company="CompanyA", type="rail")
-    route = RouteResult(segments=[seg])
+    route = Route(segments=[seg])
     formatted = _normalize_routes([route])
     auth = AuthContext(is_demo=True, rail_profit=50.0, rail_profit_currency="USD")
 

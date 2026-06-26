@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Iterable
 
-from module_shared.models.route import PriceItem, RouteResult, RouteSegment, ServiceItem
+from module_shared.models.route import PriceItem, Route, RouteSegment, ServiceItem
 
 from .containers import transform_container
 
@@ -50,7 +50,7 @@ def transform_service(service: dict) -> ServiceItem | None:
     )
 
 
-def transform_route(route: dict) -> RouteResult:
+def transform_route(route: dict) -> Route:
     services = [item for item in map(transform_service, route.get("Services", [])) if item]
     container_descriptor = transform_container(route["Containers"][0])
     segments: list[RouteSegment] = []
@@ -79,8 +79,8 @@ def transform_route(route: dict) -> RouteResult:
         )
         segments.append(seg)
 
-    return RouteResult(segments=segments, services=services)
+    return Route(segments=segments, services=services)
 
 
-def transform_routes(routes: list[dict]) -> Iterable[RouteResult]:
+def transform_routes(routes: list[dict]) -> Iterable[Route]:
     return map(transform_route, routes)

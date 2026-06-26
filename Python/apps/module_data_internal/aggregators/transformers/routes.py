@@ -4,7 +4,7 @@ from module_shared.models.route import (
     ContainerItem,
     DropOffItem,
     PriceItem,
-    RouteResult,
+    Route,
     RouteSegment,
     ServiceItem,
 )
@@ -70,7 +70,7 @@ def _services_from_segment(route: RouteModel, segment_id: int | str) -> list[Ser
 
 def _route_from_orm(
     route_and_drop: tuple[list[Base], bool],
-) -> RouteResult:
+) -> Route:
     segments_raw, may_route_be_invalid = route_and_drop
     drop_model: DropModel | None = None
 
@@ -94,7 +94,7 @@ def _route_from_orm(
             currency=drop_model.currency,
         )
 
-    return RouteResult(
+    return Route(
         segments=mapped_segments,
         drop=drop,
         may_be_invalid=may_route_be_invalid,
@@ -104,5 +104,5 @@ def _route_from_orm(
 
 def transform_routes(
     routes_and_drops: list[tuple[list[Base], bool]],
-) -> list[RouteResult]:
+) -> list[Route]:
     return [_route_from_orm(r) for r in routes_and_drops]

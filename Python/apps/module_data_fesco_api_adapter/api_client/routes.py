@@ -5,7 +5,7 @@ from collections.abc import Iterable
 
 import aiohttp
 from backend_user.config import get_settings
-from module_shared.models.route import RouteResult
+from module_shared.models.route import Route
 
 from ..cache import get_fesco_routes_cached
 from .transformers.routes import transform_routes
@@ -17,7 +17,7 @@ async def find_all_paths(
     destination_id: str,
     wte_ids: list[str],
     _: bool = False,
-) -> Iterable[RouteResult]:
+) -> Iterable[Route]:
     sorted_ids = json.dumps(wte_ids, sort_keys=True)
     cache_key = f"backend_user:fesco:routes:{date}:{departure_id}:{destination_id}:{sorted_ids}"
     return await get_fesco_routes_cached(
@@ -31,7 +31,7 @@ async def _fetch_all_paths(
     departure_id: str,
     destination_id: str,
     wte_ids: list[str],
-) -> Iterable[RouteResult]:
+) -> Iterable[Route]:
     async with aiohttp.ClientSession() as session:
         coroutines = [
             _get_routes(date, departure_id, destination_id, wte_id, session)

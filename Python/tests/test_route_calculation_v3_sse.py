@@ -9,7 +9,7 @@ from backend_user.dependencies.auth_context import AuthContext
 from backend_user.schemas.errors import RouteError
 from backend_user.schemas.form_requests import CalculateFormRequest
 from backend_user.services.route_calculation import calculate_routes_stream
-from module_shared.models.route import ContainerItem, PriceItem, RouteResult, RouteSegment
+from module_shared.models.route import ContainerItem, PriceItem, Route, RouteSegment
 
 
 def _make_segment(company: str = "CompanyA", **overrides) -> RouteSegment:
@@ -43,12 +43,12 @@ def _make_segment(company: str = "CompanyA", **overrides) -> RouteSegment:
     return RouteSegment(**kwargs)
 
 
-def _make_full_route(company: str = "CompanyA", segments_count: int = 1, **segment_overrides) -> RouteResult:
+def _make_full_route(company: str = "CompanyA", segments_count: int = 1, **segment_overrides) -> Route:
     segment = _make_segment(company=company, **segment_overrides)
     segments = [segment]
     if segments_count > 1:
         segments.append(_make_segment(company=company, id=2, type="SEA"))
-    return RouteResult(segments=segments)
+    return Route(segments=segments)
 
 
 def _make_request(
@@ -271,7 +271,7 @@ class TestCalculateRoutesStream:
                 results.append(item)
 
             assert len(results) == 8
-            assert all(isinstance(r, RouteResult) for r in results)
+            assert all(isinstance(r, Route) for r in results)
             companies = {r.segments[0].company for r in results}
             assert "CompanyA" in companies
             assert "CompanyB" in companies

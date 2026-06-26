@@ -9,7 +9,7 @@ from backend_user.schemas.routes import NormalizedRoutes
 from module_data_fesco_api_adapter import api_client
 from module_data_internal import aggregators
 from module_shared.config import get_settings as get_shared_settings
-from module_shared.models.route import RouteResult
+from module_shared.models.route import Route
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ async def _get_routes(
     destination: str | int,
     container_weight: float,
     container_type: int,
-) -> Iterable[RouteResult]:
+) -> Iterable[Route]:
     containers = await modul.get_containers(date, departure, destination)
     container_ids = modul.search_container_ids(
         containers,
@@ -72,7 +72,7 @@ def _build_calculation_coros(request: CalculateFormRequest):
     return internal_coros, external_coros
 
 
-async def calculate_routes(request: CalculateFormRequest) -> tuple[list[RouteResult], list[RouteError]]:
+async def calculate_routes(request: CalculateFormRequest) -> tuple[list[Route], list[RouteError]]:
     internal_coros, external_coros = _build_calculation_coros(request)
 
     logger.info(
@@ -87,7 +87,7 @@ async def calculate_routes(request: CalculateFormRequest) -> tuple[list[RouteRes
     )
     result = [(False, i) for i in internal_result] + [(True, i) for i in external_result]
 
-    routes: list[RouteResult] = []
+    routes: list[Route] = []
     errors: list[RouteError] = []
     source_map = ("internal", "external")
 

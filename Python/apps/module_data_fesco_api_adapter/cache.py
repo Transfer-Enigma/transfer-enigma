@@ -3,7 +3,7 @@ import datetime
 import json
 import logging
 
-from module_shared.models.route import RouteResult
+from module_shared.models.route import Route
 from module_shared.redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ async def get_fesco_routes_cached(cache_key: str, fetch):
         cached = await redis.get(cache_key)
         if cached is not None:
             try:
-                return [RouteResult.model_validate(r) for r in json.loads(cached)]
+                return [Route.model_validate(r) for r in json.loads(cached)]
             except Exception:
                 logger.warning("Corrupt cache data for %s, re-fetching", cache_key)
     except Exception:
