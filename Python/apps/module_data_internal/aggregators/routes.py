@@ -52,6 +52,10 @@ def _sea_direct() -> Route:
     return Route(segments=[_base_segment(RouteType.SEA)], connections=[])
 
 
+def _auto_direct() -> Route:
+    return Route(segments=[_base_segment(RouteType.AUTO)], connections=[])
+
+
 def _sea_rail_drop(bridge: DropAwareConnection) -> DropConnection:
     return (
         DropConnection(bridge=bridge, required=False)
@@ -88,12 +92,110 @@ def _sea_rail_combined(hide_soc: bool = False) -> Route:
     )
 
 
+def _auto_rail_combined() -> Route:
+    auto = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtStartPoint())
+    )
+    rail = (
+        RouteSegment(RouteType.RAIL)
+        .add_filter(EffectiveOn())
+        .add_filter(AtEndPoint())
+    )
+    return Route(
+        segments=[auto, rail],
+        connections=[
+            RouteSegmentConnection(from_seg=auto, to_seg=rail).rule(MatchesEndpoint()),
+        ],
+    )
+
+
+def _rail_auto_combined() -> Route:
+    rail = (
+        RouteSegment(RouteType.RAIL)
+        .add_filter(EffectiveOn())
+        .add_filter(AtStartPoint())
+    )
+    auto = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtEndPoint())
+    )
+    return Route(
+        segments=[rail, auto],
+        connections=[
+            RouteSegmentConnection(from_seg=rail, to_seg=auto).rule(MatchesEndpoint()),
+        ],
+    )
+
+
+def _auto_rail_auto_combined() -> Route:
+    auto1 = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtStartPoint())
+    )
+    rail = RouteSegment(RouteType.RAIL).add_filter(EffectiveOn())
+    auto2 = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtEndPoint())
+    )
+    return Route(
+        segments=[auto1, rail, auto2],
+        connections=[
+            RouteSegmentConnection(from_seg=auto1, to_seg=rail).rule(MatchesEndpoint()),
+            RouteSegmentConnection(from_seg=rail, to_seg=auto2).rule(MatchesEndpoint()),
+        ],
+    )
+
+
+def _auto_sea_rail_auto_combined(hide_soc: bool = False) -> Route:
+    soc_filter = ExcludeOwners([ContainerOwner.SOC]) if hide_soc else None
+    auto1 = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtStartPoint())
+    )
+    sea = (
+        RouteSegment(RouteType.SEA)
+        .add_filter(EffectiveOn())
+        .add_filter(soc_filter)
+    )
+    rail = RouteSegment(RouteType.RAIL).add_filter(EffectiveOn())
+    auto2 = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtEndPoint())
+    )
+    bridge = DropAwareConnection()
+    return Route(
+        segments=[auto1, sea, rail, auto2],
+        connections=[
+            RouteSegmentConnection(from_seg=auto1, to_seg=sea).rule(MatchesEndpoint()),
+            RouteSegmentConnection(from_seg=sea, to_seg=rail)
+            .with_drop_aware_bridge(bridge)
+            .rule(CocSocRule())
+            .rule(ThroughRule())
+            .with_drop(_sea_rail_drop(bridge)),
+            RouteSegmentConnection(from_seg=rail, to_seg=auto2).rule(MatchesEndpoint()),
+        ],
+    )
+
+
 # ── pre-compiled queries ──────────────────────────────────────────────
 
 _rail_direct_compiler = QueryCompiler(_rail_direct())
 _sea_direct_compiler = QueryCompiler(_sea_direct())
+_auto_direct_compiler = QueryCompiler(_auto_direct())
 _sea_rail_compiler = QueryCompiler(_sea_rail_combined(hide_soc=False))
 _sea_rail_no_soc_compiler = QueryCompiler(_sea_rail_combined(hide_soc=True))
+_auto_rail_compiler = QueryCompiler(_auto_rail_combined())
+_rail_auto_compiler = QueryCompiler(_rail_auto_combined())
+_auto_rail_auto_compiler = QueryCompiler(_auto_rail_auto_combined())
+_auto_sea_rail_auto_compiler = QueryCompiler(_auto_sea_rail_auto_combined(hide_soc=False))
+_auto_sea_rail_auto_no_soc_compiler = QueryCompiler(_auto_sea_rail_auto_combined(hide_soc=True))
 
 
 # ── helpers ───────────────────────────────────────────────────────────
@@ -163,11 +265,17 @@ async def find_all_paths(
         logger.warning("Failed to read hide-sea-soc setting, defaulting to False")
 
     sea_rail = _sea_rail_no_soc_compiler if hide_sea_soc else _sea_rail_compiler
+    auto_sea_rail = _auto_sea_rail_auto_no_soc_compiler if hide_sea_soc else _auto_sea_rail_auto_compiler
 
     all_queries = [
         _rail_direct_compiler.build(date, start_point_id, end_point_id, container_ids),
         _sea_direct_compiler.build(date, start_point_id, end_point_id, container_ids),
         sea_rail.build(date, start_point_id, end_point_id, container_ids),
+        _auto_direct_compiler.build(date, start_point_id, end_point_id, container_ids),
+        _auto_rail_compiler.build(date, start_point_id, end_point_id, container_ids),
+        _rail_auto_compiler.build(date, start_point_id, end_point_id, container_ids),
+        _auto_rail_auto_compiler.build(date, start_point_id, end_point_id, container_ids),
+        auto_sea_rail.build(date, start_point_id, end_point_id, container_ids),
     ]
 
     coroutines = [_execute_query(query) for query in all_queries]

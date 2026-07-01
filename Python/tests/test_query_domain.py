@@ -725,3 +725,180 @@ class TestMultiDrop:
         assert "LEFT OUTER JOIN DROP AS DROP_0" in sql.upper()
         assert "JOIN DROP AS DROP_1" in sql.upper()
         assert "LEFT OUTER JOIN DROP AS DROP_1" not in sql.upper()
+
+
+# ── AUTO routes ─────────────────────────────────────────────────────
+
+
+def _auto_direct():
+    return Route(segments=[_base_segment(RouteType.AUTO)], connections=[])
+
+
+def _auto_rail_combined():
+    auto = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtStartPoint())
+    )
+    rail = (
+        RouteSegment(RouteType.RAIL)
+        .add_filter(EffectiveOn())
+        .add_filter(AtEndPoint())
+    )
+    return Route(
+        segments=[auto, rail],
+        connections=[RouteSegmentConnection(from_seg=auto, to_seg=rail).rule(MatchesEndpoint())],
+    )
+
+
+def _rail_auto_combined():
+    rail = (
+        RouteSegment(RouteType.RAIL)
+        .add_filter(EffectiveOn())
+        .add_filter(AtStartPoint())
+    )
+    auto = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtEndPoint())
+    )
+    return Route(
+        segments=[rail, auto],
+        connections=[RouteSegmentConnection(from_seg=rail, to_seg=auto).rule(MatchesEndpoint())],
+    )
+
+
+def _auto_rail_auto_combined():
+    auto1 = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtStartPoint())
+    )
+    rail = RouteSegment(RouteType.RAIL).add_filter(EffectiveOn())
+    auto2 = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtEndPoint())
+    )
+    return Route(
+        segments=[auto1, rail, auto2],
+        connections=[
+            RouteSegmentConnection(from_seg=auto1, to_seg=rail).rule(MatchesEndpoint()),
+            RouteSegmentConnection(from_seg=rail, to_seg=auto2).rule(MatchesEndpoint()),
+        ],
+    )
+
+
+def _auto_sea_rail_auto_combined():
+    auto1 = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtStartPoint())
+    )
+    sea = RouteSegment(RouteType.SEA).add_filter(EffectiveOn())
+    rail = RouteSegment(RouteType.RAIL).add_filter(EffectiveOn())
+    auto2 = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtEndPoint())
+    )
+    bridge = DropAwareConnection()
+    drop = DropConnection(bridge=bridge, required=False)
+    return Route(
+        segments=[auto1, sea, rail, auto2],
+        connections=[
+            RouteSegmentConnection(from_seg=auto1, to_seg=sea).rule(MatchesEndpoint()),
+            RouteSegmentConnection(from_seg=sea, to_seg=rail)
+            .with_drop_aware_bridge(bridge)
+            .rule(CocSocRule())
+            .rule(ThroughRule())
+            .with_drop(drop),
+            RouteSegmentConnection(from_seg=rail, to_seg=auto2).rule(MatchesEndpoint()),
+        ],
+    )
+
+
+class TestAutoRoutes:
+    date = datetime.date(2026, 6, 1)
+    dep_id = 1
+    dest_id = 2
+    container_ids = [10, 20]
+
+    def _sql(self, stmt):
+        return str(stmt.compile(compile_kwargs={"literal_binds": True}))
+
+    def test_direct_auto(self):
+        route = _auto_direct()
+        compiler = QueryCompiler(route)
+        stmt = compiler.build(self.date, self.dep_id, self.dest_id, self.container_ids)
+        sql = self._sql(stmt)
+        assert "routes AS seg_0" in sql
+        assert "RAIL" not in sql.upper()
+        assert "SEA" not in sql.upper()
+
+    def test_combined_auto_rail(self):
+        route = _auto_rail_combined()
+        compiler = QueryCompiler(route)
+        stmt = compiler.build(self.date, self.dep_id, self.dest_id, self.container_ids)
+        sql = self._sql(stmt)
+        assert "routes AS seg_0" in sql
+        assert "routes AS seg_1" in sql
+
+    def test_combined_rail_auto(self):
+        route = _rail_auto_combined()
+        compiler = QueryCompiler(route)
+        stmt = compiler.build(self.date, self.dep_id, self.dest_id, self.container_ids)
+        sql = self._sql(stmt)
+        assert "routes AS seg_0" in sql
+        assert "routes AS seg_1" in sql
+
+    def test_combined_auto_rail_auto(self):
+        route = _auto_rail_auto_combined()
+        compiler = QueryCompiler(route)
+        stmt = compiler.build(self.date, self.dep_id, self.dest_id, self.container_ids)
+        sql = self._sql(stmt)
+        assert "routes AS seg_0" in sql
+        assert "routes AS seg_1" in sql
+        assert "routes AS seg_2" in sql
+
+    def test_combined_auto_sea_rail_auto(self):
+        route = _auto_sea_rail_auto_combined()
+        compiler = QueryCompiler(route)
+        stmt = compiler.build(self.date, self.dep_id, self.dest_id, self.container_ids)
+        sql = self._sql(stmt)
+        assert "routes AS seg_0" in sql
+        assert "routes AS seg_1" in sql
+        assert "routes AS seg_2" in sql
+        assert "routes AS seg_3" in sql
+
+    def test_auto_sea_rail_auto_with_hide_soc_sql(self):
+        auto1 = RouteSegment(RouteType.AUTO).add_filter(EffectiveOn()).add_filter(AtStartPoint())
+        sea = (
+            RouteSegment(RouteType.SEA)
+            .add_filter(EffectiveOn())
+            .add_filter(ExcludeOwners([ContainerOwner.SOC]))
+        )
+        rail = RouteSegment(RouteType.RAIL).add_filter(EffectiveOn())
+        auto2 = RouteSegment(RouteType.AUTO).add_filter(EffectiveOn()).add_filter(AtEndPoint())
+        bridge = DropAwareConnection()
+        drop = DropConnection(bridge=bridge, required=False)
+        route = Route(
+            segments=[auto1, sea, rail, auto2],
+            connections=[
+                RouteSegmentConnection(from_seg=auto1, to_seg=sea).rule(MatchesEndpoint()),
+                RouteSegmentConnection(from_seg=sea, to_seg=rail)
+                .with_drop_aware_bridge(bridge)
+                .rule(CocSocRule())
+                .rule(ThroughRule())
+                .with_drop(drop),
+                RouteSegmentConnection(from_seg=rail, to_seg=auto2).rule(MatchesEndpoint()),
+            ],
+        )
+        compiler = QueryCompiler(route)
+        stmt = compiler.build(self.date, self.dep_id, self.dest_id, self.container_ids)
+        sql = self._sql(stmt)
+        assert "container_owner" in sql.lower()
+        assert "routes AS seg_0" in sql
+        assert "routes AS seg_1" in sql
+        assert "routes AS seg_2" in sql
+        assert "routes AS seg_3" in sql
