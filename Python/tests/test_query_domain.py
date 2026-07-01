@@ -33,6 +33,7 @@ from sqlalchemy.orm import aliased
 
 # ── route helpers for tests ───────────────────────────────────────────
 
+
 def _base_segment(route_type: RouteType) -> RouteSegment:
     return (
         RouteSegment(route_type)
@@ -42,11 +43,14 @@ def _base_segment(route_type: RouteType) -> RouteSegment:
         .add_filter(NoDropOff())
     )
 
+
 def rail_direct() -> Route:
     return Route(segments=[_base_segment(RouteType.RAIL)], connections=[])
 
+
 def sea_direct() -> Route:
     return Route(segments=[_base_segment(RouteType.SEA)], connections=[])
+
 
 def sea_rail_combined(hide_soc: bool = False) -> Route:
     soc_filter = ExcludeOwners([ContainerOwner.SOC]) if hide_soc else None
@@ -73,9 +77,11 @@ def sea_rail_combined(hide_soc: bool = False) -> Route:
     conn.with_drop(drop)
     return Route(segments=[sea, rail], connections=[conn])
 
+
 def _route_aliases():
     """Create aliased RouteModel pairs for unit-testing connection rules."""
     return aliased(RouteModel), aliased(RouteModel)
+
 
 def _drop_aliases():
     """Create aliased from/to RouteModel + DropModel + PriceModel for drop rules."""
@@ -87,6 +93,7 @@ def _drop_aliases():
     return from_seg, to_seg, drop, from_price, to_price
 
 # ── RouteSegment ──────────────────────────────────────────────────────
+
 
 class TestRouteSegment:
     def test_create_with_type(self):
@@ -121,6 +128,7 @@ class TestRouteSegment:
         assert seg._container_ids == [1, 2, 3]
 
 # ── RouteSegmentConnection ────────────────────────────────────────────
+
 
 class TestRouteSegmentConnection:
     def test_create_with_segments(self):
@@ -174,6 +182,7 @@ class TestRouteSegmentConnection:
 
 # ── DropConnection ────────────────────────────────────────────────────
 
+
 class TestDropConnection:
     def test_create(self):
         drop = DropConnection(required=False)
@@ -211,6 +220,7 @@ class TestDropConnection:
 
 # ── Route ─────────────────────────────────────────────────────────────
 
+
 class TestRoute:
     def test_single_segment(self):
         seg = RouteSegment(RouteType.RAIL)
@@ -237,6 +247,7 @@ class TestRoute:
         assert len(route.connections) == 2
 
 # ── Filters ───────────────────────────────────────────────────────────
+
 
 class TestFilters:
     def test_effective_on(self):
@@ -283,6 +294,7 @@ class TestFilters:
 
 # ── Connection Rules ──────────────────────────────────────────────────
 
+
 class TestConnectionRules:
     def test_matches_endpoint(self):
         from_alias, to_alias = _route_aliases()
@@ -321,6 +333,7 @@ class TestConnectionRules:
 
 # ── Drop Rules ────────────────────────────────────────────────────────
 
+
 class TestDropRules:
     def test_drop_matches_endpoint(self):
         from_alias, to_alias, drop_alias, from_price, to_price = _drop_aliases()
@@ -347,6 +360,7 @@ class TestDropRules:
         assert expr is not None
 
 # ── Templates ─────────────────────────────────────────────────────────
+
 
 class TestTemplates:
     def test_rail_direct(self):
@@ -385,6 +399,7 @@ class TestTemplates:
         sea_seg = route.segments[0]
         has_exclude = any(isinstance(f, ExcludeOwners) for f in sea_seg._filters)
         assert not has_exclude
+
 
 class TestQueryCompiler:
     """Test that QueryCompiler builds valid SQLAlchemy Select for various configs."""
@@ -527,6 +542,7 @@ class TestQueryCompiler:
         stmt = compiler.build(self.date, self.dep_id, self.dest_id, self.container_ids)
         sql = self._sql(stmt)
         assert "SOC" in sql or "soc" in sql.lower()
+
 
 class TestMultiDrop:
     """Test multiple drop-offs on a single connection."""
