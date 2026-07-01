@@ -396,6 +396,35 @@ module_shared ───┬── backend_auth
 
 > Подробное описание логики расчёта маршрутов см. в [ROUTES-CALCULATION-LOGIC.md](./ROUTES-CALCULATION-LOGIC.md).
 
+**Segment types:**
+| Type | Enum value | Description |
+|------|-----------|-------------|
+| SEA | `RouteType.SEA` | Sea (maritime) shipping segment |
+| RAIL | `RouteType.RAIL` | Rail shipping segment |
+| AUTO | `RouteType.AUTO` | Road/auto transport segment |
+
+**Route templates** (defined in `module_data_internal/aggregators/routes.py`):
+
+| Template | Segments | Connection rules |
+|----------|----------|-----------------|
+| `_rail_direct()` | 1×RAIL | — |
+| `_sea_direct()` | 1×SEA | — |
+| `_auto_direct()` | 1×AUTO | — |
+| `_sea_rail_combined()` | SEA→RAIL | DropAwareConnection + CocSocRule + ThroughRule + drop-off |
+| `_auto_rail_combined()` | AUTO→RAIL | MatchesEndpoint |
+| `_rail_auto_combined()` | RAIL→AUTO | MatchesEndpoint |
+| `_auto_rail_auto_combined()` | AUTO→RAIL→AUTO | MatchesEndpoint (×2) |
+| `_auto_sea_rail_auto_combined()` | AUTO→SEA→RAIL→AUTO | MatchesEndpoint + DropAwareConnection + CocSocRule + ThroughRule + drop-off |
+| `_rail_sea_combined()` | RAIL→SEA | MatchesEndpoint (no drop) |
+| `_auto_rail_sea_auto_combined()` | AUTO→RAIL→SEA→AUTO | MatchesEndpoint (×3, no drop) |
+
+**Query Composer architecture:**
+
+- **Domain** (`query_domain/`) — provides ABCs (`Filter`, `ConnectionRule`, `DropRule`), structural rules (`MatchesEndpoint`), dataclasses (`RouteSegment`, `RouteSegmentConnection`, `DropConnection`, `Route`), and `QueryCompiler`
+- **Services** (`aggregators/rules.py`) — business-specific rules: `CocSocRule`, `ThroughRule`, `DropAwareConnection`
+- `DropAwareConnection` bridges segment connection and drop coupling — one object holds ALL `dropp_off_point_id` logic
+- Services create custom rules by subclassing `Filter`, `ConnectionRule`, or `DropRule` from the public API
+
 **Feature flags in route calculation (DB-backed settings):**
 
 | Setting group | Setting name | Type | Default | Effect |
@@ -403,7 +432,7 @@ module_shared ───┬── backend_auth
 | `feature-flag` | `hide-sea-soc` | `BOOL` | `false` | When `true`, sea segments with `container_owner == SOC` are excluded from SQL queries (both direct SEA and combined sea+rail) |
 
 - Read in `module_data_internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached(session, "feature-flag", "hide-sea-soc")`
-- Affects `build_usual_query(RouteType.SEA, ...)` and `build_base_sea_rail_query(...)`
+- Affects the SOC exclusion filter on the SEA segment in `_sea_rail_combined()`
 - Falls back to `False` if setting not found or Redis/DB unavailable
 - Created via Admin API: `POST /admin/api/db/settings` with `{"group": "feature-flag", "name": "hide-sea-soc", "value_type": "BOOL", "value": "false"}`
 
