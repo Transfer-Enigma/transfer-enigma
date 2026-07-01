@@ -72,11 +72,12 @@ def _route_from_orm(
     route_and_drop: tuple[list[Base], bool],
 ) -> RouteResult:
     segments_raw, may_route_be_invalid = route_and_drop
-    drop_model: DropModel | None = None
+    drop_models: list[DropModel] = []
 
-    if isinstance(segments_raw[-1], DropModel) or not segments_raw[-1]:
-        drop_model = segments_raw[-1]
-        segments_raw = segments_raw[:-1]
+    while segments_raw and (isinstance(segments_raw[-1], DropModel) or not segments_raw[-1]):
+        dm = segments_raw.pop()
+        if isinstance(dm, DropModel):
+            drop_models.append(dm)
 
     all_services: list[ServiceItem] = []
     mapped_segments: list[RouteSegment] = []
@@ -87,11 +88,12 @@ def _route_from_orm(
         all_services.extend(_services_from_segment(segment, seg.id))
 
     drop: DropItem | None = None
-    if drop_model is not None:
+    if drop_models:
+        first = drop_models[0]
         drop = DropItem(
-            price=drop_model.price,
-            conversation_percents=drop_model.conversation_percents,
-            currency=drop_model.currency,
+            price=first.price,
+            conversation_percents=first.conversation_percents,
+            currency=first.currency,
         )
 
     return RouteResult(
