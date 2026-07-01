@@ -12,6 +12,7 @@ from .point import PointModel
 class RouteType(enum.Enum):
     SEA = "SEA"
     RAIL = "RAIL"
+    AUTO = "AUTO"
 
 
 class ContainerTransferTerms(enum.Enum):
