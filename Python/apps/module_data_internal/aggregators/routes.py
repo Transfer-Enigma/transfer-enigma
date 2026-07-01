@@ -184,6 +184,48 @@ def _auto_sea_rail_auto_combined(hide_soc: bool = False) -> Route:
     )
 
 
+def _rail_sea_combined() -> Route:
+    rail = (
+        RouteSegment(RouteType.RAIL)
+        .add_filter(EffectiveOn())
+        .add_filter(AtStartPoint())
+    )
+    sea = (
+        RouteSegment(RouteType.SEA)
+        .add_filter(EffectiveOn())
+        .add_filter(AtEndPoint())
+    )
+    return Route(
+        segments=[rail, sea],
+        connections=[
+            RouteSegmentConnection(from_seg=rail, to_seg=sea).rule(MatchesEndpoint()),
+        ],
+    )
+
+
+def _auto_rail_sea_auto_combined() -> Route:
+    auto1 = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtStartPoint())
+    )
+    rail = RouteSegment(RouteType.RAIL).add_filter(EffectiveOn())
+    sea = RouteSegment(RouteType.SEA).add_filter(EffectiveOn())
+    auto2 = (
+        RouteSegment(RouteType.AUTO)
+        .add_filter(EffectiveOn())
+        .add_filter(AtEndPoint())
+    )
+    return Route(
+        segments=[auto1, rail, sea, auto2],
+        connections=[
+            RouteSegmentConnection(from_seg=auto1, to_seg=rail).rule(MatchesEndpoint()),
+            RouteSegmentConnection(from_seg=rail, to_seg=sea).rule(MatchesEndpoint()),
+            RouteSegmentConnection(from_seg=sea, to_seg=auto2).rule(MatchesEndpoint()),
+        ],
+    )
+
+
 # ── pre-compiled queries ──────────────────────────────────────────────
 
 _rail_direct_compiler = QueryCompiler(_rail_direct())
@@ -196,6 +238,8 @@ _rail_auto_compiler = QueryCompiler(_rail_auto_combined())
 _auto_rail_auto_compiler = QueryCompiler(_auto_rail_auto_combined())
 _auto_sea_rail_auto_compiler = QueryCompiler(_auto_sea_rail_auto_combined(hide_soc=False))
 _auto_sea_rail_auto_no_soc_compiler = QueryCompiler(_auto_sea_rail_auto_combined(hide_soc=True))
+_rail_sea_compiler = QueryCompiler(_rail_sea_combined())
+_auto_rail_sea_auto_compiler = QueryCompiler(_auto_rail_sea_auto_combined())
 
 
 # ── helpers ───────────────────────────────────────────────────────────
@@ -276,6 +320,8 @@ async def find_all_paths(
         _rail_auto_compiler.build(date, start_point_id, end_point_id, container_ids),
         _auto_rail_auto_compiler.build(date, start_point_id, end_point_id, container_ids),
         auto_sea_rail.build(date, start_point_id, end_point_id, container_ids),
+        _rail_sea_compiler.build(date, start_point_id, end_point_id, container_ids),
+        _auto_rail_sea_auto_compiler.build(date, start_point_id, end_point_id, container_ids),
     ]
 
     coroutines = [_execute_query(query) for query in all_queries]
