@@ -14,7 +14,7 @@ cffi==2.0.0 ; python_version >= "3.14" and python_version < "4.0" and platform_p
 charset-normalizer==3.4.7 ; python_version >= "3.14" and python_version < "4.0"
 click==8.4.2 ; python_version >= "3.14" and python_version < "4.0"
 colorama==0.4.6 ; python_version >= "3.14" and python_version < "4.0" and (platform_system == "Windows" or sys_platform == "win32")
-coverage==6.4 ; python_version >= "3.14" and python_version < "4.0"
+coverage==7.15.0 ; python_version >= "3.14" and python_version < "4.0"
 cryptography==49.0.0 ; python_version >= "3.14" and python_version < "4.0"
 dbf-light==1.0.0 ; python_version >= "3.14" and python_version < "4.0"
 et-xmlfile==2.0.0 ; python_version >= "3.14" and python_version < "4.0"
