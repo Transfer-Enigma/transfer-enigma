@@ -1,8 +1,10 @@
 import asyncio
 import datetime
 import logging
+from collections.abc import Iterable
 
 from module_data_internal.query_domain import DropOff, RouteBuilder, Segment
+from module_data_internal.query_domain.expr import Condition
 from module_data_internal.schemas import ContainerOwner, DropModel, RouteModel, RouteType
 from module_shared.cache_settings import get_setting_cached
 from module_shared.database import Base, get_database
@@ -19,79 +21,123 @@ async def _execute_query(q):
     return result.all()
 
 
-def build_usual_query(
-    route_type: RouteType,
-    date: datetime.date,
-    start_point_id: int,
-    end_point_id: int,
-    container_ids: list[int],
+def _connect_segments(
+    q: RouteBuilder,
+    prev: Segment,
+    curr: Segment,
+    *,
+    custom_conditions: Iterable[Condition] | None = None,
 ):
-    seg = Segment(_type=route_type)
-    builder = RouteBuilder(date)
-    builder.set_containers(container_ids)
-    builder.set_start_point(start_point_id)
-    builder.set_end_point(end_point_id)
-    builder.add_segment(seg)
-    builder.add_condition(seg.drop_off_point.null())
-    return builder.build()
+    conditions = [prev.end_point.equals(curr.start_point)]
+    if custom_conditions:
+        conditions.extend(custom_conditions)
+
+    q.add_segment(curr, conditions=conditions)
 
 
-def build_base_sea_rail_query(
-    date: datetime.date,
-    start_point_id: int,
-    end_point_id: int,
-    container_ids: list[int],
-    hide_sea_soc: bool = False,
-):
-    sea = Segment(_type=RouteType.SEA)
+def _connect_rail(q: RouteBuilder, prev: Segment):
     rail = Segment(_type=RouteType.RAIL)
-    drop = DropOff()
 
-    builder = RouteBuilder(date)
-    builder.set_containers(container_ids)
-    builder.set_start_point(start_point_id)
-    builder.set_end_point(end_point_id)
-
-    builder.add_segment(sea)
-
-    builder.add_segment(rail, conditions=[
-        sea.end_point.equals(rail.start_point),
+    _connect_segments(q, prev, rail, custom_conditions=[
         RouteBuilder.Connector.or_(
-            RouteBuilder.Connector.and_(rail.is_through.not_(), sea.is_through.not_()),
-            sea.company.equals(rail.company),
+            RouteBuilder.Connector.and_(rail.is_through.not_(), prev.is_through.not_()),
+            prev.company.equals(rail.company),
         ),
         RouteBuilder.Connector.or_(
             rail.container_owner.equals(ContainerOwner.SOC),
             RouteBuilder.Connector.and_(
-                sea.company.equals(rail.company),
+                prev.company.equals(rail.company),
                 rail.container_owner.equals(ContainerOwner.COC),
             ),
         ),
         RouteBuilder.Connector.or_(
-            sea.drop_off_point.null(),
-            sea.drop_off_point.equals(rail.end_point),
+            prev.drop_off_point.null(),
+            prev.drop_off_point.equals(rail.end_point),
         ),
     ])
+    return rail
 
-    builder.add_condition(RouteBuilder.Connector.or_(
-        sea.drop_off_point.not_null(),
-        drop.exists(),
+
+def _connect_drop_off(
+    q: RouteBuilder,
+    prev: Segment,
+    curr: Segment,
+    container_ids: list[int],
+    date: datetime.date,
+    drop_off: DropOff,
+    *,
+    custom_conditions: Iterable[Condition] | None = None,
+):
+    conditions = [
+        curr.start_point.equals(drop_off.start_point),
+        curr.end_point.equals(drop_off.end_point),
+        drop_off.container.in_(container_ids),
+        prev.company.equals(drop_off.company),
+        drop_off.effective_from.lte(date),
+        drop_off.effective_to.gte(date),
+    ]
+    if custom_conditions:
+        conditions.extend(custom_conditions)
+
+    q.add_drop_off(drop_off, conditions=conditions)
+
+
+def _require_drop_off_or_drop_off_point(q: RouteBuilder, prev: Segment, drop_off: DropOff):
+    q.add_condition(RouteBuilder.Connector.or_(
+        prev.drop_off_point.not_null(),
+        drop_off.exists(),
     ))
 
-    builder.add_drop_off(drop, conditions=[
-        sea.drop_off_point.null(),
-        rail.start_point.equals(drop.start_point),
-        rail.end_point.equals(drop.end_point),
-        drop.container.in_(container_ids),
-        sea.company.equals(drop.company),
-        drop.effective_from.lte(date),
-        drop.effective_to.gte(date),
+
+def _build_direct(q: RouteBuilder, core_type: RouteType):
+    segs = [Segment(_type=core_type)]
+    q.add_segment(segs[0])
+    q.add_condition(segs[0].drop_off_point.null())
+    return [q.build()]
+
+
+def _build_sea_rail(
+    q: RouteBuilder,
+    container_ids: list[int],
+    date: datetime.date,
+    *,
+    hide_sea_soc: bool = False,
+):
+    sea = Segment(_type=RouteType.SEA)
+    q.add_segment(sea)
+
+    rail = _connect_rail(q, sea)
+
+    drop_off = DropOff()
+    _connect_drop_off(q, sea, rail, container_ids, date, drop_off, custom_conditions=[
+        sea.drop_off_point.null()
     ])
+    _require_drop_off_or_drop_off_point(q, sea, drop_off)
 
     if hide_sea_soc:
-        builder.add_condition(sea.container_owner.not_equals(ContainerOwner.SOC))
+        q.add_condition(sea.container_owner.not_equals(ContainerOwner.SOC))
 
-    return builder.build()
+    return [q.build()]
+
+
+def build_queries(
+    date: datetime.date,
+    start_point_id: int,
+    end_point_id: int,
+    container_ids: list[int],
+    *,
+    hide_sea_soc: bool = False,
+) -> list:
+    base = RouteBuilder(date)
+    base.set_containers(container_ids)
+    base.set_start_point(start_point_id)
+    base.set_end_point(end_point_id)
+
+    queries = []
+    queries += _build_direct(base.copy(), RouteType.RAIL)
+    queries += _build_direct(base.copy(), RouteType.SEA)
+    queries += _build_sea_rail(base, container_ids, date, hide_sea_soc=hide_sea_soc)
+    return queries
 
 
 def process_results(
@@ -121,7 +167,6 @@ def process_results(
 
             may_route_be_invalid = False
             for segment in routes:
-                # TODO: find another way...
                 segment.services = [
                     service for service in segment.services
                     if service.container_id is None or service.container_id in container_ids
@@ -150,36 +195,12 @@ async def find_all_paths(
             if setting is not None:
                 hide_sea_soc = bool(setting.value)
     except Exception:
-        logger.warning("Failed to read hide-sea-soc setting, defaulting to False")
+        logger.warning("Failed to read hide-sea-soc setting, defaulting to False\nException info:", exc_info=True)
 
-    query_rail = build_usual_query(
-        RouteType.RAIL,
-        date,
-        start_point_id,
-        end_point_id,
-        container_ids,
-    )
-    query_sea = build_usual_query(
-        RouteType.SEA,
-        date,
-        start_point_id,
-        end_point_id,
-        container_ids,
-    )
-
-    sea_rail_query = build_base_sea_rail_query(
-        date,
-        start_point_id,
-        end_point_id,
-        container_ids,
+    all_queries = build_queries(
+        date, start_point_id, end_point_id, container_ids,
         hide_sea_soc=hide_sea_soc,
     )
-
-    all_queries = [
-        query_rail,
-        query_sea,
-        sea_rail_query,
-    ]
 
     coroutines = [_execute_query(query) for query in all_queries]
     results = await asyncio.gather(*coroutines, return_exceptions=True)
