@@ -2,19 +2,11 @@ import asyncio
 import datetime
 import logging
 
-from module_data_internal.schemas import (
-    ContainerOwner,
-    DropModel,
-    PriceModel,
-    RouteModel,
-    RouteType,
-    ServicePriceModel,
-)
+from module_data_internal.query_domain import DropOff, RouteBuilder, Segment
+from module_data_internal.schemas import ContainerOwner, DropModel, RouteModel, RouteType
 from module_shared.cache_settings import get_setting_cached
 from module_shared.database import Base, get_database
 from module_shared.models.route import RouteResult
-from sqlalchemy import and_, desc, or_, select
-from sqlalchemy.orm import aliased, contains_eager, joinedload, selectinload
 
 from .transformers.routes import transform_routes
 
@@ -34,55 +26,14 @@ def build_usual_query(
     end_point_id: int,
     container_ids: list[int],
 ):
-    where_clause = and_(
-        RouteModel.effective_from <= date,
-        RouteModel.effective_to >= date,
-        RouteModel.start_point_id == start_point_id,
-        RouteModel.end_point_id == end_point_id,
-        RouteModel.type == route_type,
-        RouteModel.dropp_off_point_id.is_(None),
-    )
-
-    return (
-        select(RouteModel)
-        .where(where_clause)
-        .join(
-            PriceModel,
-            and_(
-                RouteModel.id == PriceModel.route_id,
-                PriceModel.container_id.in_(container_ids)
-            ),
-        )
-        .outerjoin(
-            ServicePriceModel,
-            and_(
-                RouteModel.id == ServicePriceModel.route_id,
-                or_(
-                    ServicePriceModel.container_id.is_(None),
-                    ServicePriceModel.container_id.in_(container_ids),
-                ),
-            ),
-        )
-        .order_by(desc(RouteModel.effective_to))
-        # note: I tried using 'group by' statement, but it cuts off prices
-        .options(
-            joinedload(RouteModel.start_point),
-            joinedload(RouteModel.end_point),
-            joinedload(RouteModel.company),
-            contains_eager(RouteModel.services).joinedload(ServicePriceModel.service),
-            contains_eager(RouteModel.prices).joinedload(PriceModel.container),
-        )
-    )
-
-
-def _create_aliases():
-    SeaRoute = aliased(RouteModel, name="sea_route")
-    RailRoute = aliased(RouteModel, name="rail_route")
-    SeaPrice = aliased(PriceModel, name="sea_price")
-    RailPrice = aliased(PriceModel, name="rail_price")
-    SeaServicePrice = aliased(ServicePriceModel, name="sea_service_price")
-    RailServicePrice = aliased(ServicePriceModel, name="rail_service_price")
-    return SeaRoute, RailRoute, SeaPrice, RailPrice, SeaServicePrice, RailServicePrice
+    seg = Segment(_type=route_type)
+    builder = RouteBuilder(date)
+    builder.set_containers(container_ids)
+    builder.set_start_point(start_point_id)
+    builder.set_end_point(end_point_id)
+    builder.add_segment(seg)
+    builder.add_condition(seg.drop_off_point.null())
+    return builder.build()
 
 
 def build_base_sea_rail_query(
@@ -91,103 +42,56 @@ def build_base_sea_rail_query(
     end_point_id: int,
     container_ids: list[int],
     hide_sea_soc: bool = False,
-) -> tuple:
-    SeaRoute, RailRoute, SeaPrice, RailPrice, SeaServicePrice, RailServicePrice = _create_aliases()
-    where_conditions = [
-        # Types
-        SeaRoute.type == RouteType.SEA,
-        RailRoute.type == RouteType.RAIL,
-        # Dates
-        SeaRoute.effective_from <= date,
-        RailRoute.effective_from <= date,
-        SeaRoute.effective_to >= date,
-        RailRoute.effective_to >= date,
-        # Points
-        SeaRoute.start_point_id == start_point_id,
-        RailRoute.end_point_id == end_point_id,
-        # Containers
-        SeaPrice.container_id.in_(container_ids),
-        RailPrice.container_id.in_(container_ids),
-        # COC/SOC logic
-        or_(
-            RailRoute.container_owner == ContainerOwner.SOC,
-            and_(
-                SeaRoute.company_id == RailRoute.company_id,
-                RailRoute.container_owner == ContainerOwner.COC,
+):
+    sea = Segment(_type=RouteType.SEA)
+    rail = Segment(_type=RouteType.RAIL)
+    drop = DropOff()
+
+    builder = RouteBuilder(date)
+    builder.set_containers(container_ids)
+    builder.set_start_point(start_point_id)
+    builder.set_end_point(end_point_id)
+
+    builder.add_segment(sea)
+
+    builder.add_segment(rail, conditions=[
+        sea.end_point.equals(rail.start_point),
+        RouteBuilder.Connector.or_(
+            RouteBuilder.Connector.and_(rail.is_through.not_(), sea.is_through.not_()),
+            sea.company.equals(rail.company),
+        ),
+        RouteBuilder.Connector.or_(
+            rail.container_owner.equals(ContainerOwner.SOC),
+            RouteBuilder.Connector.and_(
+                sea.company.equals(rail.company),
+                rail.container_owner.equals(ContainerOwner.COC),
             ),
         ),
-        # Through routes logic
-        or_(
-            ~RailRoute.is_through & ~SeaRoute.is_through,
-            SeaRoute.company_id == RailRoute.company_id,
+        RouteBuilder.Connector.or_(
+            sea.drop_off_point.null(),
+            sea.drop_off_point.equals(rail.end_point),
         ),
-        # Drop-off must exist: either via dropp_off_point_id or via DROPS table
-        or_(
-            SeaRoute.dropp_off_point_id.isnot(None),
-            DropModel.id.isnot(None),
-        ),
-    ]
+    ])
+
+    builder.add_condition(RouteBuilder.Connector.or_(
+        sea.drop_off_point.not_null(),
+        drop.exists(),
+    ))
+
+    builder.add_drop_off(drop, conditions=[
+        sea.drop_off_point.null(),
+        rail.start_point.equals(drop.start_point),
+        rail.end_point.equals(drop.end_point),
+        drop.container.in_(container_ids),
+        sea.company.equals(drop.company),
+        drop.effective_from.lte(date),
+        drop.effective_to.gte(date),
+    ])
+
     if hide_sea_soc:
-        where_conditions.append(SeaRoute.container_owner != ContainerOwner.SOC)
+        builder.add_condition(sea.container_owner.not_equals(ContainerOwner.SOC))
 
-    drop_join_clause = and_(
-        SeaRoute.dropp_off_point_id.is_(None),  # if not, drop is already included!
-        # Points
-        RailRoute.start_point_id == DropModel.start_point_id,
-        RailRoute.end_point_id == DropModel.end_point_id,
-        # Container
-        RailPrice.container_id == DropModel.container_id,
-        # Company
-        SeaRoute.company_id == DropModel.company_id,
-        # Drop-off must be valid on the shipping date
-        DropModel.effective_from <= date,
-        DropModel.effective_to >= date,
-    )
-
-    return (
-        select(SeaRoute, RailRoute, DropModel)
-        .where(and_(*where_conditions))
-        .join(SeaPrice, SeaRoute.id == SeaPrice.route_id)
-        .join(RailRoute, and_(
-            SeaRoute.end_point_id == RailRoute.start_point_id,
-            or_(
-                SeaRoute.dropp_off_point_id.is_(None),
-                SeaRoute.dropp_off_point_id == RailRoute.end_point_id,
-            ),
-        ))
-        .join(RailPrice, RailRoute.id == RailPrice.route_id)
-        .outerjoin(DropModel, drop_join_clause)
-        .order_by(desc(SeaRoute.effective_to), desc(RailRoute.effective_to))
-        # note: I tried using 'group by' statement, but it cuts off prices
-        # here could be 'group_by', but it doesn't work correctly with 'joinedload'
-        # so we select unique on the client-side
-        .options(
-            joinedload(SeaRoute.start_point),
-            joinedload(SeaRoute.end_point),
-            joinedload(SeaRoute.company),
-            contains_eager(SeaRoute.prices, alias=SeaPrice).joinedload(PriceModel.container),
-            selectinload(SeaRoute.services.of_type(SeaServicePrice)).joinedload(SeaServicePrice.service),
-            # note: with_loader_criteria does not work properly with cache (first start - ok, next - ignored)
-            # so we need filter it after we've got a response
-            # the code:
-            # `with_loader_criteria(SeaServicePrice, or_(`
-            #     `SeaServicePrice.container_id.is_(None),`
-            #     `SeaServicePrice.container_id.in_(container_ids),`
-            # `)),`
-            joinedload(RailRoute.start_point),
-            joinedload(RailRoute.end_point),
-            joinedload(RailRoute.company),
-            contains_eager(RailRoute.prices, alias=RailPrice).joinedload(PriceModel.container),
-            selectinload(RailRoute.services.of_type(RailServicePrice)).joinedload(RailServicePrice.service),
-            # note: with_loader_criteria does not work properly with cache (first start - ok, next - ignored)
-            # so we need filter it after we've got a response
-            # the code:
-            # `with_loader_criteria(RailServicePrice, or_(`
-            #     `RailServicePrice.container_id.is_(None),`
-            #     `RailServicePrice.container_id.in_(container_ids),`
-            # `)),`
-        )
-    )
+    return builder.build()
 
 
 def process_results(
