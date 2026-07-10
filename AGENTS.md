@@ -74,6 +74,7 @@ Python/
 │   │       ├── demo_guest.py     # get/list demo guests
 │   │       └── setting.py        # get_setting, list_settings
 │   ├── module_data_internal/
+│   │   ├── query_domain/    # New declarative query builder
 │   └── module_data_fesco_api_adapter/
 ```
 
@@ -263,9 +264,9 @@ Module prefixes:
 
 ### Python Tests
 - Tests live in `Python/tests/`, run with `pytest`
-- **139 tests** across 11 files:
+- **199 tests** across 15 files:
     - `test_route_calculation.py` (16) — route calculation (service-level: internal, FESCO, mixed, errors; handler-level: format conversion, demo transforms/strip/profit)
-    - `test_internal_aggregators.py` (22) — containers, paths (rail/sea/COC/SOC/expired/services/drop/dropp_off/no_data/process_results), hide-sea-soc feature flag
+    - `test_internal_aggregators.py` (27) — containers, paths (rail/sea/COC/SOC/expired/services/drop/dropp_off/no_data/process_results), hide-sea-soc + route-type feature flags + TRUCK routes (direct, truck→rail, rail→truck, truck→rail→truck, truck→sea→rail→truck, truck→rail→sea→truck)
     - `test_profit.py` (17) — currency conversion, profit application, segment type filtering, mixed segments, currency conversion in profit
     - `test_auth_utils.py` (8) — `_strip_demo_fields`, `get_auth_context` with/without/invalid demo header, empty routes
     - `test_get_points.py` (4) — `get_departure_points`, `get_destination_points`, no routes, multiple companies
@@ -275,6 +276,10 @@ Module prefixes:
     - `test_fesco_api_client.py` (34) — FESCO API transformations, container search, points, routes, caching
     - `test_deduplication.py` (2) — route deduplication preserves distinct routes, multiple prices
     - `test_route_calculation_v3_sse.py` (13) — SSE streaming, demo transforms, error handling
+    - `test_query_domain_expr.py` (19) — ColumnRef, Condition, Connector
+    - `test_query_domain_segment.py` (11) — Segment construction, column access, repr
+    - `test_query_domain_drop_off.py` (6) — DropOff column access, exists(), repr
+    - `test_query_domain_builder.py` (19) — RouteBuilder API tests + DB-backed build tests
 - **Test DB**: SQLite in-memory (`sqlite+aiosqlite`). Tables created via `Base.metadata.create_all()`, **not** via Alembic migrations (migrations have MySQL-specific code).
 - **Auth mocks**: patch `get_demo_guest_by_uid`, `get_database`, and `request_auth` directly
 - **FESCO API mocks**: use `unittest.mock.patch` on `module_data_fesco_api_adapter.api_client` directly
@@ -395,6 +400,16 @@ module_shared ───┬── backend_auth
 ### Route Calculation — Key Logic
 
 > Подробное описание логики расчёта маршрутов см. в [ROUTES-CALCULATION-LOGIC.md](./ROUTES-CALCULATION-LOGIC.md).
+
+** Query Composer (`query_domain/`) —** wired into `routes.py` (replaced raw SQL `build_usual_query`/`build_base_sea_rail_query`).
+- **`ColumnRef`** — single entity for column references (no separate `Field`/`RelField`). Accessed via `Segment.__getattr__`/`DropOff.__getattr__` which looks up `_COLUMN_MAP` (domain → DB column name). Methods: `.equals()`, `.not_equals()`, `.not_()`, `.not_null()`, `.null()`, `.in_()`, `.lte()`, `.gte()`. `_id` columns hidden (only accessible via relationship names like `company` → `company_id`).
+- **`Condition`** — AST node: `op`, `left`, `right`, `operand`, `operands`. Supports unary (not/not_null/null), binary (eq/in/lte/gte), and n-ary (and/or) operations.
+- **`Segment`** — represents a route table segment. `type` param accepts string or `RouteType` enum (auto-converts). `auto_services=False` default. All route columns accessible via `_COLUMN_MAP`.
+- **`DropOff`** — represents a drop_off table row. `exists()` returns `id.not_null()`.
+- **`RouteBuilder`** — fluent API: setters (`set_containers`, `set_start_point`, `set_end_point`, `set_companies` + singular/plural variants), `set_base_segment(segment, copy=True)`, `add_segment(segment, conditions=...)`, `add_condition(cond)`, `add_drop_off(drop, conditions=...)`, `copy()`.
+  - `build()` takes NO arguments — resolves `Condition` AST → SQLAlchemy `BinaryExpression`, builds JOINs, WHERE (date range, type filter, start/end points, company filter, global conditions), ORDER BY, and eager loading (start_point, end_point, company, prices→container, services).
+  - `.unique()` required on result when prices collection is `contains_eager` loaded.
+  - No pre-compilation — all aliases created fresh per `build()` call.
 
 **Feature flags in route calculation (DB-backed settings):**
 
