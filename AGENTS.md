@@ -401,7 +401,7 @@ module_shared ───┬── backend_auth
 
 > Подробное описание логики расчёта маршрутов см. в [ROUTES-CALCULATION-LOGIC.md](./ROUTES-CALCULATION-LOGIC.md).
 
-** Query Composer (`query_domain/`) —** wired into `routes.py` (replaced raw SQL `build_usual_query`/`build_base_sea_rail_query`).
+** Query Composer (`query_domain/`) —** wired into `routes.py` (replaced raw SQL `build_usual_query`/`build_base_sea_rail_query`). Full API docs in [`query_domain/README.md`](./Python/apps/module_data_internal/query_domain/README.md).
 - **`ColumnRef`** — single entity for column references (no separate `Field`/`RelField`). Accessed via `Segment.__getattr__`/`DropOff.__getattr__` which looks up `_COLUMN_MAP` (domain → DB column name). Methods: `.equals()`, `.not_equals()`, `.not_()`, `.not_null()`, `.null()`, `.in_()`, `.lte()`, `.gte()`. `_id` columns hidden (only accessible via relationship names like `company` → `company_id`).
 - **`Condition`** — AST node: `op`, `left`, `right`, `operand`, `operands`. Supports unary (not/not_null/null), binary (eq/in/lte/gte), and n-ary (and/or) operations.
 - **`Segment`** — represents a route table segment. `type` param accepts string or `RouteType` enum (auto-converts). `auto_services=False` default. All route columns accessible via `_COLUMN_MAP`.
