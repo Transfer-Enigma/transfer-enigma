@@ -1,4 +1,6 @@
+import json
 from dataclasses import dataclass, field
+from typing import Any
 
 from module_shared.schemas.setting import SettingType
 
@@ -8,9 +10,21 @@ class SettingDefinition:
     group: str
     name: str
     value_type: SettingType
-    default: str
+    true_type_default: Any
     description: str
     locked: bool = field(default=True, kw_only=True)
+
+    @property
+    def default(self) -> str:
+        match self.true_type_default:
+            case str():
+                return self.true_type_default
+            case bool():
+                return str(self.true_type_default).lower()
+            case dict() | list():
+                return json.dumps(self.true_type_default)
+            case _:
+                return str(self.true_type_default)
 
 
 SETTING_DEFINITIONS: list[SettingDefinition] = [
@@ -18,14 +32,14 @@ SETTING_DEFINITIONS: list[SettingDefinition] = [
         group="feature-flag",
         name="hide-sea-soc",
         value_type=SettingType.BOOL,
-        default="false",
+        true_type_default=False,
         description="Hide sea SOC segments from combined sea+rail route calculation",
     ),
     SettingDefinition(
         group="feature-flag",
         name="demo-excluded-fields",
         value_type=SettingType.JSON,
-        default='["company"]',
+        true_type_default=["company"],
         description="List of fields to blur for demo users",
     ),
 ]
