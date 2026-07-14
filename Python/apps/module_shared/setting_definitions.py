@@ -58,6 +58,13 @@ SETTING_DEFINITIONS: list[SettingDefinition] = [
     ),
     SettingDefinition(
         group="feature-flag",
+        name="rail-sea",
+        value_type=SettingType.BOOL,
+        true_type_default=False,  # TODO: make 'True' when logic will be production-ready
+        description="Enable RAIL→SEA combined route calculation",
+    ),
+    SettingDefinition(
+        group="feature-flag",
         name="demo-excluded-fields",
         value_type=SettingType.JSON,
         true_type_default=["company"],

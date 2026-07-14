@@ -121,6 +121,17 @@ def _build_sea_rail(
     return [q.build()]
 
 
+# EXPERIMENTAL
+# TODO: specify behaviour and login
+def _build_rail_sea(q: RouteBuilder):
+    rail = Segment(_type=RouteType.RAIL)
+    q.add_segment(rail)
+
+    _connect_segments(q, rail, Segment(_type=RouteType.SEA))
+
+    return [q.build()]
+
+
 def build_queries(
     date: datetime.date,
     start_point_id: int,
@@ -130,6 +141,7 @@ def build_queries(
     rail_direct: bool,
     sea_direct: bool,
     sea_rail: bool,
+    rail_sea: bool,
     hide_sea_soc: bool = False,
 ) -> list:
     base = RouteBuilder(date)
@@ -143,7 +155,9 @@ def build_queries(
     if sea_direct:
         queries += _build_direct(base.copy(), RouteType.SEA)
     if sea_rail:
-        queries += _build_sea_rail(base, container_ids, date, hide_sea_soc=hide_sea_soc)
+        queries += _build_sea_rail(base.copy(), container_ids, date, hide_sea_soc=hide_sea_soc)
+    if rail_sea:
+        queries += _build_rail_sea(base)
     return queries
 
 
@@ -195,6 +209,7 @@ _flags: list[tuple[str, str]] = [
     ("rail-direct", "rail_direct"),
     ("sea-direct", "sea_direct"),
     ("sea-rail", "sea_rail"),
+    ("rail-sea", "rail_sea"),
 ]
 
 
