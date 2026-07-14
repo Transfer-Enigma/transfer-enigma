@@ -765,14 +765,23 @@ async def test_find_all_paths_sea_soc_shown_when_flag_off(sqlite_db: Database):
         session.add(drop)
         await session.commit()
 
-    setting = SettingItem(
-        group="feature-flag", name="hide-sea-soc",
-        value_type=SettingType.BOOL, value=False,
-    )
+    settings = {
+        "hide-sea-soc": SettingItem(
+            group="feature-flag", name="hide-sea-soc",
+            value_type=SettingType.BOOL, value=False,
+        ),
+        "sea-rail": SettingItem(
+            group="feature-flag", name="sea-rail",
+            value_type=SettingType.BOOL, value=True,
+        ),
+    }
+
+    def _mock_setting(session, group, name):
+        return settings.get(name)
 
     with (
         patch("module_data_internal.aggregators.routes.get_database", return_value=sqlite_db),
-        patch("module_data_internal.aggregators.routes.get_setting_cached", return_value=setting),
+        patch("module_data_internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
     ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
@@ -889,14 +898,23 @@ async def test_find_all_paths_sea_soc_hidden_by_flag(sqlite_db: Database):
         session.add(drop)
         await session.commit()
 
-    setting = SettingItem(
-        group="feature-flag", name="hide-sea-soc",
-        value_type=SettingType.BOOL, value=True,
-    )
+    settings = {
+        "hide-sea-soc": SettingItem(
+            group="feature-flag", name="hide-sea-soc",
+            value_type=SettingType.BOOL, value=True,
+        ),
+        "sea-rail": SettingItem(
+            group="feature-flag", name="sea-rail",
+            value_type=SettingType.BOOL, value=True,
+        ),
+    }
+
+    def _mock_setting(session, group, name):
+        return settings.get(name)
 
     with (
         patch("module_data_internal.aggregators.routes.get_database", return_value=sqlite_db),
-        patch("module_data_internal.aggregators.routes.get_setting_cached", return_value=setting),
+        patch("module_data_internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
     ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),

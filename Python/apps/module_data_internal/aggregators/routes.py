@@ -9,6 +9,7 @@ from module_data_internal.schemas import ContainerOwner, DropModel, RouteModel, 
 from module_shared.cache_settings import get_setting_cached
 from module_shared.database import Base, get_database
 from module_shared.models.route import RouteResult
+from module_shared.setting_definitions import get_setting_definition
 
 from .transformers.routes import transform_routes
 
@@ -126,6 +127,9 @@ def build_queries(
     end_point_id: int,
     container_ids: list[int],
     *,
+    rail_direct: bool,
+    sea_direct: bool,
+    sea_rail: bool,
     hide_sea_soc: bool = False,
 ) -> list:
     base = RouteBuilder(date)
@@ -134,9 +138,12 @@ def build_queries(
     base.set_end_point(end_point_id)
 
     queries = []
-    queries += _build_direct(base.copy(), RouteType.RAIL)
-    queries += _build_direct(base.copy(), RouteType.SEA)
-    queries += _build_sea_rail(base, container_ids, date, hide_sea_soc=hide_sea_soc)
+    if rail_direct:
+        queries += _build_direct(base.copy(), RouteType.RAIL)
+    if sea_direct:
+        queries += _build_direct(base.copy(), RouteType.SEA)
+    if sea_rail:
+        queries += _build_sea_rail(base, container_ids, date, hide_sea_soc=hide_sea_soc)
     return queries
 
 
@@ -183,24 +190,40 @@ def process_results(
     return flat_result
 
 
+_flags: list[tuple[str, str]] = [
+    ("hide-sea-soc", "hide_sea_soc"),
+    ("rail-direct", "rail_direct"),
+    ("sea-direct", "sea_direct"),
+    ("sea-rail", "sea_rail"),
+]
+
+
 async def find_all_paths(
     date: datetime.date,
     start_point_id: int,
     end_point_id: int,
     container_ids: list[int],
 ) -> list[RouteResult]:
-    hide_sea_soc = False
+    flag_values: dict[str, bool] = {}
+
     try:
         async with get_database().session_context() as session:
-            setting = await get_setting_cached(session, "feature-flag", "hide-sea-soc")
-            if setting is not None:
-                hide_sea_soc = bool(setting.value)
+            for name, local_name in _flags:
+                setting = await get_setting_cached(session, "feature-flag", name)
+                if setting is None:
+                    setting_def = get_setting_definition("feature-flag", name)
+                    if not setting_def:
+                        raise RuntimeError("Feature flag " + name + " not found")
+
+                    flag_values[local_name] = bool(setting_def.true_type_default)
+                else:
+                    flag_values[local_name] = bool(setting.value)
     except Exception:
         logger.warning("Failed to read hide-sea-soc setting, defaulting to False\nException info:", exc_info=True)
 
     all_queries = build_queries(
         date, start_point_id, end_point_id, container_ids,
-        hide_sea_soc=hide_sea_soc,
+        **flag_values,
     )
 
     coroutines = [_execute_query(query) for query in all_queries]

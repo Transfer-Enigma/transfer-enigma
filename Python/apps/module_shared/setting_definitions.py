@@ -37,6 +37,27 @@ SETTING_DEFINITIONS: list[SettingDefinition] = [
     ),
     SettingDefinition(
         group="feature-flag",
+        name="rail-direct",
+        value_type=SettingType.BOOL,
+        true_type_default=True,
+        description="Enable RAIL direct route calculation",
+    ),
+    SettingDefinition(
+        group="feature-flag",
+        name="sea-direct",
+        value_type=SettingType.BOOL,
+        true_type_default=True,
+        description="Enable SEA direct route calculation",
+    ),
+    SettingDefinition(
+        group="feature-flag",
+        name="sea-rail",
+        value_type=SettingType.BOOL,
+        true_type_default=True,
+        description="Enable SEA→RAIL combined route calculation",
+    ),
+    SettingDefinition(
+        group="feature-flag",
         name="demo-excluded-fields",
         value_type=SettingType.JSON,
         true_type_default=["company"],
