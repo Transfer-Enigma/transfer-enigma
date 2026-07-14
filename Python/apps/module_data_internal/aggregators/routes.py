@@ -167,6 +167,7 @@ def process_results(
 
             may_route_be_invalid = False
             for segment in routes:
+                # TODO: find another way...
                 segment.services = [
                     service for service in segment.services
                     if service.container_id is None or service.container_id in container_ids
