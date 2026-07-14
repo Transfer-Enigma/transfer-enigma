@@ -94,7 +94,7 @@ def _build_direct(q: RouteBuilder, core_type: RouteType):
     segs = [Segment(_type=core_type)]
     q.add_segment(segs[0])
     q.add_condition(segs[0].drop_off_point.null())
-    return [q.build()]
+    return q
 
 
 def _build_sea_rail(
@@ -118,7 +118,7 @@ def _build_sea_rail(
     if hide_sea_soc:
         q.add_condition(sea.container_owner.not_equals(ContainerOwner.SOC))
 
-    return [q.build()]
+    return q
 
 
 # EXPERIMENTAL
@@ -129,7 +129,7 @@ def _build_rail_sea(q: RouteBuilder):
 
     _connect_segments(q, rail, Segment(_type=RouteType.SEA))
 
-    return [q.build()]
+    return q
 
 
 def build_queries(
@@ -151,14 +151,15 @@ def build_queries(
 
     queries = []
     if rail_direct:
-        queries += _build_direct(base.copy(), RouteType.RAIL)
+        queries.append(_build_direct(base.copy(), RouteType.RAIL))
     if sea_direct:
-        queries += _build_direct(base.copy(), RouteType.SEA)
+        queries.append(_build_direct(base.copy(), RouteType.SEA))
     if sea_rail:
-        queries += _build_sea_rail(base.copy(), container_ids, date, hide_sea_soc=hide_sea_soc)
+        queries.append(_build_sea_rail(base.copy(), container_ids, date, hide_sea_soc=hide_sea_soc))
     if rail_sea:
-        queries += _build_rail_sea(base)
-    return queries
+        queries.append(_build_rail_sea(base))
+
+    return [q.build() for q in queries]
 
 
 def process_results(
