@@ -9,6 +9,7 @@ from module_data_internal.schemas import ContainerOwner, DropModel, RouteModel, 
 from module_shared.cache_settings import get_setting_cached
 from module_shared.database import Base, get_database
 from module_shared.models.route import RouteResult
+from module_shared.setting_definitions import get_setting_definition
 
 from .transformers.routes import transform_routes
 
@@ -93,7 +94,7 @@ def _build_direct(q: RouteBuilder, core_type: RouteType):
     segs = [Segment(_type=core_type)]
     q.add_segment(segs[0])
     q.add_condition(segs[0].drop_off_point.null())
-    return [q.build()]
+    return q
 
 
 def _build_sea_rail(
@@ -117,7 +118,18 @@ def _build_sea_rail(
     if hide_sea_soc:
         q.add_condition(sea.container_owner.not_equals(ContainerOwner.SOC))
 
-    return [q.build()]
+    return q
+
+
+# EXPERIMENTAL
+# TODO: specify behaviour and login
+def _build_rail_sea(q: RouteBuilder):
+    rail = Segment(_type=RouteType.RAIL)
+    q.add_segment(rail)
+
+    _connect_segments(q, rail, Segment(_type=RouteType.SEA))
+
+    return q
 
 
 def build_queries(
@@ -126,6 +138,10 @@ def build_queries(
     end_point_id: int,
     container_ids: list[int],
     *,
+    rail_direct: bool,
+    sea_direct: bool,
+    sea_rail: bool,
+    rail_sea: bool,
     hide_sea_soc: bool = False,
 ) -> list:
     base = RouteBuilder(date)
@@ -134,10 +150,16 @@ def build_queries(
     base.set_end_point(end_point_id)
 
     queries = []
-    queries += _build_direct(base.copy(), RouteType.RAIL)
-    queries += _build_direct(base.copy(), RouteType.SEA)
-    queries += _build_sea_rail(base, container_ids, date, hide_sea_soc=hide_sea_soc)
-    return queries
+    if rail_direct:
+        queries.append(_build_direct(base.copy(), RouteType.RAIL))
+    if sea_direct:
+        queries.append(_build_direct(base.copy(), RouteType.SEA))
+    if sea_rail:
+        queries.append(_build_sea_rail(base.copy(), container_ids, date, hide_sea_soc=hide_sea_soc))
+    if rail_sea:
+        queries.append(_build_rail_sea(base))
+
+    return [q.build() for q in queries]
 
 
 def process_results(
@@ -167,6 +189,7 @@ def process_results(
 
             may_route_be_invalid = False
             for segment in routes:
+                # TODO: find another way...
                 segment.services = [
                     service for service in segment.services
                     if service.container_id is None or service.container_id in container_ids
@@ -182,24 +205,41 @@ def process_results(
     return flat_result
 
 
+_flags: list[tuple[str, str]] = [
+    ("hide-sea-soc", "hide_sea_soc"),
+    ("rail-direct", "rail_direct"),
+    ("sea-direct", "sea_direct"),
+    ("sea-rail", "sea_rail"),
+    ("rail-sea", "rail_sea"),
+]
+
+
 async def find_all_paths(
     date: datetime.date,
     start_point_id: int,
     end_point_id: int,
     container_ids: list[int],
 ) -> list[RouteResult]:
-    hide_sea_soc = False
+    flag_values: dict[str, bool] = {}
+
     try:
         async with get_database().session_context() as session:
-            setting = await get_setting_cached(session, "feature-flag", "hide-sea-soc")
-            if setting is not None:
-                hide_sea_soc = bool(setting.value)
+            for name, local_name in _flags:
+                setting = await get_setting_cached(session, "feature-flag", name)
+                if setting is None:
+                    setting_def = get_setting_definition("feature-flag", name)
+                    if not setting_def:
+                        raise RuntimeError("Feature flag " + name + " not found")
+
+                    flag_values[local_name] = bool(setting_def.true_type_default)
+                else:
+                    flag_values[local_name] = bool(setting.value)
     except Exception:
         logger.warning("Failed to read hide-sea-soc setting, defaulting to False\nException info:", exc_info=True)
 
     all_queries = build_queries(
         date, start_point_id, end_point_id, container_ids,
-        hide_sea_soc=hide_sea_soc,
+        **flag_values,
     )
 
     coroutines = [_execute_query(query) for query in all_queries]
