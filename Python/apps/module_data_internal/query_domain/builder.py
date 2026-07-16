@@ -103,6 +103,12 @@ class RouteBuilder:
             self._connections.appendleft(conds)
         return self
 
+    def get_first_segment(self):
+        return self._segments[0]
+
+    def get_last_segment(self):
+        return self._segments[-1]
+
     # -- global conditions & drops -----------------------------------------
 
     def add_condition(self, condition: Condition) -> Self:
