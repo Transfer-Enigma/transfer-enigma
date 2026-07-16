@@ -90,10 +90,14 @@ def _require_drop_off_or_drop_off_point(q: RouteBuilder, prev: Segment, drop_off
     ))
 
 
-def _build_direct(q: RouteBuilder, core_type: RouteType):
-    segs = [Segment(_type=core_type)]
-    q.add_segment(segs[0])
-    q.add_condition(segs[0].drop_off_point.null())
+def _build_direct(q: RouteBuilder, start_point_id: int, end_point_id: int, core_type: RouteType):
+    seg = Segment(_type=core_type)
+    q.add_segment(seg)
+
+    q.add_condition(seg.start_point.equals(start_point_id))
+    q.add_condition(seg.end_point.equals(end_point_id))
+    q.add_condition(seg.drop_off_point.null())
+
     return q
 
 
@@ -101,6 +105,8 @@ def _build_sea_rail(
     q: RouteBuilder,
     container_ids: list[int],
     date: datetime.date,
+    start_point_id: int,
+    end_point_id: int,
     *,
     hide_sea_soc: bool = False,
 ):
@@ -115,6 +121,9 @@ def _build_sea_rail(
     ])
     _require_drop_off_or_drop_off_point(q, sea, drop_off)
 
+    q.add_condition(sea.start_point.equals(start_point_id))
+    q.add_condition(rail.end_point.equals(end_point_id))
+
     if hide_sea_soc:
         q.add_condition(sea.container_owner.not_equals(ContainerOwner.SOC))
 
@@ -123,11 +132,15 @@ def _build_sea_rail(
 
 # EXPERIMENTAL
 # TODO: specify behaviour and login
-def _build_rail_sea(q: RouteBuilder):
+def _build_rail_sea(q: RouteBuilder, start_point_id: int, end_point_id: int):
     rail = Segment(_type=RouteType.RAIL)
     q.add_segment(rail)
 
-    _connect_segments(q, rail, Segment(_type=RouteType.SEA))
+    sea = Segment(_type=RouteType.SEA)
+    _connect_segments(q, rail, sea)
+
+    q.add_condition(rail.start_point.equals(start_point_id))
+    q.add_condition(sea.end_point.equals(end_point_id))
 
     return q
 
@@ -146,18 +159,16 @@ def build_queries(
 ) -> list:
     base = RouteBuilder(date)
     base.set_containers(container_ids)
-    base.set_start_point(start_point_id)
-    base.set_end_point(end_point_id)
 
     queries = []
     if rail_direct:
-        queries.append(_build_direct(base.copy(), RouteType.RAIL))
+        queries.append(_build_direct(base.copy(), start_point_id, end_point_id, RouteType.RAIL))
     if sea_direct:
-        queries.append(_build_direct(base.copy(), RouteType.SEA))
+        queries.append(_build_direct(base.copy(), start_point_id, end_point_id, RouteType.SEA))
     if sea_rail:
-        queries.append(_build_sea_rail(base.copy(), container_ids, date, hide_sea_soc=hide_sea_soc))
+        queries.append(_build_sea_rail(base.copy(), container_ids, date, start_point_id, end_point_id, hide_sea_soc=hide_sea_soc))
     if rail_sea:
-        queries.append(_build_rail_sea(base))
+        queries.append(_build_rail_sea(base, start_point_id, end_point_id))
 
     return [q.build() for q in queries]
 
