@@ -222,20 +222,24 @@ async def find_all_paths(
 ) -> list[RouteResult]:
     flag_values: dict[str, bool] = {}
 
-    try:
-        async with get_database().session_context() as session:
-            for name, local_name in _flags:
+    async with get_database().session_context() as session:
+        for name, local_name in _flags:
+            try:
                 setting = await get_setting_cached(session, "feature-flag", name)
-                if setting is None:
-                    setting_def = get_setting_definition("feature-flag", name)
-                    if not setting_def:
-                        raise RuntimeError("Feature flag " + name + " not found")
-
-                    flag_values[local_name] = bool(setting_def.true_type_default)
-                else:
+                if setting is not None:
                     flag_values[local_name] = bool(setting.value)
-    except Exception:
-        logger.warning("Failed to read hide-sea-soc setting, defaulting to False\nException info:", exc_info=True)
+                    continue
+            except Exception:
+                logger.warning(
+                    f"Failed to read feature-flag {name}, use the default value\nException info:",
+                    exc_info=True,
+                )
+
+            setting_def = get_setting_definition("feature-flag", name)
+            if not setting_def:
+                raise RuntimeError("Feature flag " + name + " not found")
+
+            flag_values[local_name] = bool(setting_def.true_type_default)
 
     all_queries = build_queries(
         date, start_point_id, end_point_id, container_ids,
