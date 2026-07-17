@@ -31,6 +31,8 @@ async def _get_routes(
     destination: str | int,
     container_weight: float,
     container_type: int,
+    truck_start_point_id: str | int | None = None,
+    truck_end_point_id: str | int | None = None,
 ) -> Iterable[RouteResult]:
     containers = await modul.get_containers(date, departure, destination)
     container_ids = modul.search_container_ids(
@@ -41,7 +43,11 @@ async def _get_routes(
     if not container_ids:
         logger.warning("No matching containers for %s-%s", departure, destination)
         return []
-    return await modul.find_all_paths(date, departure, destination, container_ids)
+    return await modul.find_all_paths(
+        date, departure, destination, container_ids,
+        truck_start_point_id=truck_start_point_id,
+        truck_end_point_id=truck_end_point_id,
+    )
 
 
 def _build_calculation_coros(request: CalculateFormRequest):
