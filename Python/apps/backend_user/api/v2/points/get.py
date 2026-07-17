@@ -137,3 +137,51 @@ async def all_destination_by_date(
         "errors": errors,
         "data": result,
     }
+
+
+@router.get("/truck-departures", response_model=PointsDataResponse)
+async def truck_departure_points(date: datetime.date, auth: Annotated[AuthContext, Depends(get_auth_context)]):
+    try:
+        data: list[dict[str, Any]] = map_custom(await aggregators.get_truck_departure_points(date=date))
+    except Exception as ex:
+        return {
+            "errors": [RouteError(error_type=str(type(ex)), error_text=str(ex), source="internal")],
+            "data": [],
+        }
+
+    result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
+
+    async with get_database().session_context() as session:
+        setting = await get_setting_cached(session, "feature-flag", "demo-excluded-fields")
+        excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
+
+    _strip_demo_fields_from_points(result, auth, excluded_fields)
+
+    return {
+        "errors": [],
+        "data": result,
+    }
+
+
+@router.get("/truck-destinations", response_model=PointsDataResponse)
+async def truck_destination_points(date: datetime.date, auth: Annotated[AuthContext, Depends(get_auth_context)]):
+    try:
+        data: list[dict[str, Any]] = map_custom(await aggregators.get_truck_destination_points(date=date))
+    except Exception as ex:
+        return {
+            "errors": [RouteError(error_type=str(type(ex)), error_text=str(ex), source="internal")],
+            "data": [],
+        }
+
+    result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
+
+    async with get_database().session_context() as session:
+        setting = await get_setting_cached(session, "feature-flag", "demo-excluded-fields")
+        excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
+
+    _strip_demo_fields_from_points(result, auth, excluded_fields)
+
+    return {
+        "errors": [],
+        "data": result,
+    }
