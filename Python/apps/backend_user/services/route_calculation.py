@@ -51,6 +51,9 @@ async def _get_routes(
 
 
 def _build_calculation_coros(request: CalculateFormRequest):
+    truck_start = request.truckStartPointId
+    truck_end = request.truckEndPointId
+
     internal_coros = [
         _get_routes(
             aggregators,
@@ -59,6 +62,8 @@ def _build_calculation_coros(request: CalculateFormRequest):
             destination_id,
             request.cargoWeight,
             request.containerType,
+            truck_start_point_id=truck_start,
+            truck_end_point_id=truck_end,
         )
         for destination_id in request.destinationInternalIds
         for departure_id in request.departureInternalIds
@@ -71,6 +76,8 @@ def _build_calculation_coros(request: CalculateFormRequest):
             destination_id,
             request.cargoWeight,
             request.containerType,
+            truck_start_point_id=truck_start,
+            truck_end_point_id=truck_end,
         )
         for destination_id in request.destinationExternalIds
         for departure_id in request.departureExternalIds
