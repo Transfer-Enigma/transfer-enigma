@@ -415,11 +415,21 @@ module_shared ───┬── backend_auth
 | Setting group | Setting name | Type | Default | Effect |
 |---------------|-------------|------|---------|--------|
 | `feature-flag` | `hide-sea-soc` | `BOOL` | `false` | When `true`, sea segments with `container_owner == SOC` are excluded from SQL queries (both direct SEA and combined sea+rail) |
+| `feature-flag` | `head-truck` | `BOOL` | `false` | When `true`, allows prepending a TRUCK segment before the route (via `truck_start_point_id`) |
+| `feature-flag` | `tail-truck` | `BOOL` | `false` | When `true`, allows appending a TRUCK segment after the route (via `truck_end_point_id`) |
 
 - Read in `module_data_internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached(session, "feature-flag", "hide-sea-soc")`
 - Affects `build_usual_query(RouteType.SEA, ...)` and `build_base_sea_rail_query(...)`
 - Falls back to `False` if setting not found or Redis/DB unavailable
 - Created via Admin API: `POST /admin/api/db/settings` with `{"group": "feature-flag", "name": "hide-sea-soc", "value_type": "BOOL", "value": "false"}`
+
+**TRUCK segment connection rules (in `routes.py`):**
+- `_connect_segments(prev, curr)` adds: `prev.end_point == curr.start_point`
+- `_connect_segments_reversed(curr, _next)` adds: `curr.end_point == _next.start_point` (uses `q.prepend_segment()`)
+- Head truck: `_attach_head_trucks` prepends truck segment before the first segment via `_connect_segments_reversed`
+- Tail truck: `_attach_tail_trucks` appends truck segment after the last segment via `_connect_segments`
+- **"Without delivery" button**: `build_queries` copies base queries before attaching truck segments, then returns `[base_queries + queries]`. The frontend filters out TRUCK segments to show non-truck routes.
+- `_connect_rail` requires either SOC container owner or matching company + COC for the rail connection
 
 ### CLI Tools (`Python/cli/`)
 
