@@ -14,6 +14,7 @@ export enum RouteType {
     SEA = "SEA",
     RAIL = "RAIL",
     SEA_RAIL = "SEA_RAIL",
+    TRUCK = "TRUCK",
 }
 
 export interface IDrop {
