@@ -263,23 +263,22 @@ Module prefixes:
 - Alembic migrations: placed in `Python/alembic/versions/`, excluded from pre-commit (`exclude: 'Python/alembic/.*'`)
 
 ### Python Tests
-- Tests live in `Python/tests/`, run with `pytest`
-- **199 tests** across 15 files:
-    - `test_route_calculation.py` (16) — route calculation (service-level: internal, FESCO, mixed, errors; handler-level: format conversion, demo transforms/strip/profit)
-    - `test_internal_aggregators.py` (27) — containers, paths (rail/sea/COC/SOC/expired/services/drop/dropp_off/no_data/process_results), hide-sea-soc + route-type feature flags + TRUCK routes (direct, truck→rail, rail→truck, truck→rail→truck, truck→sea→rail→truck, truck→rail→sea→truck)
-    - `test_profit.py` (17) — currency conversion, profit application, segment type filtering, mixed segments, currency conversion in profit
-    - `test_auth_utils.py` (8) — `_strip_demo_fields`, `get_auth_context` with/without/invalid demo header, empty routes
-    - `test_get_points.py` (4) — `get_departure_points`, `get_destination_points`, no routes, multiple companies
-    - `test_demo_guest_repo.py` (5) — `get_demo_guest_by_uid` found/not found/profit overrides, `list_demo_guests` empty/multiple
-    - `test_get_rates.py` (4) — `get_rates` returns dict, caching, with datetime, API failure fallback
-    - `test_setting_cache.py` (3) — `get_setting_cached` cache hit/miss/not_found
-    - `test_fesco_api_client.py` (34) — FESCO API transformations, container search, points, routes, caching
-    - `test_deduplication.py` (2) — route deduplication preserves distinct routes, multiple prices
-    - `test_route_calculation_v3_sse.py` (13) — SSE streaming, demo transforms, error handling
-    - `test_query_domain_expr.py` (19) — ColumnRef, Condition, Connector
-    - `test_query_domain_segment.py` (11) — Segment construction, column access, repr
-    - `test_query_domain_drop_off.py` (6) — DropOff column access, exists(), repr
-    - `test_query_domain_builder.py` (19) — RouteBuilder API tests + DB-backed build tests
+- Tests live in `Python/tests/`, run with `make test`
+    - `test_route_calculation.py` — route calculation (service-level: internal, FESCO, mixed, errors; handler-level: format conversion, demo transforms/strip/profit)
+    - `test_internal_aggregators.py` — containers, paths (rail/sea/COC/SOC/expired/services/drop/dropp_off/no_data/process_results), hide-sea-soc + route-type feature flags + TRUCK routes (direct, truck→rail, rail→truck, truck→rail→truck, truck→sea→rail→truck, truck→rail→sea→truck, sea+rail with truck, base queries for "without delivery" button)
+    - `test_profit.py` — currency conversion, profit application, segment type filtering, mixed segments, currency conversion in profit
+    - `test_auth_utils.py` — `_strip_demo_fields`, `get_auth_context` with/without/invalid demo header, empty routes
+    - `test_get_points.py` — `get_departure_points`, `get_destination_points`, no routes, multiple companies
+    - `test_demo_guest_repo.py` — `get_demo_guest_by_uid` found/not found/profit overrides, `list_demo_guests` empty/multiple
+    - `test_get_rates.py` — `get_rates` returns dict, caching, with datetime, API failure fallback
+    - `test_setting_cache.py` — `get_setting_cached` cache hit/miss/not_found
+    - `test_fesco_api_client.py` — FESCO API transformations, container search, points, routes, caching
+    - `test_deduplication.py` — route deduplication preserves distinct routes, multiple prices
+    - `test_route_calculation_v3_sse.py` — SSE streaming, demo transforms, error handling
+    - `test_query_domain_expr.py` — ColumnRef, Condition, Connector
+    - `test_query_domain_segment.py` — Segment construction, column access, repr
+    - `test_query_domain_drop_off.py` — DropOff column access, exists(), repr
+    - `test_query_domain_builder.py` — RouteBuilder API tests + DB-backed build tests
 - **Test DB**: SQLite in-memory (`sqlite+aiosqlite`). Tables created via `Base.metadata.create_all()`, **not** via Alembic migrations (migrations have MySQL-specific code).
 - **Auth mocks**: patch `get_demo_guest_by_uid`, `get_database`, and `request_auth` directly
 - **FESCO API mocks**: use `unittest.mock.patch` on `module_data_fesco_api_adapter.api_client` directly
