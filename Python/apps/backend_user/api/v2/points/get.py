@@ -59,7 +59,7 @@ async def all_departure_by_date(date: datetime.date, auth: Annotated[AuthContext
 
     fesco_points, custom_points = await asyncio.gather(
         api_client.get_departure_points_by_date(date),
-        aggregators.get_departure_points(),
+        aggregators.get_departure_points(date=date),
         return_exceptions=True,
     )
 
@@ -94,7 +94,7 @@ async def all_destination_by_date(
     departure_point_ids: Annotated[tuple[list[int], list[str]], Depends(_parse_point_ids)],
     auth: Annotated[AuthContext, Depends(get_auth_context)],
 ):
-    coros = [aggregators.get_destination_points()]
+    coros = [aggregators.get_destination_points(date=date)]
 
     _, external_point_ids = departure_point_ids
 

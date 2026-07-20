@@ -30,19 +30,20 @@ async def test_get_departure_points(sqlite_db: Database):
         session.add_all([company, point_a, point_b])
         await session.flush()
 
+        effective_to = datetime.date(2025, 12, 31)
         route = RouteFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
             type=RouteType.RAIL,
             effective_from=datetime.date(2024, 1, 1),
-            effective_to=datetime.date(2025, 12, 31),
+            effective_to=effective_to,
         )
         session.add(route)
         await session.commit()
 
     with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
-        results = await get_departure_points()
+        results = await get_departure_points(date=effective_to)
 
     assert len(results) >= 1
     point_model, company_model = results[0]
@@ -60,19 +61,20 @@ async def test_get_destination_points(sqlite_db: Database):
         session.add_all([company, point_a, point_b])
         await session.flush()
 
+        effective_to = datetime.date(2025, 12, 31)
         route = RouteFactory(
             company_id=company.id,
             start_point_id=point_a.id,
             end_point_id=point_b.id,
             type=RouteType.RAIL,
             effective_from=datetime.date(2024, 1, 1),
-            effective_to=datetime.date(2025, 12, 31),
+            effective_to=effective_to,
         )
         session.add(route)
         await session.commit()
 
     with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
-        results = await get_destination_points()
+        results = await get_destination_points(date=effective_to)
 
     assert len(results) >= 1
     point_model, company_model = results[0]
@@ -88,9 +90,10 @@ async def test_get_points_no_routes(sqlite_db: Database):
         session.add_all([company, point])
         await session.commit()
 
+    date = datetime.date(2025, 12, 31)
     with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
-        dep_results = await get_departure_points()
-        dest_results = await get_destination_points()
+        dep_results = await get_departure_points(date=date)
+        dest_results = await get_destination_points(date=date)
 
     assert len(dep_results) == 0
     assert len(dest_results) == 0
@@ -123,7 +126,7 @@ async def test_get_points_multiple_companies(sqlite_db: Database):
         await session.commit()
 
     with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
-        dep_results = await get_departure_points()
+        dep_results = await get_departure_points(date=datetime.date(2025, 12, 31))
 
     assert len(dep_results) == 2
     company_names = {c.name for _, c in dep_results}
