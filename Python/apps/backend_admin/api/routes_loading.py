@@ -48,6 +48,7 @@ async def update_from_gsheets(
     gsheets_url: str = settings.DEFAULT_GSHEETS_URL,
     sea_routes_ws_name: str = settings.DEFAULT_SEA_ROUTES_WS,
     rail_routes_ws_name: str = settings.DEFAULT_RAIL_ROUTES_WS,
+    truck_routes_ws_name: str = settings.DEFAULT_TRUCK_ROUTES_WS,
     dropp_routes_ws_name: str = settings.DEFAULT_DROPP_ROUTES_WS,
     points_ws_name: str | None = settings.DEFAULT_POINTS_WS,
     services_ws_name: str | None = settings.DEFAULT_SERVICES_WS,
@@ -60,6 +61,7 @@ async def update_from_gsheets(
         gsheets_url,
         sea_routes_ws_name,
         rail_routes_ws_name,
+        truck_routes_ws_name,
         dropp_routes_ws_name,
         points_ws_name,
         services_ws_name,
@@ -75,6 +77,7 @@ async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split i
     gsheets_url: str = settings.DEFAULT_GSHEETS_URL,
     sea_routes_ws_name: str = settings.DEFAULT_SEA_ROUTES_WS,
     rail_routes_ws_name: str = settings.DEFAULT_RAIL_ROUTES_WS,
+    truck_routes_ws_name: str = settings.DEFAULT_TRUCK_ROUTES_WS,
     dropp_routes_ws_name: str = settings.DEFAULT_DROPP_ROUTES_WS,
     points_ws_name: str | None = settings.DEFAULT_POINTS_WS,
     services_ws_name: str | None = settings.DEFAULT_SERVICES_WS,
@@ -105,6 +108,7 @@ async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split i
     try:
         sea_routes_df = download_data(sea_routes_ws_name)
         rail_routes_df = download_data(rail_routes_ws_name)
+        truck_routes_df = download_data(truck_routes_ws_name)
         dropp_routes_df = download_data(dropp_routes_ws_name)
         services_df = download_data(services_ws_name)
         points_df = download_data(points_ws_name) if points_ws_name else None
@@ -115,12 +119,13 @@ async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split i
             "detail": str(e),
         }) from e
 
-    routes_count = len(sea_routes_df) + len(rail_routes_df)
+    routes_count = len(sea_routes_df) + len(rail_routes_df) + len(truck_routes_df)
     try:
         res, res_metadata, warnings = await load_data(
             db_session,
             sea_routes_df,
             rail_routes_df,
+            truck_routes_df,
             dropp_routes_df,
             services_df,
             points_df,
@@ -171,7 +176,13 @@ def parse_all_warning_types(warnings, fc):
 
 def parse_error(error, row_number, routes_ws_type):
     row_number += 2
-    routes_ws = {RouteType.SEA: "МОРЕ", RouteType.RAIL: "ЖД", None: "ДРОПП"}.get(routes_ws_type, "Неизвестный")
+    routes_ws_map = {
+        RouteType.SEA: "МОРЕ",
+        RouteType.RAIL: "ЖД",
+        RouteType.TRUCK: "АВТО",
+        None: "ДРОПП",
+    }
+    routes_ws = routes_ws_map.get(routes_ws_type, "Неизвестный")
 
     if isinstance(error, InvalidRouteConditionException):
         return f"Неверные условия поставки: '{error.condition}' (лист {routes_ws}, строка {row_number})"

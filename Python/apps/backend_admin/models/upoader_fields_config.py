@@ -39,6 +39,10 @@ class UploaderFieldsConfig(BaseModel):
     rail_20dc28t_currency: str
     rail_40hc: str
     rail_40hc_currency: str
+    truck_20dc: str
+    truck_20dc_currency: str
+    truck_40hc: str
+    truck_40hc_currency: str
     drop20: str
     drop40: str
 
