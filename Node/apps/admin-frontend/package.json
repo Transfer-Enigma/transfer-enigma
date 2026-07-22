@@ -1,6 +1,6 @@
 {
-  "name": "front-admin",
-  "version": "0.1.0",
+  "name": "admin-frontend",
+  "version": "5.0.0",
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
