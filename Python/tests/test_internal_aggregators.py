@@ -926,3 +926,461 @@ async def test_find_all_paths_sea_soc_hidden_by_flag(sqlite_db: Database):
     routes = list(result)
     sea_rail_routes = [r for r in routes if len(r.segments) == 2]
     assert len(sea_rail_routes) == 0
+
+
+@pytest.mark.asyncio
+async def test_find_all_paths_head_truck_rail_direct(sqlite_db: Database):
+    async with sqlite_db.session_context() as session:
+        company = CompanyFactory(name="TruckCo")
+        truck_company = CompanyFactory(name="TruckOnly")
+        point_door = PointFactory(**_unique_point())
+        point_port = PointFactory(**_unique_point())
+        point_dest = PointFactory(**_unique_point())
+        container = ContainerFactory(size=20, weight_from=0, weight_to=28000, name="20DC", type=ContainerType.DC)
+        session.add_all([company, truck_company, point_door, point_port, point_dest, container])
+        await session.flush()
+
+        rail_route = RouteFactory(
+            company_id=company.id,
+            start_point_id=point_port.id,
+            end_point_id=point_dest.id,
+            type=RouteType.RAIL,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        truck_route = RouteFactory(
+            company_id=truck_company.id,
+            start_point_id=point_door.id,
+            end_point_id=point_port.id,
+            type=RouteType.TRUCK,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        session.add_all([rail_route, truck_route])
+        await session.flush()
+
+        price_rail = PriceFactory(route_id=rail_route.id, container_id=container.id)
+        price_truck = PriceFactory(route_id=truck_route.id, container_id=container.id)
+        session.add_all([price_rail, price_truck])
+        await session.commit()
+
+    settings = {
+        "rail-direct": SettingItem(
+            group="feature-flag", name="rail-direct",
+            value_type=SettingType.BOOL, value=True,
+        ),
+        "head-truck": SettingItem(
+            group="feature-flag", name="head-truck",
+            value_type=SettingType.BOOL, value=True,
+        ),
+    }
+
+    def _mock_setting(session, group, name):
+        return settings.get(name)
+
+    with (
+        patch("module_data_internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("module_data_internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
+    ):
+        result = await find_all_paths(
+            date=datetime.date(2024, 6, 15),
+            start_point_id=point_port.id,
+            end_point_id=point_dest.id,
+            container_ids=[container.id],
+            truck_start_point_id=point_door.id,
+        )
+
+    routes = list(result)
+    truck_routes = [r for r in routes if any(s.type == "TRUCK" for s in r.segments)]
+    assert len(truck_routes) >= 1
+    route = truck_routes[0]
+    types = [s.type for s in route.segments]
+    assert types == ["TRUCK", "RAIL"]
+
+
+@pytest.mark.asyncio
+async def test_find_all_paths_head_truck_sea_direct(sqlite_db: Database):
+    async with sqlite_db.session_context() as session:
+        company = CompanyFactory(name="SeaCo")
+        truck_company = CompanyFactory(name="TruckCo")
+        point_door = PointFactory(**_unique_point())
+        point_port = PointFactory(**_unique_point())
+        point_dest = PointFactory(**_unique_point())
+        container = ContainerFactory(size=20, weight_from=0, weight_to=28000, name="20DC", type=ContainerType.DC)
+        session.add_all([company, truck_company, point_door, point_port, point_dest, container])
+        await session.flush()
+
+        sea_route = RouteFactory(
+            company_id=company.id,
+            start_point_id=point_port.id,
+            end_point_id=point_dest.id,
+            type=RouteType.SEA,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        truck_route = RouteFactory(
+            company_id=truck_company.id,
+            start_point_id=point_door.id,
+            end_point_id=point_port.id,
+            type=RouteType.TRUCK,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        session.add_all([sea_route, truck_route])
+        await session.flush()
+
+        price_sea = PriceFactory(route_id=sea_route.id, container_id=container.id)
+        price_truck = PriceFactory(route_id=truck_route.id, container_id=container.id)
+        session.add_all([price_sea, price_truck])
+        await session.commit()
+
+    settings = {
+        "sea-direct": SettingItem(
+            group="feature-flag", name="sea-direct",
+            value_type=SettingType.BOOL, value=True,
+        ),
+        "head-truck": SettingItem(
+            group="feature-flag", name="head-truck",
+            value_type=SettingType.BOOL, value=True,
+        ),
+    }
+
+    def _mock_setting(session, group, name):
+        return settings.get(name)
+
+    with (
+        patch("module_data_internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("module_data_internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
+    ):
+        result = await find_all_paths(
+            date=datetime.date(2024, 6, 15),
+            start_point_id=point_port.id,
+            end_point_id=point_dest.id,
+            container_ids=[container.id],
+            truck_start_point_id=point_door.id,
+        )
+
+    routes = list(result)
+    truck_routes = [r for r in routes if any(s.type == "TRUCK" for s in r.segments)]
+    assert len(truck_routes) >= 1
+    route = truck_routes[0]
+    types = [s.type for s in route.segments]
+    assert types == ["TRUCK", "SEA"]
+
+
+@pytest.mark.asyncio
+async def test_find_all_paths_tail_truck_rail_direct(sqlite_db: Database):
+    async with sqlite_db.session_context() as session:
+        company = CompanyFactory(name="RailCo")
+        truck_company = CompanyFactory(name="TruckCo")
+        point_origin = PointFactory(**_unique_point())
+        point_port = PointFactory(**_unique_point())
+        point_door = PointFactory(**_unique_point())
+        container = ContainerFactory(size=20, weight_from=0, weight_to=28000, name="20DC", type=ContainerType.DC)
+        session.add_all([company, truck_company, point_origin, point_port, point_door, container])
+        await session.flush()
+
+        rail_route = RouteFactory(
+            company_id=company.id,
+            start_point_id=point_origin.id,
+            end_point_id=point_port.id,
+            type=RouteType.RAIL,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        truck_route = RouteFactory(
+            company_id=truck_company.id,
+            start_point_id=point_port.id,
+            end_point_id=point_door.id,
+            type=RouteType.TRUCK,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        session.add_all([rail_route, truck_route])
+        await session.flush()
+
+        price_rail = PriceFactory(route_id=rail_route.id, container_id=container.id)
+        price_truck = PriceFactory(route_id=truck_route.id, container_id=container.id)
+        session.add_all([price_rail, price_truck])
+        await session.commit()
+
+    settings = {
+        "rail-direct": SettingItem(
+            group="feature-flag", name="rail-direct",
+            value_type=SettingType.BOOL, value=True,
+        ),
+        "tail-truck": SettingItem(
+            group="feature-flag", name="tail-truck",
+            value_type=SettingType.BOOL, value=True,
+        ),
+    }
+
+    def _mock_setting(session, group, name):
+        return settings.get(name)
+
+    with (
+        patch("module_data_internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("module_data_internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
+    ):
+        result = await find_all_paths(
+            date=datetime.date(2024, 6, 15),
+            start_point_id=point_origin.id,
+            end_point_id=point_port.id,
+            container_ids=[container.id],
+            truck_end_point_id=point_door.id,
+        )
+
+    routes = list(result)
+    truck_routes = [r for r in routes if any(s.type == "TRUCK" for s in r.segments)]
+    assert len(truck_routes) >= 1
+    route = truck_routes[0]
+    types = [s.type for s in route.segments]
+    assert types == ["RAIL", "TRUCK"]
+
+
+@pytest.mark.asyncio
+async def test_find_all_paths_tail_truck_sea_direct(sqlite_db: Database):
+    async with sqlite_db.session_context() as session:
+        company = CompanyFactory(name="SeaCo")
+        truck_company = CompanyFactory(name="TruckCo")
+        point_origin = PointFactory(**_unique_point())
+        point_port = PointFactory(**_unique_point())
+        point_door = PointFactory(**_unique_point())
+        container = ContainerFactory(size=20, weight_from=0, weight_to=28000, name="20DC", type=ContainerType.DC)
+        session.add_all([company, truck_company, point_origin, point_port, point_door, container])
+        await session.flush()
+
+        sea_route = RouteFactory(
+            company_id=company.id,
+            start_point_id=point_origin.id,
+            end_point_id=point_port.id,
+            type=RouteType.SEA,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        truck_route = RouteFactory(
+            company_id=truck_company.id,
+            start_point_id=point_port.id,
+            end_point_id=point_door.id,
+            type=RouteType.TRUCK,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        session.add_all([sea_route, truck_route])
+        await session.flush()
+
+        price_sea = PriceFactory(route_id=sea_route.id, container_id=container.id)
+        price_truck = PriceFactory(route_id=truck_route.id, container_id=container.id)
+        session.add_all([price_sea, price_truck])
+        await session.commit()
+
+    settings = {
+        "sea-direct": SettingItem(
+            group="feature-flag", name="sea-direct",
+            value_type=SettingType.BOOL, value=True,
+        ),
+        "tail-truck": SettingItem(
+            group="feature-flag", name="tail-truck",
+            value_type=SettingType.BOOL, value=True,
+        ),
+    }
+
+    def _mock_setting(session, group, name):
+        return settings.get(name)
+
+    with (
+        patch("module_data_internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("module_data_internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
+    ):
+        result = await find_all_paths(
+            date=datetime.date(2024, 6, 15),
+            start_point_id=point_origin.id,
+            end_point_id=point_port.id,
+            container_ids=[container.id],
+            truck_end_point_id=point_door.id,
+        )
+
+    routes = list(result)
+    truck_routes = [r for r in routes if any(s.type == "TRUCK" for s in r.segments)]
+    assert len(truck_routes) >= 1
+    route = truck_routes[0]
+    types = [s.type for s in route.segments]
+    assert types == ["SEA", "TRUCK"]
+
+
+@pytest.mark.asyncio
+async def test_find_all_paths_head_truck_sea_rail(sqlite_db: Database):
+    async with sqlite_db.session_context() as session:
+        sea_co = CompanyFactory(name="SeaCo")
+        truck_co = CompanyFactory(name="TruckCo")
+        point_door = PointFactory(**_unique_point())
+        point_sea_start = PointFactory(**_unique_point())
+        point_drop = PointFactory(**_unique_point())
+        point_dest = PointFactory(**_unique_point())
+        container = ContainerFactory(size=20, weight_from=0, weight_to=28000, name="20DC", type=ContainerType.DC)
+        session.add_all([sea_co, truck_co, point_door, point_sea_start, point_drop, point_dest, container])
+        await session.flush()
+
+        truck_route = RouteFactory(
+            company_id=truck_co.id,
+            start_point_id=point_door.id,
+            end_point_id=point_sea_start.id,
+            type=RouteType.TRUCK,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        sea_route = RouteFactory(
+            company_id=sea_co.id,
+            start_point_id=point_sea_start.id,
+            end_point_id=point_drop.id,
+            type=RouteType.SEA,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        rail_route = RouteFactory(
+            company_id=sea_co.id,
+            start_point_id=point_drop.id,
+            end_point_id=point_dest.id,
+            type=RouteType.RAIL,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        session.add_all([truck_route, sea_route, rail_route])
+        await session.flush()
+
+        price_truck = PriceFactory(route_id=truck_route.id, container_id=container.id)
+        price_sea = PriceFactory(route_id=sea_route.id, container_id=container.id)
+        price_rail = PriceFactory(route_id=rail_route.id, container_id=container.id)
+        session.add_all([price_truck, price_sea, price_rail])
+        await session.flush()
+
+        drop = DropFactory(
+            company_id=sea_co.id,
+            container_id=container.id,
+            start_point_id=point_drop.id,
+            end_point_id=point_dest.id,
+        )
+        session.add(drop)
+        await session.commit()
+
+    settings = {
+        "sea-rail": SettingItem(
+            group="feature-flag", name="sea-rail",
+            value_type=SettingType.BOOL, value=True,
+        ),
+        "head-truck": SettingItem(
+            group="feature-flag", name="head-truck",
+            value_type=SettingType.BOOL, value=True,
+        ),
+    }
+
+    def _mock_setting(session, group, name):
+        return settings.get(name)
+
+    with (
+        patch("module_data_internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("module_data_internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
+    ):
+        result = await find_all_paths(
+            date=datetime.date(2024, 6, 15),
+            start_point_id=point_sea_start.id,
+            end_point_id=point_dest.id,
+            container_ids=[container.id],
+            truck_start_point_id=point_door.id,
+        )
+
+    routes = list(result)
+    truck_routes = [r for r in routes if any(s.type == "TRUCK" for s in r.segments)]
+    assert len(truck_routes) >= 1
+    route = truck_routes[0]
+    types = [s.type for s in route.segments]
+    assert types == ["TRUCK", "SEA", "RAIL"]
+
+
+@pytest.mark.asyncio
+async def test_find_all_paths_tail_truck_sea_rail(sqlite_db: Database):
+    async with sqlite_db.session_context() as session:
+        sea_co = CompanyFactory(name="SeaCo")
+        truck_co = CompanyFactory(name="TruckCo")
+        point_origin = PointFactory(**_unique_point())
+        point_drop = PointFactory(**_unique_point())
+        point_rail_end = PointFactory(**_unique_point())
+        point_door = PointFactory(**_unique_point())
+        container = ContainerFactory(size=20, weight_from=0, weight_to=28000, name="20DC", type=ContainerType.DC)
+        session.add_all([sea_co, truck_co, point_origin, point_drop, point_rail_end, point_door, container])
+        await session.flush()
+
+        sea_route = RouteFactory(
+            company_id=sea_co.id,
+            start_point_id=point_origin.id,
+            end_point_id=point_drop.id,
+            type=RouteType.SEA,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        rail_route = RouteFactory(
+            company_id=sea_co.id,
+            start_point_id=point_drop.id,
+            end_point_id=point_rail_end.id,
+            type=RouteType.RAIL,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        truck_route = RouteFactory(
+            company_id=truck_co.id,
+            start_point_id=point_rail_end.id,
+            end_point_id=point_door.id,
+            type=RouteType.TRUCK,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+        )
+        session.add_all([sea_route, rail_route, truck_route])
+        await session.flush()
+
+        price_sea = PriceFactory(route_id=sea_route.id, container_id=container.id)
+        price_rail = PriceFactory(route_id=rail_route.id, container_id=container.id)
+        price_truck = PriceFactory(route_id=truck_route.id, container_id=container.id)
+        session.add_all([price_sea, price_rail, price_truck])
+        await session.flush()
+
+        drop = DropFactory(
+            company_id=sea_co.id,
+            container_id=container.id,
+            start_point_id=point_drop.id,
+            end_point_id=point_rail_end.id,
+        )
+        session.add(drop)
+        await session.commit()
+
+    settings = {
+        "sea-rail": SettingItem(
+            group="feature-flag", name="sea-rail",
+            value_type=SettingType.BOOL, value=True,
+        ),
+        "tail-truck": SettingItem(
+            group="feature-flag", name="tail-truck",
+            value_type=SettingType.BOOL, value=True,
+        ),
+    }
+
+    def _mock_setting(session, group, name):
+        return settings.get(name)
+
+    with (
+        patch("module_data_internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("module_data_internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
+    ):
+        result = await find_all_paths(
+            date=datetime.date(2024, 6, 15),
+            start_point_id=point_origin.id,
+            end_point_id=point_rail_end.id,
+            container_ids=[container.id],
+            truck_end_point_id=point_door.id,
+        )
+
+    routes = list(result)
+    truck_routes = [r for r in routes if any(s.type == "TRUCK" for s in r.segments)]
+    assert len(truck_routes) >= 1
+    route = truck_routes[0]
+    types = [s.type for s in route.segments]
+    assert types == ["SEA", "RAIL", "TRUCK"]

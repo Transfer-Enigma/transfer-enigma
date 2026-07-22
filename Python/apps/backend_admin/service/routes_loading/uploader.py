@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from .errors import (
+    CompanyNotFoundException,
     InvalidDroppRow,
     InvalidRouteTypeException,
     NoPriceInRouteException,
@@ -207,6 +208,7 @@ def create_route(  # noqa: C901
 
     sea_prices = None, None
     rail_prices = None, None, None
+    truck_prices = None, None
 
     if route_type is RouteType.SEA:
         sea_prices = tuple(map(nan_to_none_mapper, (
@@ -227,17 +229,29 @@ def create_route(  # noqa: C901
         if not any(rail_prices):
             raise NoPriceInRouteException
 
+    elif route_type is RouteType.TRUCK:
+        truck_prices = tuple(map(nan_to_none_mapper, (
+            row[fc.truck_20dc],
+            row[fc.truck_40hc],
+        )))
+
+        if not any(truck_prices):
+            raise NoPriceInRouteException
+
     else:
         raise InvalidRouteTypeException(route_type)
 
-    company = companies[row[fc.company].upper()]
+    company_name = row[fc.company]
+    if company_name not in companies:
+        raise PointNotFoundException(row[fc.company])
+    company = companies[company_name]
 
     try:
         start_point = points[row[fc.start_point].lower()]
         end_point = points[row[fc.end_point].lower()]
         dropp_off_point = (
-            None if fc.dropp_off_point not in set(row.index.tolist()) or pd.isna(row[fc.dropp_off_point])
-            else points[row[fc.dropp_off_point].lower()]
+            None if pd.isna(row[fc.dropp_off_point])
+            else points.get(row[fc.dropp_off_point].lower())
         )
     except KeyError as e:
         raise PointNotFoundException(e.args[0]) from e
@@ -245,8 +259,7 @@ def create_route(  # noqa: C901
     effective_from = row[fc.effective_from]
     effective_to = row[fc.effective_to]
 
-    is_through_raw = row[fc.is_through]
-    is_through = pd.isna(is_through_raw) or is_through_raw == 1.0 or is_through_raw == "1"
+    is_through = bool(row[fc.is_through])
 
     route = RouteModel(
         type=RouteType(route_type),
@@ -268,22 +281,25 @@ def create_route(  # noqa: C901
 
     if route.type is RouteType.SEA:
         dc20_24t = sea_prices[0]
-        dc20_24t_currency = "USD" if pd.isna(row[fc.sea_20dc_currency]) else row[fc.sea_20dc_currency].strip().upper()
+        dc20_24t_currency = row[fc.sea_20dc_currency].strip().upper() if pd.notna(row[fc.sea_20dc_currency]) else "USD"
         dc20_28t = dc20_24t
         dc20_28t_currency = dc20_24t_currency
         hc40 = sea_prices[1]
-        hc40_currency = "USD" if pd.isna(row[fc.sea_40hc_currency]) else row[fc.sea_40hc_currency].strip().upper()
+        hc40_currency = row[fc.sea_40hc_currency].strip().upper() if pd.notna(row[fc.sea_40hc_currency]) else "USD"
     elif route.type is RouteType.RAIL:
         dc20_24t = rail_prices[0]
-        dc20_24t_currency = (
-            "РУБ" if pd.isna(row[fc.rail_20dc24t_currency]) else row[fc.rail_20dc24t_currency].strip().upper()
-        )
+        dc20_24t_currency = row[fc.rail_20dc24t_currency].strip().upper() or "РУБ"
         dc20_28t = rail_prices[1]
-        dc20_28t_currency = (
-            "РУБ" if pd.isna(row[fc.rail_20dc28t_currency]) else row[fc.rail_20dc28t_currency].strip().upper()
-        )
+        dc20_28t_currency = row[fc.rail_20dc28t_currency].strip().upper() or "РУБ"
         hc40 = rail_prices[2]
-        hc40_currency = "РУБ" if pd.isna(row[fc.rail_40hc_currency]) else row[fc.rail_40hc_currency].strip().upper()
+        hc40_currency = row[fc.rail_40hc_currency].strip().upper() or "РУБ"
+    elif route.type is RouteType.TRUCK:
+        dc20_24t = truck_prices[0]
+        dc20_24t_currency = row[fc.truck_20dc_currency].strip().upper()
+        dc20_28t = None
+        dc20_28t_currency = "РУБ"
+        hc40 = truck_prices[1]
+        hc40_currency = row[fc.truck_40hc_currency].strip().upper()
     else:
         raise InvalidRouteTypeException(route_type)
 
@@ -324,19 +340,32 @@ def create_dropp(
     row,
     fc: UploaderFieldsConfig,
 ):
-    company = companies.get(row[fc.company].upper())
-    start_point = points.get(row[fc.start_point].lower())
-    end_point = points.get(row[fc.end_point].lower())
+    company_name = row[fc.company]
+    if not company_name:
+        raise InvalidDroppRow
+
+    company_name = company_name.upper()
+    if company_name not in companies:
+        raise CompanyNotFoundException(row[fc.company])
+
+    company = companies[company_name]
+
+    try:
+        start_point = points[(row[fc.start_point] or "").lower()]
+        end_point = points[(row[fc.end_point] or "").lower()]
+    except KeyError as e:
+        raise PointNotFoundException(e.args[0]) from e
+
     effective_from = row[fc.effective_from]
     effective_to = row[fc.effective_to]
+
+    if not effective_from or not effective_to:
+        raise InvalidDroppRow
 
     currency = "USD"
     price_20dc = row[fc.drop20]
     price_40hc = row[fc.drop40]
     conversation_percents = row[fc.conversation_percents]
-
-    if not all((company, start_point, end_point, effective_from, effective_to)):
-        raise InvalidDroppRow
 
     base_config = {
         "start_point": start_point,

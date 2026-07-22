@@ -65,6 +65,20 @@ SETTING_DEFINITIONS: list[SettingDefinition] = [
     ),
     SettingDefinition(
         group="feature-flag",
+        name="head-truck",
+        value_type=SettingType.BOOL,
+        true_type_default=True,
+        description="Enable FROM DOOR",
+    ),
+    SettingDefinition(
+        group="feature-flag",
+        name="tail-truck",
+        value_type=SettingType.BOOL,
+        true_type_default=True,
+        description="Enable TO DOOR",
+    ),
+    SettingDefinition(
+        group="feature-flag",
         name="demo-excluded-fields",
         value_type=SettingType.JSON,
         true_type_default=["company"],

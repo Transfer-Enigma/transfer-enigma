@@ -56,6 +56,8 @@ def _make_request(
     dest_external: list[str] | None = None,
     weight: float = 20000,
     container_type: int = 20,
+    truck_start: str | None = None,
+    truck_end: str | None = None,
 ) -> CalculateFormRequest:
     return CalculateFormRequest(
         dispatchDate=dispatch_date or datetime.date(2024, 6, 15),
@@ -65,6 +67,8 @@ def _make_request(
         destinationExternalIds=dest_external or [],
         cargoWeight=weight,
         containerType=container_type,
+        truckStartPointId=truck_start,
+        truckEndPointId=truck_end,
     )
 
 
@@ -401,3 +405,106 @@ def test_strip_demo_fields_empty_segments():
     routes = [([], None, False, [])]
     _strip_demo_fields(routes)
     assert routes[0][0] == []
+
+
+@pytest.mark.asyncio
+async def test_truck_start_point_forwarded_to_internal():
+    route = _make_full_route()
+    with (
+        patch("backend_user.services.route_calculation.aggregators") as mock_agg,
+        patch("backend_user.services.route_calculation.api_client") as mock_fesco,
+    ):
+        mock_agg.get_containers = AsyncMock(
+            return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
+        )
+        mock_agg.search_container_ids = lambda containers, weight, size: [1]
+        mock_agg.find_all_paths = AsyncMock(return_value=[route])
+        mock_fesco.get_containers = AsyncMock(return_value=[])
+        mock_fesco.search_container_ids = lambda containers, weight, size: []
+        mock_fesco.find_all_paths = AsyncMock(return_value=[])
+
+        request = _make_request(truck_start="TRUCK_POINT_1")
+        await calculate_routes(request)
+
+    mock_agg.find_all_paths.assert_called_once()
+    _, kwargs = mock_agg.find_all_paths.call_args
+    assert kwargs["truck_start_point_id"] == "TRUCK_POINT_1"
+    assert kwargs["truck_end_point_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_truck_end_point_forwarded_to_internal():
+    route = _make_full_route()
+    with (
+        patch("backend_user.services.route_calculation.aggregators") as mock_agg,
+        patch("backend_user.services.route_calculation.api_client") as mock_fesco,
+    ):
+        mock_agg.get_containers = AsyncMock(
+            return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
+        )
+        mock_agg.search_container_ids = lambda containers, weight, size: [1]
+        mock_agg.find_all_paths = AsyncMock(return_value=[route])
+        mock_fesco.get_containers = AsyncMock(return_value=[])
+        mock_fesco.search_container_ids = lambda containers, weight, size: []
+        mock_fesco.find_all_paths = AsyncMock(return_value=[])
+
+        request = _make_request(truck_end="TRUCK_POINT_2")
+        await calculate_routes(request)
+
+    mock_agg.find_all_paths.assert_called_once()
+    _, kwargs = mock_agg.find_all_paths.call_args
+    assert kwargs["truck_start_point_id"] is None
+    assert kwargs["truck_end_point_id"] == "TRUCK_POINT_2"
+
+
+@pytest.mark.asyncio
+async def test_no_truck_params_by_default():
+    route = _make_full_route()
+    with (
+        patch("backend_user.services.route_calculation.aggregators") as mock_agg,
+        patch("backend_user.services.route_calculation.api_client") as mock_fesco,
+    ):
+        mock_agg.get_containers = AsyncMock(
+            return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
+        )
+        mock_agg.search_container_ids = lambda containers, weight, size: [1]
+        mock_agg.find_all_paths = AsyncMock(return_value=[route])
+        mock_fesco.get_containers = AsyncMock(return_value=[])
+        mock_fesco.search_container_ids = lambda containers, weight, size: []
+        mock_fesco.find_all_paths = AsyncMock(return_value=[])
+
+        request = _make_request()
+        await calculate_routes(request)
+
+    mock_agg.find_all_paths.assert_called_once()
+    _, kwargs = mock_agg.find_all_paths.call_args
+    assert kwargs["truck_start_point_id"] is None
+    assert kwargs["truck_end_point_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_both_truck_params_forwarded_to_external():
+    route = _make_full_route()
+    with (
+        patch("backend_user.services.route_calculation.aggregators") as mock_agg,
+        patch("backend_user.services.route_calculation.api_client") as mock_fesco,
+    ):
+        mock_agg.get_containers = AsyncMock(return_value=[])
+        mock_agg.search_container_ids = lambda containers, weight, size: []
+        mock_agg.find_all_paths = AsyncMock(return_value=[])
+        mock_fesco.get_containers = AsyncMock(
+            return_value=[ContainerItem(id="f1", size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
+        )
+        mock_fesco.search_container_ids = lambda containers, weight, size: ["f1"]
+        mock_fesco.find_all_paths = AsyncMock(return_value=[route])
+
+        request = _make_request(
+            dep_external=["EXT1"], dest_external=["EXT2"],
+            truck_start="TRUCK_START", truck_end="TRUCK_END",
+        )
+        await calculate_routes(request)
+
+    mock_fesco.find_all_paths.assert_called_once()
+    _, kwargs = mock_fesco.find_all_paths.call_args
+    assert kwargs["truck_start_point_id"] == "TRUCK_START"
+    assert kwargs["truck_end_point_id"] == "TRUCK_END"

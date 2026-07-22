@@ -36,6 +36,20 @@ def _connect_segments(
     q.add_segment(curr, conditions=conditions)
 
 
+def _connect_segments_reversed(
+    q: RouteBuilder,
+    curr: Segment,
+    _next: Segment,
+    *,
+    custom_conditions: Iterable[Condition] | None = None,
+):
+    conditions = [curr.end_point.equals(_next.start_point)]
+    if custom_conditions:
+        conditions.extend(custom_conditions)
+
+    q.prepend_segment(curr, conditions=conditions)
+
+
 def _connect_rail(q: RouteBuilder, prev: Segment):
     rail = Segment(_type=RouteType.RAIL)
 
@@ -90,10 +104,14 @@ def _require_drop_off_or_drop_off_point(q: RouteBuilder, prev: Segment, drop_off
     ))
 
 
-def _build_direct(q: RouteBuilder, core_type: RouteType):
-    segs = [Segment(_type=core_type)]
-    q.add_segment(segs[0])
-    q.add_condition(segs[0].drop_off_point.null())
+def _build_direct(q: RouteBuilder, start_point_id: int, end_point_id: int, core_type: RouteType):
+    seg = Segment(_type=core_type)
+    q.add_segment(seg)
+
+    q.add_condition(seg.start_point.equals(start_point_id))
+    q.add_condition(seg.end_point.equals(end_point_id))
+    q.add_condition(seg.drop_off_point.null())
+
     return q
 
 
@@ -101,6 +119,8 @@ def _build_sea_rail(
     q: RouteBuilder,
     container_ids: list[int],
     date: datetime.date,
+    start_point_id: int,
+    end_point_id: int,
     *,
     hide_sea_soc: bool = False,
 ):
@@ -115,6 +135,9 @@ def _build_sea_rail(
     ])
     _require_drop_off_or_drop_off_point(q, sea, drop_off)
 
+    q.add_condition(sea.start_point.equals(start_point_id))
+    q.add_condition(rail.end_point.equals(end_point_id))
+
     if hide_sea_soc:
         q.add_condition(sea.container_owner.not_equals(ContainerOwner.SOC))
 
@@ -123,13 +146,35 @@ def _build_sea_rail(
 
 # EXPERIMENTAL
 # TODO: specify behaviour and login
-def _build_rail_sea(q: RouteBuilder):
+def _build_rail_sea(q: RouteBuilder, start_point_id: int, end_point_id: int):
     rail = Segment(_type=RouteType.RAIL)
     q.add_segment(rail)
 
-    _connect_segments(q, rail, Segment(_type=RouteType.SEA))
+    sea = Segment(_type=RouteType.SEA)
+    _connect_segments(q, rail, sea)
+
+    q.add_condition(rail.start_point.equals(start_point_id))
+    q.add_condition(sea.end_point.equals(end_point_id))
 
     return q
+
+
+def _attach_head_trucks(queries: list, truck_start_point_id: int) -> None:
+    for q in queries:
+        truck_seg = Segment(_type=RouteType.TRUCK)
+        _connect_segments_reversed(
+            q, truck_seg, q.get_first_segment(),
+            custom_conditions=[truck_seg.start_point.equals(truck_start_point_id)],
+        )
+
+
+def _attach_tail_trucks(queries: list, truck_end_point_id: int) -> None:
+    for q in queries:
+        truck_seg = Segment(_type=RouteType.TRUCK)
+        _connect_segments(
+            q, q.get_last_segment(), truck_seg,
+            custom_conditions=[truck_seg.end_point.equals(truck_end_point_id)],
+        )
 
 
 def build_queries(
@@ -138,26 +183,43 @@ def build_queries(
     end_point_id: int,
     container_ids: list[int],
     *,
+    truck_start_point_id: int | None = None,
+    truck_end_point_id: int | None = None,
     rail_direct: bool,
     sea_direct: bool,
     sea_rail: bool,
     rail_sea: bool,
+    head_truck: bool,
+    tail_truck: bool,
     hide_sea_soc: bool = False,
 ) -> list:
+    if truck_start_point_id and not head_truck:
+        raise ValueError("Can not use 'truck_start_point_id' when feature flag 'head-truck' is turned off")
+    if truck_end_point_id and not tail_truck:
+        raise ValueError("Can not use 'truck_end_point_id' when feature flag 'tail-truck' is turned off")
+
     base = RouteBuilder(date)
     base.set_containers(container_ids)
-    base.set_start_point(start_point_id)
-    base.set_end_point(end_point_id)
 
     queries = []
     if rail_direct:
-        queries.append(_build_direct(base.copy(), RouteType.RAIL))
+        queries.append(_build_direct(base.copy(), start_point_id, end_point_id, RouteType.RAIL))
     if sea_direct:
-        queries.append(_build_direct(base.copy(), RouteType.SEA))
+        queries.append(_build_direct(base.copy(), start_point_id, end_point_id, RouteType.SEA))
     if sea_rail:
-        queries.append(_build_sea_rail(base.copy(), container_ids, date, hide_sea_soc=hide_sea_soc))
+        builder = base.copy()
+        q_sea_rail = _build_sea_rail(
+            builder, container_ids, date, start_point_id, end_point_id, hide_sea_soc=hide_sea_soc,
+        )
+        queries.append(q_sea_rail)
     if rail_sea:
-        queries.append(_build_rail_sea(base))
+        queries.append(_build_rail_sea(base, start_point_id, end_point_id))
+
+    if truck_start_point_id and head_truck:
+        _attach_head_trucks(queries, truck_start_point_id)
+
+    if truck_end_point_id and tail_truck:
+        _attach_tail_trucks(queries, truck_end_point_id)
 
     return [q.build() for q in queries]
 
@@ -211,6 +273,8 @@ _flags: list[tuple[str, str]] = [
     ("sea-direct", "sea_direct"),
     ("sea-rail", "sea_rail"),
     ("rail-sea", "rail_sea"),
+    ("head-truck", "head_truck"),
+    ("tail-truck", "tail_truck"),
 ]
 
 
@@ -219,27 +283,35 @@ async def find_all_paths(
     start_point_id: int,
     end_point_id: int,
     container_ids: list[int],
+    truck_start_point_id: int | None = None,
+    truck_end_point_id: int | None = None,
 ) -> list[RouteResult]:
     flag_values: dict[str, bool] = {}
 
-    try:
-        async with get_database().session_context() as session:
-            for name, local_name in _flags:
+    async with get_database().session_context() as session:
+        for name, local_name in _flags:
+            try:
                 setting = await get_setting_cached(session, "feature-flag", name)
-                if setting is None:
-                    setting_def = get_setting_definition("feature-flag", name)
-                    if not setting_def:
-                        raise RuntimeError("Feature flag " + name + " not found")
-
-                    flag_values[local_name] = bool(setting_def.true_type_default)
-                else:
+                if setting is not None:
                     flag_values[local_name] = bool(setting.value)
-    except Exception:
-        logger.warning("Failed to read hide-sea-soc setting, defaulting to False\nException info:", exc_info=True)
+                    continue
+            except Exception:
+                logger.warning(
+                    f"Failed to read feature-flag {name}, use the default value\nException info:",
+                    exc_info=True,
+                )
+
+            setting_def = get_setting_definition("feature-flag", name)
+            if not setting_def:
+                raise RuntimeError("Feature flag " + name + " not found")
+
+            flag_values[local_name] = bool(setting_def.true_type_default)
 
     all_queries = build_queries(
         date, start_point_id, end_point_id, container_ids,
         **flag_values,
+        truck_start_point_id=truck_start_point_id,
+        truck_end_point_id=truck_end_point_id,
     )
 
     coroutines = [_execute_query(query) for query in all_queries]

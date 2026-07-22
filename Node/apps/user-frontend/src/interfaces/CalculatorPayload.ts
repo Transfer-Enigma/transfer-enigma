@@ -9,6 +9,8 @@ export interface ICalculatorReadyToSendPayload {
     containerType?: string;
     cargoWeight?: number;
     currency: string;
+    truckStartPointId?: string;
+    truckEndPointId?: string;
 }
 
 export interface ICalculatorPayload {
@@ -17,6 +19,8 @@ export interface ICalculatorPayload {
     destinationIds?: IdIsExternal[];
     containerType?: string;
     containerWeight?: number;
+    truckStartIds?: IdIsExternal[];
+    truckEndIds?: IdIsExternal[];
 }
 
 export interface ICalculatorPayloadWithCurrency extends ICalculatorPayload {

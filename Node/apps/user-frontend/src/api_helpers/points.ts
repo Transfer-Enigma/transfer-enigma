@@ -16,3 +16,11 @@ export async function getDestinations(
         `/api/v2/points/destinations?date=${date}&departure_point_ids=${serializeIds(departureIds)}`
     )) as IDataWithErrors<IPoint[]>;
 }
+
+export async function getTruckDepartures(date: string): Promise<IDataWithErrors<IPoint[]>> {
+    return (await fetchAsJSON(`/api/v2/points/truck-departures?date=${date}`)) as IDataWithErrors<IPoint[]>;
+}
+
+export async function getTruckDestinations(date: string): Promise<IDataWithErrors<IPoint[]>> {
+    return (await fetchAsJSON(`/api/v2/points/truck-destinations?date=${date}`)) as IDataWithErrors<IPoint[]>;
+}

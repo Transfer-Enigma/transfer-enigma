@@ -2,7 +2,7 @@
 import type { IPoint, IPointIds, IdIsExternal } from "@/interfaces/Point";
 import PointsSelect from "@/widgets/PointsSelect.vue";
 
-import { getDepartures, getDestinations } from "@/api_helpers/points";
+import { getDepartures, getDestinations, getTruckDepartures, getTruckDestinations } from "@/api_helpers/points";
 import { useToast } from "@/composables/useToast";
 import { computed, onMounted, ref, useId, watch } from "vue";
 
@@ -11,6 +11,8 @@ const departureIdsModel = defineModel<IdIsExternal[]>("departure");
 const destinationIdsModel = defineModel<IdIsExternal[]>("destination");
 const containerTypeModel = defineModel<string>("containerType");
 const containerWeightModel = defineModel<number>("containerWeight");
+const truckStartModel = defineModel<IdIsExternal[]>("truckStart");
+const truckEndModel = defineModel<IdIsExternal[]>("truckEnd");
 
 const departureInputDisabledModel = defineModel<boolean>("isDepartureDisabled", { required: false, default: true });
 const destinationInputDisabledModel = defineModel<boolean>("isDestinationDisabled", { required: false, default: true });
@@ -26,11 +28,19 @@ const containerWeightInputId = useId();
 
 const departurePoints = ref<IPoint[]>([]);
 const destinationPoints = ref<IPoint[]>([]);
+const truckDeparturePoints = ref<IPoint[]>([]);
+const truckDestinationPoints = ref<IPoint[]>([]);
 const calcForm = ref<HTMLFormElement>();
 
 const isInitialLoad = ref(true);
 const isDateChanging = ref(false);
 const pendingDestinationIds = ref<IdIsExternal[]>();
+
+const isFromDoor = ref<boolean>(!!truckStartModel.value?.length);
+const isToDoor = ref<boolean>(!!truckEndModel.value?.length);
+
+const truckStartDisabled = ref(true);
+const truckEndDisabled = ref(true);
 
 function submit(e: Event) {
     if (!calcForm.value!.checkValidity()) return;
@@ -209,6 +219,62 @@ watch(destinationIdsModel, () => {
         pendingDestinationIds.value = undefined;
 });
 
+// Load truck departure points when "From door" checkbox is activated
+watch(isFromDoor, async (val) => {
+    if (!val) {
+        truckStartModel.value = undefined;
+        return;
+    }
+    if (!isDateValid()) return;
+
+    truckStartDisabled.value = true;
+    try {
+        const response = await getTruckDepartures(dateModel.value!);
+        truckDeparturePoints.value = response.data;
+        truckStartDisabled.value = !response.data.length;
+        if (!response.data.length)
+            useToast().show("Пункты отгрузки от двери недоступны", "warning");
+    } catch {
+        useToast().show("Ошибка загрузки данных", "error");
+    }
+});
+
+// Load truck destination points when "To door" checkbox is activated
+watch(isToDoor, async (val) => {
+    if (!val) {
+        truckEndModel.value = undefined;
+        return;
+    }
+    if (!isDateValid()) return;
+
+    truckEndDisabled.value = true;
+    try {
+        const response = await getTruckDestinations(dateModel.value!);
+        truckDestinationPoints.value = response.data;
+        truckEndDisabled.value = !response.data.length;
+        if (!response.data.length)
+            useToast().show("Пункты доставки до двери недоступны", "warning");
+    } catch {
+        useToast().show("Ошибка загрузки данных", "error");
+    }
+});
+
+// Reload truck points when date changes
+watch(dateModel, () => {
+    if (isInitialLoad.value) return;
+
+    if (isFromDoor.value) {
+        truckStartModel.value = undefined;
+        truckDeparturePoints.value = [];
+        isFromDoor.value = false;
+    }
+    if (isToDoor.value) {
+        truckEndModel.value = undefined;
+        truckDestinationPoints.value = [];
+        isToDoor.value = false;
+    }
+});
+
 const isCalculateDisabled = computed(() =>
     departureInputDisabledModel.value ||
     destinationInputDisabledModel.value ||
@@ -228,6 +294,8 @@ onMounted(async () => {
     // Save initial values
     const initialDepartureIds = departureIdsModel.value;
     const initialDestinationIds = destinationIdsModel.value;
+    const initialTruckStartIds = truckStartModel.value;
+    const initialTruckEndIds = truckEndModel.value;
 
     try {
         const depResponse = await getDepartures(dateModel.value!);
@@ -256,6 +324,26 @@ onMounted(async () => {
             destinationPoints.value = [];
             destinationIdsModel.value = undefined;
             destinationInputDisabledModel.value = true;
+        }
+
+        // Restore truck start from URL
+        if (initialTruckStartIds?.length) {
+            isFromDoor.value = true;
+            const truckStartResponse = await getTruckDepartures(dateModel.value!);
+            truckDeparturePoints.value = truckStartResponse.data;
+            truckStartDisabled.value = false;
+            const found = setSelectedPoints(truckStartResponse.data, initialTruckStartIds);
+            truckStartModel.value = found ?? undefined;
+        }
+
+        // Restore truck end from URL
+        if (initialTruckEndIds?.length) {
+            isToDoor.value = true;
+            const truckEndResponse = await getTruckDestinations(dateModel.value!);
+            truckDestinationPoints.value = truckEndResponse.data;
+            truckEndDisabled.value = false;
+            const found = setSelectedPoints(truckEndResponse.data, initialTruckEndIds);
+            truckEndModel.value = found ?? undefined;
         }
     } catch {
         useToast().show("Ошибка загрузки данных", "error");
@@ -287,6 +375,22 @@ onMounted(async () => {
                 v-model:is-disabled="departureInputDisabledModel"
                 v-model:search-text="departureInputTextModel"
             />
+            <div class="form-check">
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="fromDoorCheck"
+                    v-model="isFromDoor"
+                />
+                <label class="form-check-label" for="fromDoorCheck">От двери</label>
+            </div>
+            <PointsSelect
+                v-if="isFromDoor"
+                :points="truckDeparturePoints"
+                text-label="Пункт доставки от двери"
+                v-model="truckStartModel"
+                v-model:is-disabled="truckStartDisabled"
+            />
         </div>
 
         <div class="mb-3 position-relative">
@@ -296,6 +400,22 @@ onMounted(async () => {
                 v-model="destinationIdsModel"
                 v-model:is-disabled="destinationInputDisabledModel"
                 v-model:search-text="destinationInputTextModel"
+            />
+            <div class="form-check">
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="toDoorCheck"
+                    v-model="isToDoor"
+                />
+                <label class="form-check-label" for="toDoorCheck">До двери</label>
+            </div>
+            <PointsSelect
+                v-if="isToDoor"
+                :points="truckDestinationPoints"
+                text-label="Пункт доставки до двери"
+                v-model="truckEndModel"
+                v-model:is-disabled="truckEndDisabled"
             />
         </div>
 

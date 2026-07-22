@@ -73,7 +73,8 @@ def process_points_services_effectivity(
 
     processed_df[fields_config.start_point] = processed_df[fields_config.start_point].apply(none_filter).str.strip()
     processed_df[fields_config.end_point] = processed_df[fields_config.end_point].apply(none_filter).str.strip()
-    processed_df[fields_config.terminal] = processed_df[fields_config.terminal].str.strip().str.upper()
+    if fields_config.terminal in processed_df.columns:
+        processed_df[fields_config.terminal] = processed_df[fields_config.terminal].str.strip().str.upper()
 
     if fields_config.dropp_off_point in processed_df.columns:
         processed_df[fields_config.dropp_off_point] = (
@@ -104,6 +105,8 @@ def process_points_services_effectivity(
 
 
 def process_conversion_percents(processed_df: DataFrame, fields_config: UploaderFieldsConfig):
+    if fields_config.conversation_percents not in processed_df.columns:
+        return processed_df
     processed_df[fields_config.conversation_percents] = (
         processed_df[fields_config.conversation_percents].apply(
             lambda x: (
@@ -187,6 +190,8 @@ def process_routes_df(processed_routes_df, route_type: RouteType, warnings, fiel
             fields_config.rail_40hc,
             fields_config.rail_20dc24t,
             fields_config.rail_20dc28t,
+            fields_config.truck_20dc,
+            fields_config.truck_40hc,
             fields_config.conversation_percents,
             *(getattr(fields_config, service_column) for service_column in fields_config.services),
             *(getattr(fields_config, service_column) for service_column in fields_config.services_with_container),
@@ -201,22 +206,14 @@ def process_routes_df(processed_routes_df, route_type: RouteType, warnings, fiel
     )
     processed_routes_df = process_conversion_percents(processed_routes_df, fields_config)
 
-    processed_routes_df[fields_config.container_condition] = (
-        processed_routes_df[fields_config.container_condition].apply(none_filter)
-    )
-    processed_routes_df[fields_config.container_transfer_terms] = (
-        processed_routes_df[fields_config.container_transfer_terms].apply(none_filter)
-    )
-    processed_routes_df[fields_config.container_shipment_terms] = (
-        processed_routes_df[fields_config.container_shipment_terms].apply(none_filter)
-    )
-
     routes_df_dropna_subset = [
-        fields_config.start_point,
-        fields_config.end_point,
-        fields_config.effective_from,
-        fields_config.effective_to,
-        fields_config.company,
+        col for col in [
+            fields_config.start_point,
+            fields_config.end_point,
+            fields_config.effective_from,
+            fields_config.effective_to,
+            fields_config.company,
+        ] if col in processed_routes_df.columns
     ]
     missing_info_about_id = defaultdict(list)
 
@@ -252,31 +249,73 @@ def process_routes_df(processed_routes_df, route_type: RouteType, warnings, fiel
         processed_routes_df[fields_config.rail_20dc28t] = (
             processed_routes_df[fields_config.rail_20dc28t].apply(price_filter)
         )
+    elif route_type is RouteType.TRUCK:
+        processed_routes_df[fields_config.truck_20dc] = (
+            processed_routes_df[fields_config.truck_20dc].apply(price_filter)
+        )
+        processed_routes_df[fields_config.truck_40hc] = (
+            processed_routes_df[fields_config.truck_40hc].apply(price_filter)
+        )
     else:
         raise InvalidRouteTypeException(route_type)
 
-    # Default values
-    processed_routes_df = processed_routes_df.astype({
-        fields_config.container_condition: "str",
-        fields_config.container_transfer_terms: "str",
-        fields_config.container_shipment_terms: "str",
-    })
-
-    processed_routes_df.loc[
-        processed_routes_df[fields_config.container_condition].isna(), fields_config.container_condition
-    ] = ContainerOwner.COC.value
-
-    processed_routes_df.loc[
-        processed_routes_df[fields_config.container_transfer_terms].isna(), fields_config.container_transfer_terms
-    ] = ContainerTransferTerms.FILO.value
-
-    processed_routes_df.loc[
-        processed_routes_df[fields_config.container_shipment_terms].isna(), fields_config.container_shipment_terms
-    ] = ContainerShipmentTerms.FOR.value
+    _apply_route_defaults(processed_routes_df, route_type, fields_config)
+    _normalize_string_columns(processed_routes_df, fields_config)
 
     processed_routes_df[fields_config.route_type] = route_type
 
     return processed_routes_df
+
+
+def _ensure_column(df: DataFrame, col_name: str, default_value=None, fillna_value=None):
+    if col_name not in df.columns:
+        df[col_name] = default_value
+    elif fillna_value is not None:
+        df[col_name] = df[col_name].fillna(fillna_value)
+
+
+def _apply_route_defaults(df: DataFrame, route_type: RouteType, fc: UploaderFieldsConfig):
+    container_defaults = [
+        (fc.container_condition, ContainerOwner.COC.value),
+        (fc.container_transfer_terms, ContainerTransferTerms.FILO.value),
+        (fc.container_shipment_terms, ContainerShipmentTerms.FOR.value),
+    ]
+
+    for col_name, default in container_defaults:
+        if col_name in df.columns:
+            df[col_name] = df[col_name].fillna(default).astype(str)
+        else:
+            df[col_name] = default
+
+    _ensure_column(df, fc.is_through, True, True)
+    _ensure_column(df, fc.conversation_percents, 0, 0)
+
+    for col_name in [fc.dropp_off_point, fc.comment, fc.timetable]:
+        _ensure_column(df, col_name)
+
+    match route_type:
+        case RouteType.TRUCK:
+            price_cols = [fc.truck_20dc_currency, fc.truck_40hc_currency]
+        case RouteType.SEA:
+            price_cols = [fc.sea_20dc_currency, fc.sea_40hc_currency]
+        case RouteType.RAIL:
+            price_cols = [fc.rail_20dc24t_currency, fc.rail_20dc28t_currency, fc.rail_40hc_currency]
+        case _:
+            price_cols = []
+
+    for price_col in price_cols:
+        _ensure_column(df, price_col, "РУБ", "РУБ")
+
+
+def _normalize_string_columns(df: DataFrame, fc: UploaderFieldsConfig):
+    df[fc.company] = (
+        df[fc.company]
+        .astype("string")
+        .str.strip()
+        .str.upper()
+    )
+    df[fc.start_point] = df[fc.start_point].astype("string").str.strip()
+    df[fc.end_point] = df[fc.end_point].astype("string").str.strip()
 
 
 def merge_points_with_terminal(
@@ -330,6 +369,7 @@ async def load_data(  # noqa: C901
     db_session,
     sea_routes_df: DataFrame,
     rail_routes_df: DataFrame,
+    truck_routes_df: DataFrame | None,
     dropp_df: DataFrame,
     services_df: DataFrame,
     points_df: DataFrame,
@@ -364,18 +404,29 @@ async def load_data(  # noqa: C901
     rail_routes_df["Index"] = rail_routes_df.index.to_series()
     rail_routes_df = rail_routes_df.set_index([fields_config.route_type, "Index"])
 
-    routes_df: DataFrame = pd.concat((sea_routes_df, rail_routes_df), ignore_index=False)
+    all_route_dfs = [sea_routes_df, rail_routes_df]
     del sea_routes_df, rail_routes_df
+
+    if truck_routes_df is not None and not truck_routes_df.empty:
+        truck_routes_df = process_routes_df(truck_routes_df, RouteType.TRUCK, warnings, fields_config)
+        truck_routes_df["Index"] = truck_routes_df.index.to_series()
+        truck_routes_df = truck_routes_df.set_index([fields_config.route_type, "Index"])
+        all_route_dfs.append(truck_routes_df)
+    del truck_routes_df
+
+    routes_df: DataFrame = pd.concat(all_route_dfs, ignore_index=False)
 
     # cleanup dropp
     dropp_df = process_dropp_df(dropp_df, warnings, fields_config)
 
     # Merging points with terminals
-    routes_with_terminal = routes_df.dropna(subset=[fields_config.terminal])[[
-        fields_config.start_point,
-        fields_config.end_point,
-        fields_config.terminal,
-    ]]
+    has_terminal = fields_config.terminal in routes_df.columns
+    routes_with_terminal = (
+        routes_df.dropna(subset=[fields_config.terminal])[
+            [fields_config.start_point, fields_config.end_point, fields_config.terminal]
+        ] if has_terminal
+        else pd.DataFrame(columns=[fields_config.start_point, fields_config.end_point, fields_config.terminal])
+    )
     dropp_with_terminal = dropp_df.dropna(subset=[fields_config.terminal])[[
         fields_config.start_point,
         fields_config.end_point,
@@ -410,19 +461,21 @@ async def load_data(  # noqa: C901
     del points_df_merged_with_terminal
 
     # add terminal to the start/end point in routes
-    mask = routes_df[fields_config.terminal].notna()
-    mask &= routes_df[fields_config.terminal].str.strip() != ""
+    if has_terminal:
+        mask = routes_df[fields_config.terminal].notna()
+        mask &= routes_df[fields_config.terminal].str.strip() != ""
 
-    sea_mask = (routes_df.index.get_level_values(fields_config.route_type) == RouteType.SEA) & mask
-    routes_df.loc[sea_mask, fields_config.end_point] = (
-        routes_df.loc[sea_mask, fields_config.end_point] + " (" + routes_df.loc[sea_mask, fields_config.terminal] + ")"
-    )
+        sea_mask = (routes_df.index.get_level_values(fields_config.route_type) == RouteType.SEA) & mask
+        routes_df.loc[sea_mask, fields_config.end_point] = (
+            routes_df.loc[sea_mask, fields_config.end_point]
+            + " (" + routes_df.loc[sea_mask, fields_config.terminal] + ")"
+        )
 
-    rail_mask = (routes_df.index.get_level_values(fields_config.route_type) == RouteType.RAIL) & mask
-    routes_df.loc[rail_mask, fields_config.start_point] = (
-        routes_df.loc[rail_mask, fields_config.start_point]
-        + " (" + routes_df.loc[rail_mask, fields_config.terminal] + ")"
-    )
+        rail_mask = (routes_df.index.get_level_values(fields_config.route_type) == RouteType.RAIL) & mask
+        routes_df.loc[rail_mask, fields_config.start_point] = (
+            routes_df.loc[rail_mask, fields_config.start_point]
+            + " (" + routes_df.loc[rail_mask, fields_config.terminal] + ")"
+        )
 
     # do the same for dropp off
     mask = dropp_df[fields_config.terminal].notna()
