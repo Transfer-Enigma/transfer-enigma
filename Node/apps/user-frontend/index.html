@@ -5,10 +5,59 @@
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transfer Enigma</title>
+
+    <!-- Copy spinner from bootstrap.css v5 -->
+    <style>
+      @keyframes first-spinner-grow {
+        0% {
+          transform: scale(0);
+        }
+        50% {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .first-spinner-grow {
+        --bs-spinner-width: 2rem;
+        --bs-spinner-height: 2rem;
+        --bs-spinner-vertical-align: -0.125em;
+        --bs-spinner-animation-speed: 0.75s;
+        --bs-spinner-animation-name: first-spinner-grow;
+        background-color: currentcolor;
+        opacity: 0;
+        display: inline-block;
+        width: var(--bs-spinner-width);
+        height: var(--bs-spinner-height);
+        vertical-align: var(--bs-spinner-vertical-align);
+        border-radius: 50%;
+        animation: var(--bs-spinner-animation-speed) linear infinite var(--bs-spinner-animation-name);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .spinner-border,
+        .first-spinner-grow {
+          --bs-spinner-animation-speed: 1.5s;
+        }
+      }
+    </style>
+    <!-- End Copy spinner -->
+
+    <style>
+      .first-spinner-grow {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin: auto;
+      }
+    </style>
   </head>
 
   <body style="margin: 0">
   <div id="app">
+    <div class="first-spinner-grow" role="status"></div>
   </div>
   </body>
 
