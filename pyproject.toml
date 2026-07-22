@@ -75,4 +75,3 @@ sections = [
   "FIRSTPARTY",
   "LOCALFOLDER"
 ]
-no_lines_before = "LOCALFOLDER"
