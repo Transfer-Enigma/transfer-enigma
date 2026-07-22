@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from .errors import (
+    CompanyNotFoundException,
     InvalidDroppRow,
     InvalidRouteTypeException,
     NoPriceInRouteException,
@@ -324,19 +325,32 @@ def create_dropp(
     row,
     fc: UploaderFieldsConfig,
 ):
-    company = companies.get(row[fc.company].upper())
-    start_point = points.get(row[fc.start_point].lower())
-    end_point = points.get(row[fc.end_point].lower())
+    company_name = row[fc.company]
+    if not company_name:
+        raise InvalidDroppRow
+
+    company_name = company_name.upper()
+    if company_name not in companies:
+        raise CompanyNotFoundException(row[fc.company])
+
+    company = companies[company_name]
+
+    try:
+        start_point = points[(row[fc.start_point] or "").lower()]
+        end_point = points[(row[fc.end_point] or "").lower()]
+    except KeyError as e:
+        raise PointNotFoundException(e.args[0]) from e
+
     effective_from = row[fc.effective_from]
     effective_to = row[fc.effective_to]
+
+    if not effective_from or not effective_to:
+        raise InvalidDroppRow
 
     currency = "USD"
     price_20dc = row[fc.drop20]
     price_40hc = row[fc.drop40]
     conversation_percents = row[fc.conversation_percents]
-
-    if not all((company, start_point, end_point, effective_from, effective_to)):
-        raise InvalidDroppRow
 
     base_config = {
         "start_point": start_point,

@@ -40,3 +40,9 @@ class PointNotFoundException(NotFoundException):
     def __init__(self, error_key):
         super().__init__(f"Error: point '{error_key}' is not found")
         self.error_key = error_key
+
+
+class CompanyNotFoundException(NotFoundException):
+    def __init__(self, error_key):
+        super().__init__(f"Error: company '{error_key}' is not found")
+        self.error_key = error_key

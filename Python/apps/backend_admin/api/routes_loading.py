@@ -15,6 +15,7 @@ from backend_admin.config import get_settings
 from backend_admin.dependencies.auth import request_auth
 from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
 from backend_admin.service.routes_loading.errors import (
+    CompanyNotFoundException,
     InvalidDroppRow,
     InvalidRouteConditionException,
     InvalidRouteTypeException,
@@ -177,6 +178,9 @@ def parse_error(error, row_number, routes_ws_type):
 
     elif isinstance(error, PointNotFoundException):
         return f"Не найден город или порт: '{error.error_key}' (лист {routes_ws}, строка {row_number})"
+
+    elif isinstance(error, CompanyNotFoundException):
+        return f"Не найдена компания: '{error.error_key}' (лист {routes_ws}, строка {row_number})"
 
     elif isinstance(error, InvalidRouteTypeException):
         return f"Неверный тип маршрута: '{error.route_type}' (лист {routes_ws}, строка {row_number})"
