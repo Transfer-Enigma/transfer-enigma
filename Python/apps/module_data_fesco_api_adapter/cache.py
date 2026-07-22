@@ -31,27 +31,25 @@ def get_points_ttl(date: datetime.date) -> int:
     return FESCO_POINTS_TODAY_TTL if date == datetime.date.today() else FESCO_POINTS_OTHER_TTL
 
 
-async def get_fesco_points_cached(cache_key: str):
+async def get_cached(cache_key: str):
     try:
         redis = get_redis()
         cached = await redis.get(cache_key)
         if cached is not None:
             return json.loads(cached)
     except Exception:
-        logger.warning("Redis unavailable for points, falling back to API", exc_info=True)
+        logger.warning("Redis unavailable for %s, falling back to API", cache_key, exc_info=True)
 
 
 async def get_fesco_routes_cached(cache_key: str):
+    cached = await get_cached(cache_key)
+    if cached is None:
+        return None
+
     try:
-        redis = get_redis()
-        cached = await redis.get(cache_key)
-        if cached is not None:
-            try:
-                return [RouteResult.model_validate(r) for r in json.loads(cached)]
-            except Exception:
-                logger.warning("Corrupt cache data for %s, re-fetching", cache_key, exc_info=True)
+        return [RouteResult.model_validate(r) for r in cached]
     except Exception:
-        logger.warning("Redis unavailable for routes, falling back to API", exc_info=True)
+        logger.warning("Corrupt cache data for %s, re-fetching", cache_key, exc_info=True)
 
 
 async def set_cache(key: str, data, ttl: int) -> None:

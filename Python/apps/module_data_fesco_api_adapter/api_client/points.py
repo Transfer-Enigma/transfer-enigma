@@ -4,12 +4,12 @@ import datetime
 import aiohttp
 from module_shared.config import get_settings
 
-from ..cache import CacheKeys, get_fesco_points_cached, get_points_ttl, set_cache
+from ..cache import CacheKeys, get_cached, get_points_ttl, set_cache
 
 
 async def get_departure_points_by_date(date: datetime.date):
     cache_key = CacheKeys.get_departures_cache_key(date)
-    cached_data = await get_fesco_points_cached(cache_key)
+    cached_data = await get_cached(cache_key)
     if cached_data:
         return cached_data
 
@@ -34,7 +34,7 @@ async def _fetch_departure_points_by_date(date: datetime.date):
 
 async def get_destination_points_by_date(date: datetime.date, departure_point_id: str):
     cache_key = CacheKeys.get_destinations_cache_key(date, departure_point_id)
-    cached_data = await get_fesco_points_cached(cache_key)
+    cached_data = await get_cached(cache_key)
     if cached_data:
         return cached_data
 
