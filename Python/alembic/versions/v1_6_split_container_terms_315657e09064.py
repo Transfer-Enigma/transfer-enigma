@@ -1,4 +1,4 @@
-"""1.6-split-container-terms
+"""v1.6-split-container-terms
 
 Revision ID: 315657e09064
 Revises: ab161f8f7484
