@@ -1,13 +1,13 @@
 [project]
 name = "TransferEnigma"
-version = "1.0.0"
+version = "5.0.0"
 description = "Transfer Enigma - routes calculator (rail and sea)"
 authors = [{email = "Daniel Panov <daniilpanov016@gmail.com>"}]
 requires-python = "^3.14"
 
 [tool.poetry]
 name = "TransferEnigma"
-version = "1.0.0"
+version = "5.0.0"
 description = "Transfer Enigma - routes calculator (rail and sea)"
 authors = ["Daniel Panov <daniilpanov016@gmail.com>"]
 packages = [
