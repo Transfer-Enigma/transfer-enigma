@@ -3,7 +3,6 @@ from collections.abc import Iterable
 import pandas as pd
 from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
 from module_data_internal.schemas import (
-    CompanyModel,
     ContainerModel,
     ContainerOwner,
     ContainerShipmentTerms,
@@ -17,6 +16,7 @@ from module_data_internal.schemas import (
     ServiceModel,
     ServicePriceModel,
 )
+from module_shared.schemas.company import CompanyModel
 from pandas import DataFrame
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload

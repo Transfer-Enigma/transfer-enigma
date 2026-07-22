@@ -13,7 +13,6 @@ from backend_admin.schemas.data_browser import (
     RouteSegmentStatsResponse,
 )
 from backend_admin.service.crud_base import CRUDBase, FilterDef
-from module_data_internal.schemas.company import CompanyModel
 from module_data_internal.schemas.route import (
     ContainerOwner,
     ContainerShipmentTerms,
@@ -23,6 +22,7 @@ from module_data_internal.schemas.route import (
     RouteType,
     ServicePriceModel,
 )
+from module_shared.schemas.company import CompanyModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload

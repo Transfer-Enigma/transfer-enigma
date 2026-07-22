@@ -1,12 +1,7 @@
-from module_data_internal.schemas import (
-    CompanyModel,
-    ContainerModel,
-    DropModel,
-    PointModel,
-    ServiceModel,
-)
+from module_data_internal.schemas import ContainerModel, DropModel, PointModel, ServiceModel
 from module_data_internal.schemas.route import PriceModel, RouteModel, ServicePriceModel
 from module_shared.schemas import SettingType
+from module_shared.schemas.company import CompanyModel
 from module_shared.schemas.setting import SettingModel
 from pydantic import BaseModel
 

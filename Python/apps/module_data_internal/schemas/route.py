@@ -2,10 +2,11 @@ import datetime
 import enum
 
 from module_shared.database import Base
+from module_shared.schemas.company import CompanyModel
 from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from . import CompanyModel, ContainerModel, ServiceModel
+from . import ContainerModel, ServiceModel
 from .point import PointModel
 
 

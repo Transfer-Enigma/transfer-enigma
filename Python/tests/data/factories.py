@@ -1,7 +1,6 @@
 import datetime
 
 from module_data_internal.schemas import (
-    CompanyModel,
     ContainerModel,
     ContainerOwner,
     ContainerShipmentTerms,
@@ -15,6 +14,7 @@ from module_data_internal.schemas import (
     ServiceModel,
     ServicePriceModel,
 )
+from module_shared.schemas.company import CompanyModel
 
 __all__ = (
     "CompanyFactory",
