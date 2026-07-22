@@ -1,7 +1,7 @@
-from module_data_internal.schemas import DropModel
 from module_shared.schemas import SettingType
 from module_shared.schemas.company import CompanyModel
 from module_shared.schemas.container import ContainerModel
+from module_shared.schemas.drop import DropModel
 from module_shared.schemas.point import PointModel
 from module_shared.schemas.route import PriceModel, RouteModel, ServicePriceModel
 from module_shared.schemas.service import ServiceModel

@@ -3,7 +3,7 @@ from typing import Any
 
 from backend_admin.schemas.data_browser import DropOffCreate, DropOffPatch, DropOffResponse
 from backend_admin.service.crud_base import CRUDBase, FilterDef
-from module_data_internal.schemas import DropModel
+from module_shared.schemas import DropModel
 
 
 def _parse_date(value: str) -> datetime.date:

@@ -22,7 +22,6 @@ if project_root not in sys.path:
 
 from apps.module_shared.config import get_settings
 
-import apps.module_data_internal.schemas
 import apps.module_shared.schemas  # noqa: F401
 from apps.module_data_internal.schemas import Base
 

@@ -5,10 +5,10 @@ from collections.abc import Iterable
 
 from module_data_internal.query_domain import DropOff, RouteBuilder, Segment
 from module_data_internal.query_domain.expr import Condition
-from module_data_internal.schemas import DropModel
 from module_shared.cache_settings import get_setting_cached
 from module_shared.database import Base, get_database
 from module_shared.models.route import RouteResult
+from module_shared.schemas.drop import DropModel
 from module_shared.schemas.route import ContainerOwner, RouteModel, RouteType
 from module_shared.setting_definitions import get_setting_definition
 

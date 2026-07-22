@@ -3,6 +3,7 @@ from module_shared.database import Base
 from .company import CompanyModel
 from .container import ContainerModel, ContainerType
 from .demo_guest import DemoGuestModel
+from .drop import DropModel
 from .point import PointModel
 from .route import (
     ContainerOwner,
@@ -25,6 +26,7 @@ __all__ = [
     "ContainerShipmentTerms",
     "ContainerTransferTerms",
     "DemoGuestModel",
+    "DropModel",
     "PointModel",
     "PriceModel",
     "RouteModel",
