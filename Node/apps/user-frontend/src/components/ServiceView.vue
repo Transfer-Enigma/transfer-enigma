@@ -2,8 +2,7 @@
 import BeautifulRatio from "@/components/BeautifulRatio.vue";
 import type { IService } from "@/interfaces/Service";
 
-import { inject, ref, watch } from "vue";
-import type { Ref } from "vue";
+import { ref, watch } from "vue";
 
 const props = defineProps<{
     service: IService;
@@ -11,21 +10,20 @@ const props = defineProps<{
 
 const emit = defineEmits(["update:checked"]);
 const checked = ref<boolean>(props.service.checked);
-const printMode: Ref<boolean> = inject("printMode") || ref(false);
 
 watch(checked, (val: boolean) => emit("update:checked", val));
 </script>
 
 <template>
-    <div class="row">
+    <div class="row" :class="{ 'service-unchecked': !checked }">
         <div class="col-md-1 print-mode--hidden">
             <BeautifulRatio :is-disabled="service.mandatory" v-model="checked" />
         </div>
-        <div :class="{'col-md-6': !printMode, 'col-md-7': printMode}">
+        <div class="col-md-6 service-name-col">
             <div>{{ service.name }}</div>
             <small v-if="service.description" class="text-muted">{{ service.description }}</small>
         </div>
-        <div :class="{'col-md-4': !printMode, 'col-md-5': printMode}" class="text-end">
+        <div class="col-md-4 service-price-col text-end">
             <span>{{ service.price }} {{ service.currency }}</span>
         </div>
     </div>

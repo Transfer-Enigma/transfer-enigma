@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import type { IService } from "@/interfaces/Service";
-import type { Ref } from "vue";
 
 import ServiceView from "@/components/ServiceView.vue";
-import { inject, ref, computed } from "vue";
+import { computed, ref } from "vue";
 
 const props = defineProps<{
     services: IService[];
@@ -11,30 +10,26 @@ const props = defineProps<{
 
 defineEmits(["update:checked"]);
 
-const printMode: Ref<boolean> = inject("printMode") || ref(false);
 const isExpanded = ref<boolean>(false);
+const isEmpty = computed<boolean>(() => {
+    for (const service of props.services)
+        if (service.checked) return false;
 
-const shouldShowContent = computed(() => printMode.value || isExpanded.value);
-
-const filteredServices = computed(
-    ()  => printMode.value
-        ? props.services.filter((item: IService) => item.checked)
-        : props.services
-);
+    return true;
+});
 </script>
 
 <template>
-    <div class="services-container border rounded p-3 mt-3" v-show="filteredServices.length">
+    <div class="services-container border rounded p-3 mt-3" :class="{ empty: isEmpty }" v-if="services.length">
         <button
-            v-if="!printMode"
             @click="isExpanded = !isExpanded"
-            class="btn btn-link p-0 mb-2"
+            class="btn btn-link p-0 mb-2 services-expand-btn"
         >
             {{ isExpanded ? "Свернуть список услуг" : "Развернуть список услуг" }}
         </button>
 
-        <div v-if="shouldShowContent">
-            <div v-for="(service, index) in filteredServices" :key="index" class="mb-2">
+        <div class="services-content" v-show="isExpanded">
+            <div v-for="(service, index) in services" :key="index" class="mb-2">
                 <ServiceView :service="service" @update:checked="(val: boolean) => $emit('update:checked', val, index)" />
             </div>
         </div>

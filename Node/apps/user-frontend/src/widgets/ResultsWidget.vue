@@ -9,7 +9,7 @@ import ResultRouteView from "@/components/ResultRouteView.vue";
 import RoutesSVG from "@/components/RoutesSVG.vue";
 
 import { revalidateRoutes } from "@/services/calculator";
-import { computed, inject, provide, ref, watch } from "vue";
+import { inject, provide, ref, watch } from "vue";
 
 import type { Ref } from "vue";
 
@@ -18,14 +18,6 @@ const props = defineProps<{
 }>();
 
 const editMode: Ref<boolean> = inject("editable") || ref(false);
-const printMode: Ref<boolean> = inject("printMode") || ref(false);
-const filterSelected = (routes: RouteExtendedDescriptor[]) => routes.filter(r => r[1][2]);
-const filterSelectedIfPrintMode = (routes: RouteExtendedDescriptor[], printMode: boolean) =>
-    printMode ? filterSelected(routes) : routes;
-
-const selectedRoutesIfPrintMode = computed(
-    () => filterSelectedIfPrintMode(props.routes, printMode.value)
-);
 
 const buildErrorMessage = (
     val: number,
@@ -88,9 +80,6 @@ function updateMultiPrice(
 }
 
 function setIsRouteSelected(val: boolean, routeIndex: number) {
-    if (printMode.value)
-        throw new Error("Can not set the route selected in print mode!");
-
     const route = props.routes[routeIndex];
     if (!route)
         throw new Error(`Can not ${val ? "" : "un"}select route with index ${routeIndex}: undefined`);
@@ -134,9 +123,9 @@ watch(areAllRoutesSelected, () => {
         <RoutesSVG />
     </div>
 
-    <div id="results-direct" class="mt-4" v-if="selectedRoutesIfPrintMode.length">
+    <div id="results-direct" class="mt-4" v-if="props.routes.length">
         <ResultRouteView
-            v-for="(route, index) in selectedRoutesIfPrintMode"
+            v-for="(route, index) in props.routes"
             :key="index"
             :route="route"
             @update:single-price="(val: number, segId: number) => updateSinglePrice(val, segId, index)"
