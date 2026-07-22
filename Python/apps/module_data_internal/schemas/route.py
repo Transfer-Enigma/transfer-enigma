@@ -9,7 +9,7 @@ from . import CompanyModel, ContainerModel, ServiceModel
 from .point import PointModel
 
 
-class RouteType(enum.Enum):
+class RouteType(enum.StrEnum):
     SEA = "SEA"
     RAIL = "RAIL"
     TRUCK = "TRUCK"
