@@ -8,7 +8,8 @@ from module_data_internal.query_domain.expr import ColumnRef, Condition
 from module_data_internal.query_domain.expr import Connector as ExprConnector
 from module_data_internal.query_domain.expr import PriceRef
 from module_data_internal.query_domain.segment import Segment
-from module_data_internal.schemas import DropModel, PriceModel, RouteModel, ServicePriceModel
+from module_shared.schemas.drop import DropModel
+from module_shared.schemas.route import PriceModel, RouteModel, ServicePriceModel
 from sqlalchemy import Select, and_, desc, not_, or_, select, true
 from sqlalchemy.orm import aliased, contains_eager, joinedload, selectinload
 

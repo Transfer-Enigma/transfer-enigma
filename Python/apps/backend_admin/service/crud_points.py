@@ -1,6 +1,6 @@
 from backend_admin.schemas.data_browser import PointCreate, PointPatch, PointResponse
 from backend_admin.service.crud_base import CRUDBase, FilterDef
-from module_data_internal.schemas import PointModel
+from module_shared.schemas.point import PointModel
 
 
 class CRUDPoint(CRUDBase):

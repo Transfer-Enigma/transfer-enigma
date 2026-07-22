@@ -17,9 +17,10 @@ from module_data_fesco_api_adapter.api_client.transformers.points import (
 )
 from module_data_internal import aggregators
 from module_data_internal.aggregators.transformers.points import transform_points as map_custom
-from module_data_internal.schemas import CompanyModel, PointModel
 from module_shared.cache_settings import get_setting_cached
 from module_shared.database import get_database
+from module_shared.schemas.company import CompanyModel
+from module_shared.schemas.point import PointModel
 
 router = APIRouter(prefix="/v2/points", tags=["v2", "points"])
 

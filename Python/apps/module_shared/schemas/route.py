@@ -2,11 +2,12 @@ import datetime
 import enum
 
 from module_shared.database import Base
+from module_shared.schemas.company import CompanyModel
+from module_shared.schemas.container import ContainerModel
+from module_shared.schemas.point import PointModel
+from module_shared.schemas.service import ServiceModel
 from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from . import CompanyModel, ContainerModel, ServiceModel
-from .point import PointModel
 
 
 class RouteType(enum.StrEnum):

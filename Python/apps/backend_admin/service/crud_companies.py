@@ -1,6 +1,6 @@
 from backend_admin.schemas.data_browser import CompanyCreate, CompanyPatch, CompanyResponse
 from backend_admin.service.crud_base import CRUDBase, FilterDef
-from module_data_internal.schemas import CompanyModel
+from module_shared.schemas.company import CompanyModel
 
 
 class CRUDCompany(CRUDBase):

@@ -2,7 +2,7 @@ from typing import Any
 
 from backend_admin.schemas.data_browser import ServiceCreate, ServicePatch, ServiceResponse
 from backend_admin.service.crud_base import CRUDBase, FilterDef
-from module_data_internal.schemas import ServiceModel
+from module_shared.schemas.service import ServiceModel
 
 
 class CRUDService(CRUDBase):

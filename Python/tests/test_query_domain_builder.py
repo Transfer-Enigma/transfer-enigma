@@ -123,7 +123,7 @@ class TestRouteBuilderAPI:
         assert len(rb._global_conditions) == 1
 
     def test_prepend_segment_single(self) -> None:
-        from module_data_internal.schemas import RouteType
+        from module_shared.schemas.route import RouteType
 
         s1 = Segment(_type=RouteType.RAIL)
         s0 = Segment(_type=RouteType.SEA)
@@ -139,7 +139,7 @@ class TestRouteBuilderAPI:
         assert rb._connections[0][0].op == "eq"
 
     def test_prepend_segment_no_conditions(self) -> None:
-        from module_data_internal.schemas import RouteType
+        from module_shared.schemas.route import RouteType
 
         s1 = Segment(_type=RouteType.RAIL)
         s0 = Segment(_type=RouteType.SEA)
@@ -154,7 +154,7 @@ class TestRouteBuilderAPI:
         assert rb._connections == deque([[]])
 
     def test_prepend_segment_multiple(self) -> None:
-        from module_data_internal.schemas import RouteType
+        from module_shared.schemas.route import RouteType
 
         s1 = Segment(_type=RouteType.SEA)
         s0 = Segment(_type=RouteType.RAIL)
@@ -180,7 +180,7 @@ class TestRouteBuilderAPI:
         assert rb.prepend_segment(s0) is rb
 
     def test_prepend_then_add(self) -> None:
-        from module_data_internal.schemas import RouteType
+        from module_shared.schemas.route import RouteType
 
         s1 = Segment(_type=RouteType.RAIL)
         s2 = Segment(_type=RouteType.SEA)

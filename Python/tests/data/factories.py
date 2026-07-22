@@ -1,20 +1,19 @@
 import datetime
 
-from module_data_internal.schemas import (
-    CompanyModel,
-    ContainerModel,
+from module_shared.schemas.company import CompanyModel
+from module_shared.schemas.container import ContainerModel, ContainerType
+from module_shared.schemas.drop import DropModel
+from module_shared.schemas.point import PointModel
+from module_shared.schemas.route import (
     ContainerOwner,
     ContainerShipmentTerms,
     ContainerTransferTerms,
-    ContainerType,
-    DropModel,
-    PointModel,
     PriceModel,
     RouteModel,
     RouteType,
-    ServiceModel,
     ServicePriceModel,
 )
+from module_shared.schemas.service import ServiceModel
 
 __all__ = (
     "CompanyFactory",

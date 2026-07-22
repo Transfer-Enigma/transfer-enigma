@@ -65,9 +65,15 @@ Python/
 │   │   │   ├── setting.py        # Pydantic SettingItem with _parse_value validator (converts str → bool|int|float|dict|list via value_type) and locked field
 │   │   │   └── errors.py         # RouteError model
 │   │   ├── schemas/
-│   │   │   ├── __init__.py       # re-exports Base, DemoGuestModel, SettingModel
-│   │   │   ├── demo_guest.py     # DemoGuest ORM model
-│   │   │   └── setting.py        # SettingModel ORM model (id, group, name, desc, value_type, value, locked)
+│   │   │   ├── __init__.py       # re-exports Base, all ORM models + enums
+│   │   │   ├── company.py        # CompanyModel ORM model
+│   │   │   ├── container.py      # ContainerModel + ContainerType ORM model
+│   │   │   ├── demo_guest.py     # DemoGuestModel ORM model
+│   │   │   ├── drop.py           # DropModel ORM model
+│   │   │   ├── point.py          # PointModel ORM model
+│   │   │   ├── route.py          # PriceModel, RouteModel, ServicePriceModel + RouteType, ContainerTransferTerms, ContainerShipmentTerms, ContainerOwner enums
+│   │   │   ├── service.py        # ServiceModel ORM model
+│   │   │   └── setting.py        # SettingModel ORM model + SettingType enum
 │   │   ├── cache_settings.py  # Settings Redis cache (cache-aside, TTL 12h) + ensure_settings
 │   │   ├── setting_definitions.py  # Setting definition registry (SettingDefinition dataclass)
 │   │   └── repositories/
@@ -393,7 +399,8 @@ module_shared ───┬── backend_auth
 ### Database
 - MariaDB, accessed via SQLAlchemy async + `aiomysql`
 - Migrations via Alembic
-- Models defined in `module_data_internal/schemas/` and `module_shared/schemas/`
+- All ORM models and enums defined in `module_shared/schemas/`
+- `module_data_internal/schemas/__init__.py` re-exports from `module_shared.schemas` via wildcard (backward compatibility)
 - Both use the same `Base` class from `module_shared.database`
 
 ### Route Calculation — Key Logic

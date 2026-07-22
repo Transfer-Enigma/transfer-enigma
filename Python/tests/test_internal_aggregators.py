@@ -4,10 +4,11 @@ from unittest.mock import patch
 import pytest
 from module_data_internal.aggregators.containers import get_containers, search_container_ids
 from module_data_internal.aggregators.routes import find_all_paths, process_results
-from module_data_internal.schemas import ContainerOwner, ContainerType, RouteType
 from module_shared.database import Database
 from module_shared.models.route import ContainerItem
 from module_shared.models.setting import SettingItem
+from module_shared.schemas.container import ContainerType
+from module_shared.schemas.route import ContainerOwner, RouteType
 from module_shared.schemas.setting import SettingType
 
 from .data import (
