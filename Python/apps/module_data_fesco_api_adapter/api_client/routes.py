@@ -1,13 +1,12 @@
 import asyncio
 import datetime
-import json
 from collections.abc import Iterable
 
 import aiohttp
 from module_shared.config import get_settings
 from module_shared.models.route import RouteResult
 
-from ..cache import get_fesco_routes_cached
+from ..cache import CacheKeys, get_fesco_routes_cached
 from .transformers.routes import transform_routes
 
 
@@ -23,10 +22,8 @@ async def find_all_paths(
     if truck_start_point_id or truck_end_point_id:
         raise NotImplementedError("Truck routing is not supported by FESCO API")
 
-    sorted_ids = json.dumps(wte_ids, sort_keys=True)
-    cache_key = f"backend_user:fesco:routes:{date}:{departure_id}:{destination_id}:{sorted_ids}"
     return await get_fesco_routes_cached(
-        cache_key,
+        CacheKeys.get_routes_cache_key(date, departure_id, destination_id, wte_ids),
         lambda: _fetch_all_paths(date, departure_id, destination_id, wte_ids),
     )
 
