@@ -12,7 +12,7 @@ import { useRates } from "@/stores/rates";
 import { useRoutes } from "@/stores/routes";
 
 import { useRouter } from "vue-router";
-import { computed, inject, nextTick, onMounted, provide, ref } from "vue";
+import { computed, nextTick, onMounted, provide, ref } from "vue";
 
 import type { IdIsExternal } from "@/interfaces/Point";
 import type { RatesMap } from "@/stores/rates";
@@ -55,8 +55,6 @@ provide("isDemoModeActive", isDemoModeActive);
 const editMode = ref<boolean>(false);
 
 provide("editable", editMode);
-const printMode: Ref<boolean> = inject("printMode") || ref<boolean>(false);
-
 const router = useRouter();
 
 const resultsElementRef = ref<HTMLElement | undefined>();
@@ -141,11 +139,9 @@ async function saveInPdf() {
     editMode.value = false;
     await nextTick();
 
-    printMode.value = true;
-    await nextTick();
-
+    document.getElementById("app")?.setAttribute("data-print-routes", "");
     window.print();
-    printMode.value = false;
+    document.getElementById("app")?.removeAttribute("data-print-routes");
 }
 
 onMounted(() => {
@@ -171,7 +167,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="my-5" v-show="!printMode">
+    <div class="my-5 print-mode--hidden">
         <div class="card shadow-sm rounded-4 p-4">
             <h2 class="mb-4 text-center">Калькулятор маршрутов</h2>
 

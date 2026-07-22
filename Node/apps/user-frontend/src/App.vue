@@ -10,7 +10,7 @@ import { useRouter } from "@/stores/router";
 import { getCurrentTheme, setCurrentTheme, Theme } from "@/services/theme";
 import { mountAuthProvider } from "@/providers/auth";
 
-import { computed, onMounted, provide, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter as useVueRouter } from "vue-router";
 import { useUserUpdateIntervalInMinutes } from "@/stores/user.ts";
 
@@ -18,11 +18,7 @@ loadCachedRates();
 lockRates(updateRates());
 
 const rates = computed(() => useRates().rates);
-const printMode = ref<boolean>(false);
 const theme = ref<Theme>(getCurrentTheme());
-let oldTheme: Theme = theme.value;
-
-provide("printMode", printMode);
 
 onMounted(() => {
     useRouter().setRouter(useVueRouter());
@@ -38,13 +34,6 @@ watch(theme, (newTheme: Theme) => {
     document.documentElement.setAttribute("data-bs-theme", newTheme);
     setCurrentTheme(theme.value);
 }, { immediate: true });
-
-watch(printMode, (val: boolean) => {
-    if (val) {
-        oldTheme = theme.value;
-        if (theme.value !== Theme.LIGHT) theme.value = Theme.LIGHT;
-    } else if (theme.value !== oldTheme) theme.value = oldTheme;
-});
 </script>
 
 <template>
@@ -64,7 +53,7 @@ watch(printMode, (val: boolean) => {
         <HeaderComponent :rates="rates" />
     </header>
 
-    <ThemeSwitcher v-show="!printMode" v-model="theme" />
+    <ThemeSwitcher v-model="theme" />
 
     <main class="container">
         <router-view />

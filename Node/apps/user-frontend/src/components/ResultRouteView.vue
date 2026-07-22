@@ -32,7 +32,6 @@ const drop = computed(
 );
 
 const editMode: Ref<boolean> = inject("editable") || ref(false);
-const printMode: Ref<boolean> = inject("printMode") || ref(false);
 const allRoutesSelected: Ref<boolean> = inject("allRoutesSelected") || ref(false);
 const allRoutesSelectedSignalRef: Ref<boolean> = inject("allRoutesSelectedSignal") || ref(false);
 const isDemoModeActive: Ref<boolean> = inject("isDemoModeActive") || ref(false);
@@ -58,7 +57,7 @@ watch(allRoutesSelectedSignalRef, () => (routeSelected.value = allRoutesSelected
 </script>
 
 <template>
-    <div class="p-3 mb-4 border rounded shadow-sm result-item" :class="printMode || isDemoModeActive ? '' : routeSelected ? 'included' : 'excluded'">
+    <div class="p-3 mb-4 border rounded shadow-sm result-item" :class="isDemoModeActive ? '' : routeSelected ? 'included' : 'excluded'">
         <label v-if="editMode"><input type="checkbox" v-model="routeSelected" class="select-route-checkbox"></label>
         <b v-else-if="!isDemoModeActive && !routeSelected">Маршрут не будет отображаться в КП</b>
 
@@ -162,16 +161,18 @@ watch(allRoutesSelectedSignalRef, () => (routeSelected.value = allRoutesSelected
     }
 }
 
-.excluded {
-    border-left: .5rem solid red !important;
-}
-
-.included {
-    border-left: .5rem solid green !important;
-}
-
 .select-route-checkbox {
     width: 1.25rem;
     height: 1.25rem;
+}
+
+@media not print {
+    .excluded {
+        border-left: .5rem solid red !important;
+    }
+
+    .included {
+        border-left: .5rem solid green !important;
+    }
 }
 </style>
