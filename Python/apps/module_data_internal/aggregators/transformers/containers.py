@@ -1,5 +1,5 @@
-from module_data_internal.schemas import ContainerModel
 from module_shared.models.route import ContainerItem
+from module_shared.schemas.container import ContainerModel
 
 
 def transform_container(container: ContainerModel) -> ContainerItem:

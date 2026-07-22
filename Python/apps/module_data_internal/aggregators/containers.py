@@ -1,7 +1,7 @@
 import datetime
 
-from module_data_internal.schemas import ContainerModel
 from module_shared.database import get_database
+from module_shared.schemas.container import ContainerModel
 from sqlalchemy import select
 
 from .transformers.containers import transform_containers

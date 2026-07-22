@@ -2,7 +2,7 @@ from typing import Any
 
 from backend_admin.schemas.data_browser import ContainerCreate, ContainerPatch, ContainerResponse
 from backend_admin.service.crud_base import CRUDBase, FilterDef
-from module_data_internal.schemas import ContainerModel, ContainerType
+from module_shared.schemas.container import ContainerModel, ContainerType
 
 
 class CRUDContainer(CRUDBase):

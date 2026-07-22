@@ -1,11 +1,9 @@
 import datetime
 
 from module_data_internal.schemas import (
-    ContainerModel,
     ContainerOwner,
     ContainerShipmentTerms,
     ContainerTransferTerms,
-    ContainerType,
     DropModel,
     PriceModel,
     RouteModel,
@@ -13,6 +11,7 @@ from module_data_internal.schemas import (
     ServicePriceModel,
 )
 from module_shared.schemas.company import CompanyModel
+from module_shared.schemas.container import ContainerModel, ContainerType
 from module_shared.schemas.point import PointModel
 from module_shared.schemas.service import ServiceModel
 
