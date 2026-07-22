@@ -6,5 +6,4 @@ venv
 !.env.example
 !.env.cli.example
 .python-version
-poetry.lock
 logs/
