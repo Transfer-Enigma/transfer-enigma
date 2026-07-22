@@ -7,7 +7,6 @@ from module_data_internal.schemas import (
     ContainerTransferTerms,
     ContainerType,
     DropModel,
-    PointModel,
     PriceModel,
     RouteModel,
     RouteType,
@@ -15,6 +14,7 @@ from module_data_internal.schemas import (
     ServicePriceModel,
 )
 from module_shared.schemas.company import CompanyModel
+from module_shared.schemas.point import PointModel
 
 __all__ = (
     "CompanyFactory",
