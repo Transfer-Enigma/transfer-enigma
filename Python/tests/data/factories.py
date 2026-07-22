@@ -10,11 +10,11 @@ from module_data_internal.schemas import (
     PriceModel,
     RouteModel,
     RouteType,
-    ServiceModel,
     ServicePriceModel,
 )
 from module_shared.schemas.company import CompanyModel
 from module_shared.schemas.point import PointModel
+from module_shared.schemas.service import ServiceModel
 
 __all__ = (
     "CompanyFactory",
