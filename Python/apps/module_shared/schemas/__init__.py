@@ -4,6 +4,15 @@ from .company import CompanyModel
 from .container import ContainerModel, ContainerType
 from .demo_guest import DemoGuestModel
 from .point import PointModel
+from .route import (
+    ContainerOwner,
+    ContainerShipmentTerms,
+    ContainerTransferTerms,
+    PriceModel,
+    RouteModel,
+    RouteType,
+    ServicePriceModel,
+)
 from .service import ServiceModel
 from .setting import SettingModel, SettingType
 
@@ -12,9 +21,16 @@ __all__ = [
     "CompanyModel",
     "ContainerModel",
     "ContainerType",
+    "ContainerOwner",
+    "ContainerShipmentTerms",
+    "ContainerTransferTerms",
     "DemoGuestModel",
     "PointModel",
+    "PriceModel",
+    "RouteModel",
+    "RouteType",
     "ServiceModel",
+    "ServicePriceModel",
     "SettingModel",
     "SettingType",
 ]

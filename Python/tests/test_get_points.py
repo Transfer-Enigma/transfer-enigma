@@ -8,8 +8,8 @@ from module_data_internal.aggregators.points import (
     get_truck_departure_points,
     get_truck_destination_points,
 )
-from module_data_internal.schemas import RouteType
 from module_shared.database import Database
+from module_shared.schemas.route import RouteType
 
 from .data import CompanyFactory, PointFactory, RouteFactory
 

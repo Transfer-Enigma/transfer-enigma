@@ -2,20 +2,20 @@ from collections.abc import Iterable
 
 import pandas as pd
 from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
-from module_data_internal.schemas import (
-    ContainerOwner,
-    ContainerShipmentTerms,
-    ContainerTransferTerms,
-    DropModel,
-    PriceModel,
-    RouteModel,
-    RouteType,
-    ServiceModel,
-    ServicePriceModel,
-)
+from module_data_internal.schemas import DropModel
 from module_shared.schemas.company import CompanyModel
 from module_shared.schemas.container import ContainerModel, ContainerType
 from module_shared.schemas.point import PointModel
+from module_shared.schemas.route import (
+    ContainerOwner,
+    ContainerShipmentTerms,
+    ContainerTransferTerms,
+    PriceModel,
+    RouteModel,
+    RouteType,
+    ServicePriceModel,
+)
+from module_shared.schemas.service import ServiceModel
 from pandas import DataFrame
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload

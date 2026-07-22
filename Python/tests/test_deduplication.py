@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 import pytest
 from module_data_internal.aggregators.routes import find_all_paths
-from module_data_internal.schemas import ContainerOwner, RouteType
 from module_shared.database import Database
 from module_shared.schemas.container import ContainerType
+from module_shared.schemas.route import ContainerOwner, RouteType
 
 from .data import CompanyFactory, ContainerFactory, PointFactory, PriceFactory, RouteFactory
 
