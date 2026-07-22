@@ -2,7 +2,7 @@
 name = "TransferEnigma"
 version = "5.0.0"
 description = "Transfer Enigma - routes calculator (rail and sea)"
-authors = [{email = "Daniel Panov <daniilpanov016@gmail.com>"}]
+authors = [{ email = "Daniel Panov <daniilpanov016@gmail.com>" }]
 requires-python = "^3.14"
 
 [tool.poetry]
@@ -40,7 +40,7 @@ openpyxl = "^3.1.5"
 redis = "^8.0.0"
 
 [tool.poetry.group.dev.dependencies]
-black = {version = "*", python = "^3.14"}
+black = { version = "*", python = "^3.14" }
 pre-commit = "*"
 ipython = "*"
 icecream = "*"
