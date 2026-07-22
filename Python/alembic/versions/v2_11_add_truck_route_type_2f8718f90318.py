@@ -29,6 +29,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     # I DON'T KNOW WHY PARAMETERS 'existing_type' and 'type' ARE INVERTED!!!
+    op.execute("DELETE FROM `routes` WHERE `type`='TRUCK'")
     op.alter_column('routes', 'type',
                     existing_type=mysql.ENUM('SEA', 'RAIL'),
                     type=mysql.ENUM('SEA', 'RAIL', 'TRUCK'),
