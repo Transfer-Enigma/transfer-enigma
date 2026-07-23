@@ -2,8 +2,11 @@ import asyncio
 import datetime
 import json
 import logging
+from contextlib import suppress
 
 from module_shared.redis_client import get_redis
+from module_shared.repositories.locker import TaskAlreadyRunningError
+from module_shared.repositories.locker.local_locker import LocalLocker
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -65,5 +68,11 @@ async def set_cache(key: str, data, ttl: int, model_dump: bool = False) -> bool:
     return False
 
 
+@LocalLocker.locked(key=lambda key, *_, **__: key)
 def set_cache_async(key: str, data, ttl: int, model_dump: bool = False):
     return asyncio.create_task(set_cache(key, data, ttl, model_dump))
+
+
+def silent_set_cache_async(key: str, data, ttl: int, model_dump: bool = False):
+    with suppress(TaskAlreadyRunningError):
+        return set_cache_async(key, data, ttl, model_dump)
