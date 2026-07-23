@@ -429,10 +429,10 @@ module_shared ───┬── backend_auth
 | `feature-flag` | `tail-truck` | `BOOL` | `true` | When `true`, allows appending a TRUCK segment after the route (via `truck_end_point_id`) |
 | `feature-flag` | `demo-excluded-fields` | `JSON` | `["company"]` | List of fields to blur for demo users |
 
-- Read in `module_data_internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached(session, "feature-flag", "hide-sea-soc")`
-- Affects `build_usual_query(RouteType.SEA, ...)` and `build_base_sea_rail_query(...)`
-- Falls back to `False` if setting not found or Redis/DB unavailable
-- Created via Admin API: `POST /admin/api/db/settings` with `{"group": "feature-flag", "name": "hide-sea-soc", "value_type": "BOOL", "value": "false"}`
+- All 7 route-related flags are read in `module_data_internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached("feature-flag", name)` using the `_flags` list
+- `demo-excluded-fields` is read in `backend_user/api/v2/demo/feature_flags.py` and several point/route handlers
+- All settings are defined in `module_shared/setting_definitions.py` and auto-synced to DB on startup via `ensure_settings()`
+- Falls back to default value if setting not found or Redis/DB unavailable
 
 **TRUCK segment connection rules (in `routes.py`):**
 - `_connect_segments(prev, curr)` adds: `prev.end_point == curr.start_point`
