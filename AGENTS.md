@@ -421,8 +421,13 @@ module_shared ───┬── backend_auth
 | Setting group | Setting name | Type | Default | Effect |
 |---------------|-------------|------|---------|--------|
 | `feature-flag` | `hide-sea-soc` | `BOOL` | `false` | When `true`, sea segments with `container_owner == SOC` are excluded from SQL queries (both direct SEA and combined sea+rail) |
-| `feature-flag` | `head-truck` | `BOOL` | `false` | When `true`, allows prepending a TRUCK segment before the route (via `truck_start_point_id`) |
-| `feature-flag` | `tail-truck` | `BOOL` | `false` | When `true`, allows appending a TRUCK segment after the route (via `truck_end_point_id`) |
+| `feature-flag` | `rail-direct` | `BOOL` | `true` | When `true`, enables RAIL direct route calculation |
+| `feature-flag` | `sea-direct` | `BOOL` | `true` | When `true`, enables SEA direct route calculation |
+| `feature-flag` | `sea-rail` | `BOOL` | `true` | When `true`, enables SEA→RAIL combined route calculation |
+| `feature-flag` | `rail-sea` | `BOOL` | `false` | When `true`, enables RAIL→SEA combined route calculation (TODO: production-ready) |
+| `feature-flag` | `head-truck` | `BOOL` | `true` | When `true`, allows prepending a TRUCK segment before the route (via `truck_start_point_id`) |
+| `feature-flag` | `tail-truck` | `BOOL` | `true` | When `true`, allows appending a TRUCK segment after the route (via `truck_end_point_id`) |
+| `feature-flag` | `demo-excluded-fields` | `JSON` | `["company"]` | List of fields to blur for demo users |
 
 - Read in `module_data_internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached(session, "feature-flag", "hide-sea-soc")`
 - Affects `build_usual_query(RouteType.SEA, ...)` and `build_base_sea_rail_query(...)`
