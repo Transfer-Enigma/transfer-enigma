@@ -30,11 +30,7 @@ async def find_all_paths(
     data = await _fetch_all_paths(date, departure_id, destination_id, wte_ids)
     data = list(data)
 
-    asyncio.create_task(set_cache(
-        cache_key,
-        [r.model_dump(mode="json") for r in data],
-        FESCO_ROUTES_TTL,
-    ))
+    asyncio.create_task(set_cache(cache_key, data, FESCO_ROUTES_TTL, True))
 
     return data
 

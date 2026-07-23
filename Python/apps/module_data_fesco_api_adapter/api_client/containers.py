@@ -19,11 +19,7 @@ async def get_containers(date: datetime.date, departure_id: str, destination_id:
         return cached_data
 
     containers = await _fetch_containers(date, departure_id, destination_id)
-    asyncio.create_task(set_cache(
-        cache_key,
-        [c.model_dump(mode="json") for c in containers],
-        FESCO_CONTAINERS_TTL,
-    ))
+    asyncio.create_task(set_cache(cache_key, containers, FESCO_CONTAINERS_TTL, True))
     return containers
 
 

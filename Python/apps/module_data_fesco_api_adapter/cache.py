@@ -52,9 +52,10 @@ async def get_cached(cache_key: str, pydantic_class: type[BaseModel] | None = No
         logger.warning("Redis unavailable for %s, falling back to API", cache_key, exc_info=True)
 
 
-async def set_cache(key: str, data, ttl: int) -> None:
+async def set_cache(key: str, data, ttl: int, model_dump: bool = False) -> None:
     try:
         redis = get_redis()
-        await redis.set(key, json.dumps(data), ex=ttl)
+        prepared_data = [r.model_dump(mode="json") for r in data] if model_dump else data
+        await redis.set(key, json.dumps(prepared_data), ex=ttl)
     except Exception:
         logger.exception("Failed to set cache for %s", key)
