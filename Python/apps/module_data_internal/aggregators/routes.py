@@ -292,7 +292,7 @@ async def find_all_paths(
     async with get_database().session_context() as session:
         for name, local_name in _flags:
             try:
-                setting = await get_setting_cached(session, "feature-flag", name)
+                setting = await get_setting_cached("feature-flag", name, session=session)
                 if setting is not None:
                     flag_values[local_name] = bool(setting.value)
                     continue

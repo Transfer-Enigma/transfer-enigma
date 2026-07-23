@@ -18,7 +18,6 @@ from module_data_fesco_api_adapter.api_client.transformers.points import (
 from module_data_internal import aggregators
 from module_data_internal.aggregators.transformers.points import transform_points as map_custom
 from module_shared.cache_settings import get_setting_cached
-from module_shared.database import get_database
 from module_shared.schemas.company import CompanyModel
 from module_shared.schemas.point import PointModel
 
@@ -78,9 +77,8 @@ async def all_departure_by_date(date: datetime.date, auth: Annotated[AuthContext
         data.extend(map_custom(custom_points))
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
-    async with get_database().session_context() as session:
-        setting = await get_setting_cached(session, "feature-flag", "demo-excluded-fields")
-        excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
+    setting = await get_setting_cached("feature-flag", "demo-excluded-fields")
+    excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
     _strip_demo_fields_from_points(result, auth, excluded_fields)
 
     return {
@@ -129,9 +127,8 @@ async def all_destination_by_date(
             data.extend(map_fesco(fesco_points))
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
-    async with get_database().session_context() as session:
-        setting = await get_setting_cached(session, "feature-flag", "demo-excluded-fields")
-        excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
+    setting = await get_setting_cached("feature-flag", "demo-excluded-fields")
+    excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
     _strip_demo_fields_from_points(result, auth, excluded_fields)
 
     return {
@@ -152,9 +149,8 @@ async def truck_departure_points(date: datetime.date, auth: Annotated[AuthContex
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
 
-    async with get_database().session_context() as session:
-        setting = await get_setting_cached(session, "feature-flag", "demo-excluded-fields")
-        excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
+    setting = await get_setting_cached("feature-flag", "demo-excluded-fields")
+    excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
 
     _strip_demo_fields_from_points(result, auth, excluded_fields)
 
@@ -176,9 +172,8 @@ async def truck_destination_points(date: datetime.date, auth: Annotated[AuthCont
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
 
-    async with get_database().session_context() as session:
-        setting = await get_setting_cached(session, "feature-flag", "demo-excluded-fields")
-        excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
+    setting = await get_setting_cached("feature-flag", "demo-excluded-fields")
+    excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
 
     _strip_demo_fields_from_points(result, auth, excluded_fields)
 

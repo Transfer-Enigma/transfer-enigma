@@ -170,12 +170,8 @@ class TestSSEGenerator:
 
     @pytest.mark.asyncio
     @patch("backend_user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
-    @patch("backend_user.api.v3.routes.post.get_database")
-    async def test_sse_demo_transforms_strips_company(self, mock_db, mock_get_setting):
+    async def test_sse_demo_transforms_strips_company(self, mock_get_setting):
         mock_get_setting.return_value = Mock(value=["company"])
-        mock_session = AsyncMock()
-        mock_db.return_value.session_context.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_db.return_value.session_context.return_value.__aexit__ = AsyncMock(return_value=False)
         route = _make_full_route(company="CompanyA")
         auth = AuthContext(is_demo=True)
 
@@ -212,14 +208,10 @@ class TestSSEGenerator:
 
     @pytest.mark.asyncio
     @patch("backend_user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
-    @patch("backend_user.api.v3.routes.post.get_database")
     @patch("backend_user.services.profit.get_rates", new_callable=AsyncMock)
-    async def test_sse_demo_transforms_with_profit(self, mock_rates, mock_db, mock_get_setting):
+    async def test_sse_demo_transforms_with_profit(self, mock_rates, mock_get_setting):
         mock_get_setting.return_value = Mock(value=["company"])
         mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
-        mock_session = AsyncMock()
-        mock_db.return_value.session_context.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_db.return_value.session_context.return_value.__aexit__ = AsyncMock(return_value=False)
         route = _make_full_route(company="CompanyA", type="sea")
         auth = AuthContext(is_demo=True, sea_profit=100.0, sea_profit_currency="USD")
 
