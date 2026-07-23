@@ -4,8 +4,9 @@ import logging
 
 import aiohttp
 from module_shared.config import get_settings
+from module_shared.models.route import ContainerItem
 
-from ..cache import FESCO_CONTAINERS_TTL, CacheKeys, get_fesco_wte_cached, set_cache
+from ..cache import FESCO_CONTAINERS_TTL, CacheKeys, get_cached, set_cache
 from .transformers.containers import transform_containers
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 async def get_containers(date: datetime.date, departure_id: str, destination_id: str):
     cache_key = CacheKeys.get_wte_cache_key(date, departure_id, destination_id)
-    cached_data = await get_fesco_wte_cached(cache_key)
+    cached_data = await get_cached(cache_key, ContainerItem)
     if cached_data:
         return cached_data
 
