@@ -400,7 +400,6 @@ module_shared ───┬── backend_auth
 - MariaDB, accessed via SQLAlchemy async + `aiomysql`
 - Migrations via Alembic
 - All ORM models and enums defined in `module_shared/schemas/`
-- `module_data_internal/schemas/__init__.py` re-exports from `module_shared.schemas` via wildcard (backward compatibility)
 - Both use the same `Base` class from `module_shared.database`
 
 ### Route Calculation — Key Logic
