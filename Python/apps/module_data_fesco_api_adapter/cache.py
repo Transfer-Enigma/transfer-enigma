@@ -62,6 +62,6 @@ async def get_fesco_routes_cached(cache_key: str, fetch):
 async def _set_json_async(key: str, data, ttl: int) -> None:
     try:
         redis = get_redis()
-        await redis.set(key, json.dumps(data, default=str), ex=ttl)
+        await redis.set(key, json.dumps(data), ex=ttl)
     except Exception:
         logger.exception("Failed to set cache for %s", key)
