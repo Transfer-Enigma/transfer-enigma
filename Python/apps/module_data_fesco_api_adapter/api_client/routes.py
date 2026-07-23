@@ -6,7 +6,7 @@ import aiohttp
 from module_shared.config import get_settings
 from module_shared.models.route import RouteResult
 
-from ..cache import FESCO_ROUTES_TTL, CacheKeys, get_cached, set_cache
+from ..cache import FESCO_ROUTES_TTL, CacheKeys, get_cached, set_cache_async
 from .transformers.routes import transform_routes
 
 
@@ -30,7 +30,7 @@ async def find_all_paths(
     data = await _fetch_all_paths(date, departure_id, destination_id, wte_ids)
     data = list(data)
 
-    asyncio.create_task(set_cache(cache_key, data, FESCO_ROUTES_TTL, True))
+    set_cache_async(cache_key, data, FESCO_ROUTES_TTL, True)
 
     return data
 

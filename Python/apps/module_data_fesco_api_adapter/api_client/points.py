@@ -1,10 +1,9 @@
-import asyncio
 import datetime
 
 import aiohttp
 from module_shared.config import get_settings
 
-from ..cache import CacheKeys, get_cached, get_points_ttl, set_cache
+from ..cache import CacheKeys, get_cached, get_points_ttl, set_cache_async
 
 
 async def get_departure_points_by_date(date: datetime.date):
@@ -14,7 +13,7 @@ async def get_departure_points_by_date(date: datetime.date):
         return cached_data
 
     data = await _fetch_departure_points_by_date(date)
-    asyncio.create_task(set_cache(cache_key, data, get_points_ttl(date)))
+    set_cache_async(cache_key, data, get_points_ttl(date))
     return data
 
 
@@ -39,7 +38,7 @@ async def get_destination_points_by_date(date: datetime.date, departure_point_id
         return cached_data
 
     data = await _fetch_departure_points_by_date(date)
-    asyncio.create_task(set_cache(cache_key, data, get_points_ttl(date)))
+    set_cache_async(cache_key, data, get_points_ttl(date))
     return data
 
 

@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import logging
@@ -62,3 +63,7 @@ async def set_cache(key: str, data, ttl: int, model_dump: bool = False) -> bool:
         logger.exception("Failed to set cache for %s", key)
 
     return False
+
+
+def set_cache_async(key: str, data, ttl: int, model_dump: bool = False):
+    return asyncio.create_task(set_cache(key, data, ttl, model_dump))
