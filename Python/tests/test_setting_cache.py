@@ -1,5 +1,4 @@
-import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from module_shared.cache_settings import get_setting_cached
@@ -7,12 +6,12 @@ from module_shared.models.setting import SettingItem
 from module_shared.schemas.setting import SettingModel, SettingType
 
 
-def _mock_redis(get_return=None):
-    mock_redis = AsyncMock()
-    mock_redis.get = AsyncMock(return_value=get_return)
-    mock_redis.set = AsyncMock()
-    mock_redis.delete = AsyncMock()
-    return mock_redis
+def _mock_cache_controller(get_return=None):
+    mock_cc = AsyncMock()
+    mock_cc.get_cached = AsyncMock(return_value=get_return)
+    mock_cc.set_cache = AsyncMock(return_value=True)
+    mock_cc.silent_set_cache_async = MagicMock()
+    return mock_cc
 
 
 def _mock_setting(**overrides) -> SettingItem:
@@ -25,13 +24,12 @@ def _mock_setting(**overrides) -> SettingItem:
 
 
 @pytest.mark.asyncio
-async def test_get_setting_cached_cache_hit():
+async def test_get_setting_cached_cache_hit(sqlite_session):
     setting = _mock_setting()
-    cached = json.dumps(setting.model_dump(mode="json"))
-    redis = _mock_redis(get_return=cached)
+    mock_cc = _mock_cache_controller(get_return=setting)
 
-    with patch("module_shared.cache_settings.get_redis", return_value=redis):
-        result = await get_setting_cached(None, "test_group", "test_key")
+    with patch("module_shared.cache_settings.get_cache_controller", return_value=mock_cc):
+        result = await get_setting_cached("test_group", "test_key", session=sqlite_session)
 
     assert result is not None
     assert result.group == "test_group"
@@ -45,10 +43,10 @@ async def test_get_setting_cached_cache_miss_db_found(sqlite_session):
     sqlite_session.add(setting)
     await sqlite_session.commit()
 
-    redis = _mock_redis()
+    mock_cc = _mock_cache_controller()
 
-    with patch("module_shared.cache_settings.get_redis", return_value=redis):
-        result = await get_setting_cached(sqlite_session, "test_group", "test_key")
+    with patch("module_shared.cache_settings.get_cache_controller", return_value=mock_cc):
+        result = await get_setting_cached("test_group", "test_key", session=sqlite_session)
 
     assert result is not None
     assert result.group == "test_group"
@@ -58,9 +56,9 @@ async def test_get_setting_cached_cache_miss_db_found(sqlite_session):
 
 @pytest.mark.asyncio
 async def test_get_setting_cached_not_found(sqlite_session):
-    redis = _mock_redis()
+    mock_cc = _mock_cache_controller()
 
-    with patch("module_shared.cache_settings.get_redis", return_value=redis):
-        result = await get_setting_cached(sqlite_session, "nonexistent", "key")
+    with patch("module_shared.cache_settings.get_cache_controller", return_value=mock_cc):
+        result = await get_setting_cached("nonexistent", "key", session=sqlite_session)
 
     assert result is None

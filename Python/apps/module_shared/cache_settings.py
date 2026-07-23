@@ -1,14 +1,17 @@
-import asyncio
-import json
 import logging
+from functools import cache
 
-from module_shared.database import get_database
-from module_shared.models.setting import SettingItem, parse_setting_value
-from module_shared.redis_client import get_redis
-from module_shared.repositories.setting import get_setting as _get_setting
-from module_shared.schemas.setting import SettingModel
-from module_shared.setting_definitions import get_setting_definitions
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from .cache import CacheController
+from .database import get_database
+from .models.setting import SettingItem, parse_setting_value
+from .redis_client import get_redis
+from .repositories import setting as rsettings
+from .schemas.setting import SettingModel
+from .setting_definitions import get_setting_definitions
+from .settings import get_setting as _get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -16,35 +19,37 @@ SETTINGS_CACHE_TTL = 43200  # 12 hours
 SETTINGS_CACHE_PREFIX = "backend_user:settings"
 
 
+@cache
+def get_cache_controller():
+    return CacheController(logger)
+
+
 def _settings_cache_key(group: str, name: str) -> str:
     return f"{SETTINGS_CACHE_PREFIX}:{group}:{name}"
 
 
-async def get_setting_cached(session, group: str, name: str) -> SettingItem | None:
+async def get_setting_cached(group: str, name: str, *, session: AsyncSession | None = None) -> SettingItem | None:
     key = _settings_cache_key(group, name)
-    try:
-        redis = get_redis()
-        cached = await redis.get(key)
-        if cached is not None:
-            return SettingItem(**json.loads(cached))
-    except Exception:
-        logger.warning("Redis unavailable for settings, falling back to DB: %s:%s", group, name)
+    cache_controller = get_cache_controller()
+    cached = await cache_controller.get_cached(key, SettingItem, False)
+    if cached:
+        return cached
 
-    item = await _get_setting(session, group, name)
+    if session:
+        item = await rsettings.get_setting(session, group, name)
+    else:
+        item = await _get_setting(group, name)
+
     if item is not None:
-        asyncio.create_task(set_settings_cache(item))
+        cache_controller.silent_set_cache_async(key, item, SETTINGS_CACHE_TTL)
+
     return item
 
 
 async def set_settings_cache(item: SettingItem) -> None:
-    try:
-        redis = get_redis()
-        key = _settings_cache_key(item.group, item.name)
-        data = item.model_dump(mode="json")
-        await redis.set(key, json.dumps(data), ex=SETTINGS_CACHE_TTL)
-        logger.debug("Settings cache set: %s", key)
-    except Exception:
-        logger.exception("Failed to set settings cache: %s:%s", item.group, item.name)
+    key = _settings_cache_key(item.group, item.name)
+    cache_controller = get_cache_controller()
+    await cache_controller.set_cache(key, item, SETTINGS_CACHE_TTL, True)
 
 
 async def delete_settings_cache(group: str, name: str) -> None:

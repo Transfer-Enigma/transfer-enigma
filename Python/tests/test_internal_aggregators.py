@@ -777,7 +777,7 @@ async def test_find_all_paths_sea_soc_shown_when_flag_off(sqlite_db: Database):
         ),
     }
 
-    def _mock_setting(session, group, name):
+    def _mock_setting(group, name, *, session=None):
         return settings.get(name)
 
     with (
@@ -910,7 +910,7 @@ async def test_find_all_paths_sea_soc_hidden_by_flag(sqlite_db: Database):
         ),
     }
 
-    def _mock_setting(session, group, name):
+    def _mock_setting(group, name, *, session=None):
         return settings.get(name)
 
     with (
@@ -976,7 +976,7 @@ async def test_find_all_paths_head_truck_rail_direct(sqlite_db: Database):
         ),
     }
 
-    def _mock_setting(session, group, name):
+    def _mock_setting(group, name, *, session=None):
         return settings.get(name)
 
     with (
@@ -1046,7 +1046,7 @@ async def test_find_all_paths_head_truck_sea_direct(sqlite_db: Database):
         ),
     }
 
-    def _mock_setting(session, group, name):
+    def _mock_setting(group, name, *, session=None):
         return settings.get(name)
 
     with (
@@ -1116,7 +1116,7 @@ async def test_find_all_paths_tail_truck_rail_direct(sqlite_db: Database):
         ),
     }
 
-    def _mock_setting(session, group, name):
+    def _mock_setting(group, name, *, session=None):
         return settings.get(name)
 
     with (
@@ -1186,7 +1186,7 @@ async def test_find_all_paths_tail_truck_sea_direct(sqlite_db: Database):
         ),
     }
 
-    def _mock_setting(session, group, name):
+    def _mock_setting(group, name, *, session=None):
         return settings.get(name)
 
     with (
@@ -1275,7 +1275,7 @@ async def test_find_all_paths_head_truck_sea_rail(sqlite_db: Database):
         ),
     }
 
-    def _mock_setting(session, group, name):
+    def _mock_setting(group, name, *, session=None):
         return settings.get(name)
 
     with (
@@ -1364,7 +1364,7 @@ async def test_find_all_paths_tail_truck_sea_rail(sqlite_db: Database):
         ),
     }
 
-    def _mock_setting(session, group, name):
+    def _mock_setting(group, name, *, session=None):
         return settings.get(name)
 
     with (

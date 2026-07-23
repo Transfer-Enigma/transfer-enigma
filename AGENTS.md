@@ -74,11 +74,19 @@ Python/
 │   │   │   ├── route.py          # PriceModel, RouteModel, ServicePriceModel + RouteType, ContainerTransferTerms, ContainerShipmentTerms, ContainerOwner enums
 │   │   │   ├── service.py        # ServiceModel ORM model
 │   │   │   └── setting.py        # SettingModel ORM model + SettingType enum
-│   │   ├── cache_settings.py  # Settings Redis cache (cache-aside, TTL 12h) + ensure_settings
+│   │   ├── cache.py              # Shared CacheController (Redis GET/SET + Pydantic validation + locker-guarded async writes)
+│   │   ├── cache_settings.py     # Settings Redis cache (cache-aside, TTL 12h) + ensure_settings
+│   │   ├── settings.py           # Thin wrappers: get_setting, list_settings (open session → repository)
 │   │   ├── setting_definitions.py  # Setting definition registry (SettingDefinition dataclass)
+│   │   ├── redis_client.py       # Redis async singleton (get_redis / get_redis_client)
 │   │   └── repositories/
 │   │       ├── demo_guest.py     # get/list demo guests
-│   │       └── setting.py        # get_setting, list_settings
+│   │       ├── setting.py        # get_setting, list_settings
+│   │       └── locker/
+│   │           ├── __init__.py         # Re-exports Locker, TaskAlreadyRunningError
+│   │           ├── abstract_locker.py  # Abstract Locker ABC with @locked/@alocked decorators
+│   │           ├── local_locker.py     # LocalLocker — in-process threading lock
+│   │           └── redis_locker.py     # RedisLocker — distributed Redis lock (async only)
 │   ├── module_data_internal/
 │   │   ├── query_domain/    # New declarative query builder
 │   └── module_data_fesco_api_adapter/
@@ -152,16 +160,21 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 
 **Status:** Active — Redis service available in all environments (prod, dev, test).
 
-**Redis client:** `module_shared/redis_client.py` — async singleton via `get_redis()` / `close_redis()`. Connection pool managed by `redis.asyncio`.
+**Redis client:** `module_shared/redis_client.py` — async singleton via `get_redis()` / `get_redis_client()`. Connection pool managed by `redis.asyncio`.
 - `decode_responses=True` — all values are strings (JSON serialized)
 - Config: `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, `REDIS_PASSWORD` from `module_shared/config.py`
 
-**FESCO cache — transparent:** `module_data_fesco_api_adapter/api_client/cached.py` wraps `api_client` functions with transparent caching:
-- `get_departure_points_by_date`, `get_destination_points_by_date` — cached via `get_fesco_points_cached`
-- `get_containers(date, dep, dest)` — cached container lists
-- `find_all_paths(date, dep, dest, wte_ids)` — cached route results
-  Backend code simply calls `api_client.*` as before — caching is handled transparently.
-  Low-level cache-aside logic is in `module_data_fesco_api_adapter/cache.py` (`get_fesco_points_cached`, `_set_json_async`).
+**Shared `CacheController`** (`module_shared/cache.py`):
+- `get_cached(key, pydantic_class?, iterable?)` — Redis GET → JSON → optional Pydantic `model_validate`
+- `set_cache(key, data, ttl, model_dump?)` — Redis SET with optional automatic `model_dump(mode="json")`, returns `bool`
+- `set_cache_async(key, data, ttl, model_dump?)` — fire-and-forget async write, guarded by `LocalLocker` to prevent duplicate concurrent writes for the same cache key
+- `silent_set_cache_async(...)` — same as above, suppresses `TaskAlreadyRunningError`
+
+**FESCO cache** (`module_data_fesco_api_adapter/cache.py`):
+- `CacheKeys` — static methods for key generation (`get_departures_cache_key`, `get_destinations_cache_key`, `get_wte_cache_key`, `get_routes_cache_key`)
+- `get_points_ttl(date)` — returns TTL (24h for today, 12h for other dates)
+- `get_cache_controller()` — singleton, returns `CacheController(logger)`
+- API clients (`containers.py`, `points.py`, `routes.py`) use `CacheController` directly for cache-aside pattern
 
 **Cache key scheme:**
 
@@ -170,11 +183,11 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 | Currency rates | `backend_user:rates:latest` | 24h | — |
 | FESCO departures | `backend_user:fesco:departures:{date}` | 24h (today) / 12h (other) | volatile-lru |
 | FESCO destinations | `backend_user:fesco:destinations:{date}:{dep_id}` | 24h (today) / 12h (other) | volatile-lru |
-| FESCO routes | `backend_user:fesco:routes:{date}:{dep}:{dest}:{weight}:{type}` | 12h | volatile-lru |
+| FESCO routes | `backend_user:fesco:routes:{date}:{dep}:{dest}:{wte_ids}` | 12h | volatile-lru |
 | Settings | `backend_user:settings:{group}:{name}` | 12h | volatile-lru |
 
 **Settings cache — transparent:** `module_shared/cache_settings.py` implements cache-aside for DB-backed settings:
-- `get_setting_cached(session, group, name)` — Redis → DB → fire-and-forget write
+- `get_setting_cached(group, name, *, session=None)` — Redis → DB → fire-and-forget write
 - `set_settings_cache(item)` — write single setting to Redis
 - `delete_settings_cache(group, name)` — remove single setting from Redis
 - `backend_admin` lifespan includes `get_redis_client().init()` / `.close()`
@@ -192,6 +205,15 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 - `docker-compose.yml`: `valkey/valkey:alpine`, AOF+RDB persistence, `volatile-lru` (512mb maxmemory)
 - `docker-compose.hot-dev.backend.yml`: extends redis from base
 - `docker-compose.test.yml`: redis with 128mb maxmemory, `test` profile
+
+### Locker System
+
+`module_shared/repositories/locker/` — lock/unlock abstraction for preventing duplicate concurrent operations:
+
+- **`Locker` (ABC)** — sync/async `acquire`/`release`, context managers, class-level `@locked`/`@alocked` decorators that wrap functions with acquire/release semantics
+- **`LocalLocker`** — in-process threading-based lock (`threading.Lock` + `dict[str, bool]`). Used by `CacheController.set_cache_async` to prevent duplicate fire-and-forget writes for the same cache key
+- **`RedisLocker`** — distributed Redis-based lock using `SET NX EX` (async only; sync methods raise `RuntimeError`)
+- **`TaskAlreadyRunningError`** — raised on re-acquire
 
 ### Nginx Routing
 
@@ -400,7 +422,6 @@ module_shared ───┬── backend_auth
 - MariaDB, accessed via SQLAlchemy async + `aiomysql`
 - Migrations via Alembic
 - All ORM models and enums defined in `module_shared/schemas/`
-- `module_data_internal/schemas/__init__.py` re-exports from `module_shared.schemas` via wildcard (backward compatibility)
 - Both use the same `Base` class from `module_shared.database`
 
 ### Route Calculation — Key Logic
@@ -422,13 +443,18 @@ module_shared ───┬── backend_auth
 | Setting group | Setting name | Type | Default | Effect |
 |---------------|-------------|------|---------|--------|
 | `feature-flag` | `hide-sea-soc` | `BOOL` | `false` | When `true`, sea segments with `container_owner == SOC` are excluded from SQL queries (both direct SEA and combined sea+rail) |
-| `feature-flag` | `head-truck` | `BOOL` | `false` | When `true`, allows prepending a TRUCK segment before the route (via `truck_start_point_id`) |
-| `feature-flag` | `tail-truck` | `BOOL` | `false` | When `true`, allows appending a TRUCK segment after the route (via `truck_end_point_id`) |
+| `feature-flag` | `rail-direct` | `BOOL` | `true` | When `true`, enables RAIL direct route calculation |
+| `feature-flag` | `sea-direct` | `BOOL` | `true` | When `true`, enables SEA direct route calculation |
+| `feature-flag` | `sea-rail` | `BOOL` | `true` | When `true`, enables SEA→RAIL combined route calculation |
+| `feature-flag` | `rail-sea` | `BOOL` | `false` | When `true`, enables RAIL→SEA combined route calculation (TODO: production-ready) |
+| `feature-flag` | `head-truck` | `BOOL` | `true` | When `true`, allows prepending a TRUCK segment before the route (via `truck_start_point_id`) |
+| `feature-flag` | `tail-truck` | `BOOL` | `true` | When `true`, allows appending a TRUCK segment after the route (via `truck_end_point_id`) |
+| `feature-flag` | `demo-excluded-fields` | `JSON` | `["company"]` | List of fields to blur for demo users |
 
-- Read in `module_data_internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached(session, "feature-flag", "hide-sea-soc")`
-- Affects `build_usual_query(RouteType.SEA, ...)` and `build_base_sea_rail_query(...)`
-- Falls back to `False` if setting not found or Redis/DB unavailable
-- Created via Admin API: `POST /admin/api/db/settings` with `{"group": "feature-flag", "name": "hide-sea-soc", "value_type": "BOOL", "value": "false"}`
+- All 7 route-related flags are read in `module_data_internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached("feature-flag", name)` using the `_flags` list
+- `demo-excluded-fields` is read in `backend_user/api/v2/demo/feature_flags.py` and several point/route handlers
+- All settings are defined in `module_shared/setting_definitions.py` and auto-synced to DB on startup via `ensure_settings()`
+- Falls back to default value if setting not found or Redis/DB unavailable
 
 **TRUCK segment connection rules (in `routes.py`):**
 - `_connect_segments(prev, curr)` adds: `prev.end_point == curr.start_point`
@@ -523,15 +549,15 @@ All output is JSON by default (for AI/script parsing).
 
 ### Cache Pitfalls
 
-- `get_fesco_routes_cached` in `cache.py` must call `list(data)` on the fetch result because `transform_routes` returns a `map` object (consumable iterator). Without `list()`, the internal list comprehension `[r.model_dump(...) for r in data]` exhausts the iterator and `return data` returns an empty sequence.
-- Points caching (`get_fesco_points_cached`) is safe because its fetch functions return plain JSON dicts/lists, not iterators.
-- Container caching (`get_containers` in `api_client/containers.py`) is also safe — `transform_containers` returns a sorted list.
+- `find_all_paths` in `api_client/routes.py` must call `list(data)` on the fetch result because `transform_routes` returns a `map` object (consumable iterator). Without `list()`, `CacheController.set_cache(model_dump=True)` inside `silent_set_cache_async` would exhaust the iterator before serialization. The `list()` call also ensures the result can be returned to the caller.
+- Points caching (`api_client/points.py`) is safe because its fetch functions return plain JSON dicts/lists, not iterators.
+- Container caching (`api_client/containers.py`) is also safe — `transform_containers` returns a sorted list.
 
 ### FESCO API Client Tests
 
 All tests in `test_fesco_api_client.py` that call `get_containers`, `get_departure_points_by_date`, `get_destination_points_by_date`, or `find_all_paths` must mock `redis` because these functions now use Redis caching directly. The mock targets:
 - `module_data_fesco_api_adapter.cache.get_redis` — for points/routes (functions go through `cache.py`)
-- `module_data_fesco_api_adapter.api_client.containers.get_redis` — for containers (imports directly in `containers.py`)
+- `module_data_fesco_api_adapter.api_client.containers.get_cache_controller` — for containers (imports `get_cache_controller` from `cache.py`)
 - `module_data_fesco_api_adapter.api_client.routes.aiohttp.ClientSession` — for `find_all_paths` (uses `_fetch_all_paths`)
 
 ---

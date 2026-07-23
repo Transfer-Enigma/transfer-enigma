@@ -10,7 +10,6 @@ from backend_user.schemas.form_requests import CalculateFormRequest
 from backend_user.services.profit import apply_demo_profit_to_route
 from backend_user.services.route_calculation import calculate_routes_stream
 from module_shared.cache_settings import get_setting_cached
-from module_shared.database import get_database
 from module_shared.models.route import RouteResult
 
 router = APIRouter(prefix="/v3/routes", tags=["v3", "routes"])
@@ -26,9 +25,9 @@ async def _apply_demo_transforms_to_route(route: RouteResult, auth: AuthContext)
             auth.rail_profit_currency,
         )
 
-    async with get_database().session_context() as session:
-        setting = await get_setting_cached(session, "feature-flag", "demo-excluded-fields")
-        excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
+    setting = await get_setting_cached("feature-flag", "demo-excluded-fields")
+    excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
+
     for segment in route.segments:
         for field in excluded_fields:
             with suppress(ValueError):

@@ -564,7 +564,7 @@ class TestGetContainers:
                 "module_data_fesco_api_adapter.api_client.containers.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.api_client.containers.get_redis", return_value=mock_redis),
+            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
         ):
             result = await get_containers(
                 datetime.date(2024, 6, 15), "dep1", "dest1"
@@ -584,7 +584,7 @@ class TestGetContainers:
                 "module_data_fesco_api_adapter.api_client.containers.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.api_client.containers.get_redis", return_value=mock_redis),
+            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
         ):
             result = await get_containers(
                 datetime.date(2024, 6, 15), "dep1", "dest1"
@@ -602,7 +602,7 @@ class TestGetContainers:
                 "module_data_fesco_api_adapter.api_client.containers.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.api_client.containers.get_redis", return_value=mock_redis),
+            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
             pytest.raises(Exception, match="HTTP 500"),
         ):
             await get_containers(datetime.date(2024, 6, 15), "dep1", "dest1")
@@ -616,7 +616,7 @@ class TestGetContainers:
         mock_redis = _mock_redis(get_return=cached_data)
 
         with patch(
-            "module_data_fesco_api_adapter.api_client.containers.get_redis",
+            "module_data_fesco_api_adapter.cache.get_redis",
             return_value=mock_redis,
         ):
             result = await get_containers(datetime.date(2024, 6, 15), "dep1", "dest1")
@@ -637,7 +637,7 @@ class TestGetContainers:
                 return_value=mock_session,
             ),
             patch(
-                "module_data_fesco_api_adapter.api_client.containers.get_redis",
+                "module_data_fesco_api_adapter.cache.get_redis",
                 return_value=mock_redis,
             ),
         ):

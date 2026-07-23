@@ -1,36 +1,24 @@
-import asyncio
 import datetime
-import json
 import logging
 
 import aiohttp
 from module_shared.config import get_settings
 from module_shared.models.route import ContainerItem
-from module_shared.redis_client import get_redis
 
-from ..cache import FESCO_CONTAINERS_TTL, _set_json_async
+from ..cache import FESCO_CONTAINERS_TTL, CacheKeys, get_cached, silent_set_cache_async
 from .transformers.containers import transform_containers
 
 logger = logging.getLogger(__name__)
 
 
 async def get_containers(date: datetime.date, departure_id: str, destination_id: str):
-    cache_key = f"backend_user:fesco:containers:{date}:{departure_id}:{destination_id}"
-    try:
-        redis = get_redis()
-        cached = await redis.get(cache_key)
-        if cached is not None:
-            raw = json.loads(cached)
-            return [ContainerItem.model_validate(c) for c in raw]
-    except Exception:
-        logger.warning("Redis unavailable for containers, falling back to API")
+    cache_key = CacheKeys.get_wte_cache_key(date, departure_id, destination_id)
+    cached_data = await get_cached(cache_key, ContainerItem)
+    if cached_data:
+        return cached_data
 
     containers = await _fetch_containers(date, departure_id, destination_id)
-    asyncio.create_task(_set_json_async(
-        cache_key,
-        [c.model_dump(mode="json") for c in containers],
-        FESCO_CONTAINERS_TTL,
-    ))
+    silent_set_cache_async(cache_key, containers, FESCO_CONTAINERS_TTL, True)
     return containers
 
 
