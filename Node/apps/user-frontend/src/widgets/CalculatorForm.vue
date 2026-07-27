@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IPoint, IPointIds, IdIsExternal } from "@/interfaces/Point";
+import type { IPoint, IdIsExternal } from "@/interfaces/Point";
 import PointsSelect from "@/widgets/PointsSelect.vue";
 
 import { getDepartures, getDestinations, getTruckDepartures, getTruckDestinations } from "@/api_helpers/points";
@@ -11,14 +11,9 @@ const departureIdsModel = defineModel<IdIsExternal[]>("departure");
 const destinationIdsModel = defineModel<IdIsExternal[]>("destination");
 const containerTypeModel = defineModel<string>("containerType");
 const containerWeightModel = defineModel<number>("containerWeight");
-const truckStartModel = defineModel<IdIsExternal[]>("truckStart");
-const truckEndModel = defineModel<IdIsExternal[]>("truckEnd");
 
-const departureInputDisabledModel = defineModel<boolean>("isDepartureDisabled", { required: false, default: true });
-const destinationInputDisabledModel = defineModel<boolean>("isDestinationDisabled", { required: false, default: true });
-
-const departureInputTextModel = defineModel<string>("departureSearchText", { required: false, default: "" });
-const destinationInputTextModel = defineModel<string>("destinationSearchText", { required: false, default: "" });
+const headTruckModel = defineModel<boolean>("headTruck", { required: false, default: false });
+const tailTruckModel = defineModel<boolean>("tailTruck", { required: false, default: false });
 
 const emit = defineEmits(["calculate", "reset"]);
 
@@ -26,6 +21,8 @@ const dateInputId = useId();
 const containerTypeSelectId = useId();
 const containerWeightInputId = useId();
 
+const departureInputText = ref<string>("");
+const destinationInputText = ref<string>("");
 const departurePoints = ref<IPoint[]>([]);
 const destinationPoints = ref<IPoint[]>([]);
 const truckDeparturePoints = ref<IPoint[]>([]);
@@ -36,21 +33,22 @@ const isInitialLoad = ref(true);
 const isDateChanging = ref(false);
 const pendingDestinationIds = ref<IdIsExternal[]>();
 
-const isFromDoor = ref<boolean>(!!truckStartModel.value?.length);
-const isToDoor = ref<boolean>(!!truckEndModel.value?.length);
+const isDepartureDisabled = ref(true);
+const isDestinationDisabled = ref(true);
 
-const truckStartDisabled = ref(true);
-const truckEndDisabled = ref(true);
+const effectiveDeparturePoints = computed(() =>
+    headTruckModel.value ? truckDeparturePoints.value : departurePoints.value,
+);
+
+const effectiveDestinationPoints = computed(() =>
+    tailTruckModel.value ? truckDestinationPoints.value : destinationPoints.value,
+);
 
 function submit(e: Event) {
     if (!calcForm.value!.checkValidity()) return;
 
     e.preventDefault();
     emit("calculate");
-}
-
-function idMatches(entity: IPointIds, selectedId: IdIsExternal): boolean {
-    return entity.ids.includes(Number(selectedId.id)) || entity.external_ids.includes(String(selectedId.id));
 }
 
 function setSelectedPoints(
@@ -63,13 +61,13 @@ function setSelectedPoints(
     let pointFound: IPoint | undefined;
     for (const selectedId of ids) {
         for (const point of points) {
-            if (idMatches(point, selectedId)) {
+            if (point.ids.includes(Number(selectedId.id)) || point.external_ids.includes(String(selectedId.id))) {
                 pointFound = point;
                 break;
             }
 
             for (const port of point.ports) {
-                if (idMatches(port, selectedId)) {
+                if (port.ids.includes(Number(selectedId.id)) || port.external_ids.includes(String(selectedId.id))) {
                     pointFound = point;
                     break;
                 }
@@ -109,29 +107,34 @@ watch(dateModel, async () => {
     const prevDestinationIds = destinationIdsModel.value?.length ? [...destinationIdsModel.value] : undefined;
 
     isDateChanging.value = true;
-    departureInputDisabledModel.value = true;
-    destinationInputDisabledModel.value = true;
+    isDepartureDisabled.value = true;
+    isDestinationDisabled.value = true;
 
     try {
         // 1. Fetch departures
         const depResponse = await getDepartures(dateModel.value!);
-        const { data: depData } = depResponse;
-        departurePoints.value = depData;
-        departureInputDisabledModel.value = !depData.length;
+        departurePoints.value = depResponse.data;
 
-        if (!depData.length) {
+        const truckDepResponse = await getTruckDepartures(dateModel.value!);
+        truckDeparturePoints.value = truckDepResponse.data;
+
+        isDepartureDisabled.value = !depResponse.data.length && !truckDepResponse.data.length;
+
+        if (!depResponse.data.length && !truckDepResponse.data.length) {
             if (prevDepartureIds)
                 useToast().show("Выбранные пункты отправления недоступны на выбранную дату", "warning");
             departureIdsModel.value = undefined;
             destinationPoints.value = [];
+            truckDestinationPoints.value = [];
             destinationIdsModel.value = undefined;
-            destinationInputDisabledModel.value = true;
+            isDestinationDisabled.value = true;
             return;
         }
 
         // 2. Try to restore departure
         if (prevDepartureIds) {
-            const depFound = setSelectedPoints(depData, prevDepartureIds);
+            const allDepPoints = [...departurePoints.value, ...truckDeparturePoints.value];
+            const depFound = setSelectedPoints(allDepPoints, prevDepartureIds);
             departureIdsModel.value = depFound ?? undefined;
             if (!depFound)
                 useToast().show("Выбранные пункты отправления недоступны на выбранную дату", "warning");
@@ -140,11 +143,14 @@ watch(dateModel, async () => {
         // 3. Fetch destinations if departure is selected
         if (departureIdsModel.value?.length) {
             const destResponse = await getDestinations(dateModel.value!, departureIdsModel.value);
-            const { data: destData } = destResponse;
-            destinationPoints.value = destData;
-            destinationInputDisabledModel.value = !destData.length;
+            destinationPoints.value = destResponse.data;
 
-            if (!destData.length) {
+            const truckDestResponse = await getTruckDestinations(dateModel.value!);
+            truckDestinationPoints.value = truckDestResponse.data;
+
+            isDestinationDisabled.value = !destResponse.data.length && !truckDestResponse.data.length;
+
+            if (!destResponse.data.length && !truckDestResponse.data.length) {
                 if (prevDestinationIds)
                     useToast().show("Выбранные пункты прибытия недоступны на выбранную дату", "warning");
                 destinationIdsModel.value = undefined;
@@ -154,14 +160,16 @@ watch(dateModel, async () => {
 
             // 4. Try to restore destination
             if (prevDestinationIds) {
-                const destFound = setSelectedPoints(destData, prevDestinationIds);
+                const allDestPoints = [...destResponse.data, ...truckDestResponse.data];
+                const destFound = setSelectedPoints(allDestPoints, prevDestinationIds);
                 destinationIdsModel.value = destFound ?? undefined;
                 if (!destFound)
                     useToast().show("Выбранные пункты прибытия недоступны на выбранную дату", "warning");
             }
         } else {
             destinationPoints.value = [];
-            destinationInputDisabledModel.value = true;
+            truckDestinationPoints.value = [];
+            isDestinationDisabled.value = true;
             if (prevDepartureIds)
                 destinationIdsModel.value = undefined;
             pendingDestinationIds.value = undefined;
@@ -180,7 +188,7 @@ watch(departureIdsModel, async () => {
     if (!departureIdsModel.value?.length) {
         if (destinationIdsModel.value?.length)
             pendingDestinationIds.value = [...destinationIdsModel.value];
-        destinationInputDisabledModel.value = true;
+        isDestinationDisabled.value = true;
         destinationPoints.value = [];
         return;
     }
@@ -188,7 +196,7 @@ watch(departureIdsModel, async () => {
     const prevDestinationIds = pendingDestinationIds.value;
     pendingDestinationIds.value = undefined;
 
-    destinationInputDisabledModel.value = true;
+    isDestinationDisabled.value = true;
     destinationIdsModel.value = undefined;
     destinationPoints.value = [];
 
@@ -196,19 +204,23 @@ watch(departureIdsModel, async () => {
 
     try {
         const response = await getDestinations(dateModel.value!, departureIdsModel.value);
-        const { data } = response;
-        destinationPoints.value = data;
-        destinationInputDisabledModel.value = !data.length;
+        destinationPoints.value = response.data;
 
-        if (prevDestinationIds && data.length) {
-            const destFound = setSelectedPoints(data, prevDestinationIds);
+        const truckDestResponse = await getTruckDestinations(dateModel.value!);
+        truckDestinationPoints.value = truckDestResponse.data;
+
+        isDestinationDisabled.value = !response.data.length && !truckDestResponse.data.length;
+
+        if (prevDestinationIds && (response.data.length || truckDestResponse.data.length)) {
+            const allDestPoints = [...response.data, ...truckDestResponse.data];
+            const destFound = setSelectedPoints(allDestPoints, prevDestinationIds);
             destinationIdsModel.value = destFound ?? undefined;
             if (!destFound)
                 useToast().show("Выбранные пункты прибытия недоступны для нового пункта отправления", "warning");
         }
     } catch {
         useToast().show("Ошибка загрузки данных", "error");
-        destinationInputDisabledModel.value = false;
+        isDestinationDisabled.value = false;
     }
 });
 
@@ -220,64 +232,51 @@ watch(destinationIdsModel, () => {
 });
 
 // Load truck departure points when "From door" checkbox is activated
-watch(isFromDoor, async (val) => {
-    if (!val) {
-        truckStartModel.value = undefined;
-        return;
-    }
+watch(headTruckModel, async (val) => {
+    if (isInitialLoad.value) return;
+
+    departureIdsModel.value = undefined;
+    destinationIdsModel.value = undefined;
+    destinationPoints.value = [];
+    isDestinationDisabled.value = true;
+
     if (!isDateValid()) return;
 
-    truckStartDisabled.value = true;
-    try {
-        const response = await getTruckDepartures(dateModel.value!);
-        truckDeparturePoints.value = response.data;
-        truckStartDisabled.value = !response.data.length;
-        if (!response.data.length)
-            useToast().show("Пункты отгрузки от двери недоступны", "warning");
-    } catch {
-        useToast().show("Ошибка загрузки данных", "error");
+    if (val && !truckDeparturePoints.value.length) {
+        try {
+            const response = await getTruckDepartures(dateModel.value!);
+            truckDeparturePoints.value = response.data;
+            if (!response.data.length)
+                useToast().show("Пункты отгрузки от двери недоступны", "warning");
+        } catch {
+            useToast().show("Ошибка загрузки данных", "error");
+        }
     }
 });
 
 // Load truck destination points when "To door" checkbox is activated
-watch(isToDoor, async (val) => {
-    if (!val) {
-        truckEndModel.value = undefined;
-        return;
-    }
-    if (!isDateValid()) return;
-
-    truckEndDisabled.value = true;
-    try {
-        const response = await getTruckDestinations(dateModel.value!);
-        truckDestinationPoints.value = response.data;
-        truckEndDisabled.value = !response.data.length;
-        if (!response.data.length)
-            useToast().show("Пункты доставки до двери недоступны", "warning");
-    } catch {
-        useToast().show("Ошибка загрузки данных", "error");
-    }
-});
-
-// Reload truck points when date changes
-watch(dateModel, () => {
+watch(tailTruckModel, async (val) => {
     if (isInitialLoad.value) return;
 
-    if (isFromDoor.value) {
-        truckStartModel.value = undefined;
-        truckDeparturePoints.value = [];
-        isFromDoor.value = false;
-    }
-    if (isToDoor.value) {
-        truckEndModel.value = undefined;
-        truckDestinationPoints.value = [];
-        isToDoor.value = false;
+    destinationIdsModel.value = undefined;
+
+    if (!isDateValid()) return;
+
+    if (val && !truckDestinationPoints.value.length) {
+        try {
+            const response = await getTruckDestinations(dateModel.value!);
+            truckDestinationPoints.value = response.data;
+            if (!response.data.length)
+                useToast().show("Пункты доставки до двери недоступны", "warning");
+        } catch {
+            useToast().show("Ошибка загрузки данных", "error");
+        }
     }
 });
 
 const isCalculateDisabled = computed(() =>
-    departureInputDisabledModel.value ||
-    destinationInputDisabledModel.value ||
+    isDepartureDisabled.value ||
+    isDestinationDisabled.value ||
     !departureIdsModel.value?.length ||
     !destinationIdsModel.value?.length
 );
@@ -289,61 +288,49 @@ onMounted(async () => {
     }
 
     // Block before loading
-    departureInputDisabledModel.value = true;
-    destinationInputDisabledModel.value = true;
+    isDepartureDisabled.value = true;
+    isDestinationDisabled.value = true;
     // Save initial values
     const initialDepartureIds = departureIdsModel.value;
     const initialDestinationIds = destinationIdsModel.value;
-    const initialTruckStartIds = truckStartModel.value;
-    const initialTruckEndIds = truckEndModel.value;
 
     try {
         const depResponse = await getDepartures(dateModel.value!);
         departurePoints.value = depResponse.data;
-        departureInputDisabledModel.value = false;
+
+        const truckDepResponse = await getTruckDepartures(dateModel.value!);
+        truckDeparturePoints.value = truckDepResponse.data;
+
+        isDepartureDisabled.value = false;
 
         // Restore selected departure if it is in URL
-        if (initialDepartureIds && departurePoints.value.length) {
-            const depFound = setSelectedPoints(departurePoints.value, initialDepartureIds);
+        if (initialDepartureIds && (departurePoints.value.length || truckDeparturePoints.value.length)) {
+            const allDepPoints = [...departurePoints.value, ...truckDeparturePoints.value];
+            const depFound = setSelectedPoints(allDepPoints, initialDepartureIds);
             departureIdsModel.value = depFound ?? undefined;
         } else departureIdsModel.value = undefined;
 
         // Load destinations if a departure is selected
         if (departureIdsModel.value) {
             const destResponse = await getDestinations(dateModel.value!, departureIdsModel.value);
-            const { data: destData } = destResponse;
-            destinationPoints.value = destData;
-            destinationInputDisabledModel.value = false;
+            destinationPoints.value = destResponse.data;
+
+            const truckDestResponse = await getTruckDestinations(dateModel.value!);
+            truckDestinationPoints.value = truckDestResponse.data;
+
+            isDestinationDisabled.value = false;
 
             // Restore selected destination if it is in URL
-            if (initialDestinationIds && destData.length) {
-                const destFound = setSelectedPoints(destData, initialDestinationIds);
+            if (initialDestinationIds && (destResponse.data.length || truckDestResponse.data.length)) {
+                const allDestPoints = [...destResponse.data, ...truckDestResponse.data];
+                const destFound = setSelectedPoints(allDestPoints, initialDestinationIds);
                 destinationIdsModel.value = destFound ?? undefined;
             } else destinationIdsModel.value = undefined;
         } else {
             destinationPoints.value = [];
+            truckDestinationPoints.value = [];
             destinationIdsModel.value = undefined;
-            destinationInputDisabledModel.value = true;
-        }
-
-        // Restore truck start from URL
-        if (initialTruckStartIds?.length) {
-            isFromDoor.value = true;
-            const truckStartResponse = await getTruckDepartures(dateModel.value!);
-            truckDeparturePoints.value = truckStartResponse.data;
-            truckStartDisabled.value = false;
-            const found = setSelectedPoints(truckStartResponse.data, initialTruckStartIds);
-            truckStartModel.value = found ?? undefined;
-        }
-
-        // Restore truck end from URL
-        if (initialTruckEndIds?.length) {
-            isToDoor.value = true;
-            const truckEndResponse = await getTruckDestinations(dateModel.value!);
-            truckDestinationPoints.value = truckEndResponse.data;
-            truckEndDisabled.value = false;
-            const found = setSelectedPoints(truckEndResponse.data, initialTruckEndIds);
-            truckEndModel.value = found ?? undefined;
+            isDestinationDisabled.value = true;
         }
     } catch {
         useToast().show("Ошибка загрузки данных", "error");
@@ -369,54 +356,40 @@ onMounted(async () => {
 
         <div class="mb-3 position-relative">
             <PointsSelect
-                :points="departurePoints"
+                :points="effectiveDeparturePoints"
                 text-label="Пункт отправления"
                 v-model="departureIdsModel"
-                v-model:is-disabled="departureInputDisabledModel"
-                v-model:search-text="departureInputTextModel"
+                v-model:is-disabled="isDepartureDisabled"
+                v-model:search-text="departureInputText"
             />
             <div class="form-check">
                 <input
                     class="form-check-input"
                     type="checkbox"
                     id="fromDoorCheck"
-                    v-model="isFromDoor"
+                    v-model="headTruckModel"
                 />
                 <label class="form-check-label" for="fromDoorCheck">От двери</label>
             </div>
-            <PointsSelect
-                v-if="isFromDoor"
-                :points="truckDeparturePoints"
-                text-label="Пункт доставки от двери"
-                v-model="truckStartModel"
-                v-model:is-disabled="truckStartDisabled"
-            />
         </div>
 
         <div class="mb-3 position-relative">
             <PointsSelect
-                :points="destinationPoints"
+                :points="effectiveDestinationPoints"
                 text-label="Пункт прибытия"
                 v-model="destinationIdsModel"
-                v-model:is-disabled="destinationInputDisabledModel"
-                v-model:search-text="destinationInputTextModel"
+                v-model:is-disabled="isDestinationDisabled"
+                v-model:search-text="destinationInputText"
             />
             <div class="form-check">
                 <input
                     class="form-check-input"
                     type="checkbox"
                     id="toDoorCheck"
-                    v-model="isToDoor"
+                    v-model="tailTruckModel"
                 />
                 <label class="form-check-label" for="toDoorCheck">До двери</label>
             </div>
-            <PointsSelect
-                v-if="isToDoor"
-                :points="truckDestinationPoints"
-                text-label="Пункт доставки до двери"
-                v-model="truckEndModel"
-                v-model:is-disabled="truckEndDisabled"
-            />
         </div>
 
         <div class="mb-3">
