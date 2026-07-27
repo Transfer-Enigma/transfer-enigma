@@ -25,8 +25,8 @@ export const serializeCalculatorQueryParams = (payload: ICalculatorPayloadWithCu
     type: payload.containerType,
     weight: payload.containerWeight,
     currency: payload.currency,
-    truckStart: payload.truckStartIds ? serializeIds(payload.truckStartIds) : undefined,
-    truckEnd: payload.truckEndIds ? serializeIds(payload.truckEndIds) : undefined,
+    headTruck: payload.headTruck ? "1" : undefined,
+    tailTruck: payload.tailTruck ? "1" : undefined,
 });
 
 export function deserializeCalculatorQueryParams(query: Record<string, unknown>) {
@@ -48,9 +48,9 @@ export function deserializeCalculatorQueryParams(query: Record<string, unknown>)
 
     if (query.weight) params.containerWeight = Number(query.weight);
 
-    if (query.truckStart) params.truckStartIds = deserializeIds(query.truckStart as string);
+    if (query.headTruck) params.headTruck = true;
 
-    if (query.truckEnd) params.truckEndIds = deserializeIds(query.truckEnd as string);
+    if (query.tailTruck) params.tailTruck = true;
 
     return params;
 }
@@ -92,13 +92,6 @@ export async function updateRoutesSSE(payload: ICalculatorPayload) {
     const calcStatus = useCalculationStatus();
     let hasWarnings = false;
 
-    const truckStartPointId = payload.truckStartIds?.[0]
-        ? String(payload.truckStartIds[0].id)
-        : undefined;
-    const truckEndPointId = payload.truckEndIds?.[0]
-        ? String(payload.truckEndIds[0].id)
-        : undefined;
-
     routesStore.setRoutes();
     calcStatus.setStatus("loading");
 
@@ -112,8 +105,8 @@ export async function updateRoutesSSE(payload: ICalculatorPayload) {
             containerType: payload.containerType,
             cargoWeight: payload.containerWeight,
             currency: currentRate,
-            truckStartPointId,
-            truckEndPointId,
+            headTruck: payload.headTruck,
+            tailTruck: payload.tailTruck,
         })) {
             if (event.type === "route") {
                 collected.push(event.route);

@@ -26,8 +26,8 @@ interface Props {
     containerType?: string;
     containerWeight?: number;
     currency?: string;
-    truckStartIds?: IdIsExternal[];
-    truckEndIds?: IdIsExternal[];
+    headTruck?: boolean;
+    tailTruck?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -66,8 +66,8 @@ const departureIdsModel = ref<IdIsExternal[]>();
 const destinationIdsModel = ref<IdIsExternal[]>();
 const containerTypeModel = ref<string>("20");
 const containerWeightModel = ref<number>();
-const truckStartModel = ref<IdIsExternal[]>();
-const truckEndModel = ref<IdIsExternal[]>();
+const headTruckModel = ref<boolean>(false);
+const tailTruckModel = ref<boolean>(false);
 
 const loading = ref(false);
 
@@ -77,8 +77,6 @@ const models: { [key: string]: Ref<unknown> } = {
     destinationIds: destinationIdsModel,
     containerType: containerTypeModel,
     containerWeight: containerWeightModel,
-    truckStartIds: truckStartModel,
-    truckEndIds: truckEndModel,
 };
 
 for (const [key, val] of Object.entries(props)) {
@@ -86,6 +84,9 @@ for (const [key, val] of Object.entries(props)) {
 
     if (models[key]) models[key].value = val;
 }
+
+if (props.headTruck !== undefined) headTruckModel.value = props.headTruck;
+if (props.tailTruck !== undefined) tailTruckModel.value = props.tailTruck;
 
 async function calculate(pushURL: boolean = true) {
     loading.value = true;
@@ -104,8 +105,8 @@ async function calculate(pushURL: boolean = true) {
                 containerType: containerTypeModel.value,
                 containerWeight: containerWeightModel.value,
                 currency: ratesStore.currentRate,
-                truckStartIds: truckStartModel.value,
-                truckEndIds: truckEndModel.value,
+                headTruck: headTruckModel.value,
+                tailTruck: tailTruckModel.value,
             }),
         });
 
@@ -115,8 +116,8 @@ async function calculate(pushURL: boolean = true) {
         destinationIds: destinationIdsModel.value,
         containerType: containerTypeModel.value,
         containerWeight: containerWeightModel.value,
-        truckStartIds: truckStartModel.value,
-        truckEndIds: truckEndModel.value,
+        headTruck: headTruckModel.value,
+        tailTruck: tailTruckModel.value,
     });
 
     loading.value = false;
@@ -129,8 +130,8 @@ function reset() {
     loading.value = false;
     departureIdsModel.value = undefined;
     destinationIdsModel.value = undefined;
-    truckStartModel.value = undefined;
-    truckEndModel.value = undefined;
+    headTruckModel.value = false;
+    tailTruckModel.value = false;
     clearRoutes();
     useCalculationStatus().reset();
 }
@@ -177,8 +178,8 @@ onMounted(() => {
                 v-model:destination="destinationIdsModel"
                 v-model:container-type="containerTypeModel"
                 v-model:container-weight="containerWeightModel"
-                v-model:truck-start="truckStartModel"
-                v-model:truck-end="truckEndModel"
+                v-model:head-truck="headTruckModel"
+                v-model:tail-truck="tailTruckModel"
                 @calculate="calculate"
                 @reset="reset"
             />
