@@ -133,8 +133,8 @@ watch(dateModel, async () => {
 
         // 2. Try to restore departure
         if (prevDepartureIds) {
-            const allDepPoints = [...departurePoints.value, ...truckDeparturePoints.value];
-            const depFound = setSelectedPoints(allDepPoints, prevDepartureIds);
+            const depPool = headTruckModel.value ? truckDeparturePoints.value : departurePoints.value;
+            const depFound = setSelectedPoints(depPool, prevDepartureIds);
             departureIdsModel.value = depFound ?? undefined;
             if (!depFound)
                 useToast().show("Выбранные пункты отправления недоступны на выбранную дату", "warning");
@@ -160,8 +160,8 @@ watch(dateModel, async () => {
 
             // 4. Try to restore destination
             if (prevDestinationIds) {
-                const allDestPoints = [...destResponse.data, ...truckDestResponse.data];
-                const destFound = setSelectedPoints(allDestPoints, prevDestinationIds);
+                const destPool = tailTruckModel.value ? truckDestResponse.data : destResponse.data;
+                const destFound = setSelectedPoints(destPool, prevDestinationIds);
                 destinationIdsModel.value = destFound ?? undefined;
                 if (!destFound)
                     useToast().show("Выбранные пункты прибытия недоступны на выбранную дату", "warning");
@@ -212,8 +212,8 @@ watch(departureIdsModel, async () => {
         isDestinationDisabled.value = !response.data.length && !truckDestResponse.data.length;
 
         if (prevDestinationIds && (response.data.length || truckDestResponse.data.length)) {
-            const allDestPoints = [...response.data, ...truckDestResponse.data];
-            const destFound = setSelectedPoints(allDestPoints, prevDestinationIds);
+            const destPool = tailTruckModel.value ? truckDestResponse.data : response.data;
+            const destFound = setSelectedPoints(destPool, prevDestinationIds);
             destinationIdsModel.value = destFound ?? undefined;
             if (!destFound)
                 useToast().show("Выбранные пункты прибытия недоступны для нового пункта отправления", "warning");
@@ -305,8 +305,8 @@ onMounted(async () => {
 
         // Restore selected departure if it is in URL
         if (initialDepartureIds && (departurePoints.value.length || truckDeparturePoints.value.length)) {
-            const allDepPoints = [...departurePoints.value, ...truckDeparturePoints.value];
-            const depFound = setSelectedPoints(allDepPoints, initialDepartureIds);
+            const depPool = headTruckModel.value ? truckDeparturePoints.value : departurePoints.value;
+            const depFound = setSelectedPoints(depPool, initialDepartureIds);
             departureIdsModel.value = depFound ?? undefined;
         } else departureIdsModel.value = undefined;
 
@@ -322,8 +322,8 @@ onMounted(async () => {
 
             // Restore selected destination if it is in URL
             if (initialDestinationIds && (destResponse.data.length || truckDestResponse.data.length)) {
-                const allDestPoints = [...destResponse.data, ...truckDestResponse.data];
-                const destFound = setSelectedPoints(allDestPoints, initialDestinationIds);
+                const destPool = tailTruckModel.value ? truckDestResponse.data : destResponse.data;
+                const destFound = setSelectedPoints(destPool, initialDestinationIds);
                 destinationIdsModel.value = destFound ?? undefined;
             } else destinationIdsModel.value = undefined;
         } else {
