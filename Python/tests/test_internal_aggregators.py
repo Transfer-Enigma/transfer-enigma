@@ -985,10 +985,10 @@ async def test_find_all_paths_head_truck_rail_direct(sqlite_db: Database):
     ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
-            start_point_id=point_port.id,
+            start_point_id=point_door.id,
             end_point_id=point_dest.id,
             container_ids=[container.id],
-            truck_start_point_id=point_door.id,
+            head_truck=True,
         )
 
     routes = list(result)
@@ -1055,10 +1055,10 @@ async def test_find_all_paths_head_truck_sea_direct(sqlite_db: Database):
     ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
-            start_point_id=point_port.id,
+            start_point_id=point_door.id,
             end_point_id=point_dest.id,
             container_ids=[container.id],
-            truck_start_point_id=point_door.id,
+            head_truck=True,
         )
 
     routes = list(result)
@@ -1126,9 +1126,9 @@ async def test_find_all_paths_tail_truck_rail_direct(sqlite_db: Database):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_origin.id,
-            end_point_id=point_port.id,
+            end_point_id=point_door.id,
             container_ids=[container.id],
-            truck_end_point_id=point_door.id,
+            tail_truck=True,
         )
 
     routes = list(result)
@@ -1196,9 +1196,9 @@ async def test_find_all_paths_tail_truck_sea_direct(sqlite_db: Database):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_origin.id,
-            end_point_id=point_port.id,
+            end_point_id=point_door.id,
             container_ids=[container.id],
-            truck_end_point_id=point_door.id,
+            tail_truck=True,
         )
 
     routes = list(result)
@@ -1284,10 +1284,10 @@ async def test_find_all_paths_head_truck_sea_rail(sqlite_db: Database):
     ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
-            start_point_id=point_sea_start.id,
+            start_point_id=point_door.id,
             end_point_id=point_dest.id,
             container_ids=[container.id],
-            truck_start_point_id=point_door.id,
+            head_truck=True,
         )
 
     routes = list(result)
@@ -1374,9 +1374,9 @@ async def test_find_all_paths_tail_truck_sea_rail(sqlite_db: Database):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_origin.id,
-            end_point_id=point_rail_end.id,
+            end_point_id=point_door.id,
             container_ids=[container.id],
-            truck_end_point_id=point_door.id,
+            tail_truck=True,
         )
 
     routes = list(result)

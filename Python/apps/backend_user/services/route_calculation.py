@@ -31,8 +31,9 @@ async def _get_routes(
     destination: str | int,
     container_weight: float,
     container_type: int,
-    truck_start_point_id: str | int | None = None,
-    truck_end_point_id: str | int | None = None,
+    *,
+    head_truck: bool = False,
+    tail_truck: bool = False,
 ) -> Iterable[RouteResult]:
     containers = await modul.get_containers(date, departure, destination)
     container_ids = modul.search_container_ids(
@@ -45,14 +46,14 @@ async def _get_routes(
         return []
     return await modul.find_all_paths(
         date, departure, destination, container_ids,
-        truck_start_point_id=truck_start_point_id,
-        truck_end_point_id=truck_end_point_id,
+        head_truck=head_truck,
+        tail_truck=tail_truck,
     )
 
 
 def _build_calculation_coros(request: CalculateFormRequest):
-    truck_start = request.truckStartPointId
-    truck_end = request.truckEndPointId
+    head_truck = request.headTruck
+    tail_truck = request.tailTruck
 
     internal_coros = [
         _get_routes(
@@ -62,8 +63,8 @@ def _build_calculation_coros(request: CalculateFormRequest):
             destination_id,
             request.cargoWeight,
             request.containerType,
-            truck_start_point_id=truck_start,
-            truck_end_point_id=truck_end,
+            head_truck=head_truck,
+            tail_truck=tail_truck,
         )
         for destination_id in request.destinationInternalIds
         for departure_id in request.departureInternalIds
@@ -76,8 +77,8 @@ def _build_calculation_coros(request: CalculateFormRequest):
             destination_id,
             request.cargoWeight,
             request.containerType,
-            truck_start_point_id=truck_start,
-            truck_end_point_id=truck_end,
+            head_truck=head_truck,
+            tail_truck=tail_truck,
         )
         for destination_id in request.destinationExternalIds
         for departure_id in request.departureExternalIds

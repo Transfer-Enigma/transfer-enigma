@@ -56,8 +56,8 @@ def _make_request(
     dest_external: list[str] | None = None,
     weight: float = 20000,
     container_type: int = 20,
-    truck_start: str | None = None,
-    truck_end: str | None = None,
+    head_truck: bool = False,
+    tail_truck: bool = False,
 ) -> CalculateFormRequest:
     return CalculateFormRequest(
         dispatchDate=dispatch_date or datetime.date(2024, 6, 15),
@@ -67,8 +67,8 @@ def _make_request(
         destinationExternalIds=dest_external or [],
         cargoWeight=weight,
         containerType=container_type,
-        truckStartPointId=truck_start,
-        truckEndPointId=truck_end,
+        headTruck=head_truck,
+        tailTruck=tail_truck,
     )
 
 
@@ -411,13 +411,13 @@ async def test_truck_start_point_forwarded_to_internal():
         mock_fesco.search_container_ids = lambda containers, weight, size: []
         mock_fesco.find_all_paths = AsyncMock(return_value=[])
 
-        request = _make_request(truck_start="TRUCK_POINT_1")
+        request = _make_request(head_truck=True)
         await calculate_routes(request)
 
     mock_agg.find_all_paths.assert_called_once()
     _, kwargs = mock_agg.find_all_paths.call_args
-    assert kwargs["truck_start_point_id"] == "TRUCK_POINT_1"
-    assert kwargs["truck_end_point_id"] is None
+    assert kwargs["head_truck"] is True
+    assert kwargs["tail_truck"] is False
 
 
 @pytest.mark.asyncio
@@ -436,13 +436,13 @@ async def test_truck_end_point_forwarded_to_internal():
         mock_fesco.search_container_ids = lambda containers, weight, size: []
         mock_fesco.find_all_paths = AsyncMock(return_value=[])
 
-        request = _make_request(truck_end="TRUCK_POINT_2")
+        request = _make_request(tail_truck=True)
         await calculate_routes(request)
 
     mock_agg.find_all_paths.assert_called_once()
     _, kwargs = mock_agg.find_all_paths.call_args
-    assert kwargs["truck_start_point_id"] is None
-    assert kwargs["truck_end_point_id"] == "TRUCK_POINT_2"
+    assert kwargs["head_truck"] is False
+    assert kwargs["tail_truck"] is True
 
 
 @pytest.mark.asyncio
@@ -466,8 +466,8 @@ async def test_no_truck_params_by_default():
 
     mock_agg.find_all_paths.assert_called_once()
     _, kwargs = mock_agg.find_all_paths.call_args
-    assert kwargs["truck_start_point_id"] is None
-    assert kwargs["truck_end_point_id"] is None
+    assert kwargs["head_truck"] is False
+    assert kwargs["tail_truck"] is False
 
 
 @pytest.mark.asyncio
@@ -488,11 +488,11 @@ async def test_both_truck_params_forwarded_to_external():
 
         request = _make_request(
             dep_external=["EXT1"], dest_external=["EXT2"],
-            truck_start="TRUCK_START", truck_end="TRUCK_END",
+            head_truck=True, tail_truck=True,
         )
         await calculate_routes(request)
 
     mock_fesco.find_all_paths.assert_called_once()
     _, kwargs = mock_fesco.find_all_paths.call_args
-    assert kwargs["truck_start_point_id"] == "TRUCK_START"
-    assert kwargs["truck_end_point_id"] == "TRUCK_END"
+    assert kwargs["head_truck"] is True
+    assert kwargs["tail_truck"] is True

@@ -105,12 +105,10 @@ def _require_drop_off_or_drop_off_point(q: RouteBuilder, prev: Segment, drop_off
     ))
 
 
-def _build_direct(q: RouteBuilder, start_point_id: int, end_point_id: int, core_type: RouteType):
+def _build_direct(q: RouteBuilder, core_type: RouteType):
     seg = Segment(_type=core_type)
     q.add_segment(seg)
 
-    q.add_condition(seg.start_point.equals(start_point_id))
-    q.add_condition(seg.end_point.equals(end_point_id))
     q.add_condition(seg.drop_off_point.null())
 
     return q
@@ -120,8 +118,6 @@ def _build_sea_rail(
     q: RouteBuilder,
     container_ids: list[int],
     date: datetime.date,
-    start_point_id: int,
-    end_point_id: int,
     *,
     hide_sea_soc: bool = False,
 ):
@@ -136,9 +132,6 @@ def _build_sea_rail(
     ])
     _require_drop_off_or_drop_off_point(q, sea, drop_off)
 
-    q.add_condition(sea.start_point.equals(start_point_id))
-    q.add_condition(rail.end_point.equals(end_point_id))
-
     if hide_sea_soc:
         q.add_condition(sea.container_owner.not_equals(ContainerOwner.SOC))
 
@@ -147,15 +140,12 @@ def _build_sea_rail(
 
 # EXPERIMENTAL
 # TODO: specify behaviour and login
-def _build_rail_sea(q: RouteBuilder, start_point_id: int, end_point_id: int):
+def _build_rail_sea(q: RouteBuilder):
     rail = Segment(_type=RouteType.RAIL)
     q.add_segment(rail)
 
     sea = Segment(_type=RouteType.SEA)
     _connect_segments(q, rail, sea)
-
-    q.add_condition(rail.start_point.equals(start_point_id))
-    q.add_condition(sea.end_point.equals(end_point_id))
 
     return q
 
@@ -184,43 +174,45 @@ def build_queries(
     end_point_id: int,
     container_ids: list[int],
     *,
-    truck_start_point_id: int | None = None,
-    truck_end_point_id: int | None = None,
+    head_truck: bool,
+    tail_truck: bool,
     rail_direct: bool,
     sea_direct: bool,
     sea_rail: bool,
     rail_sea: bool,
-    head_truck: bool,
-    tail_truck: bool,
+    feature_head_truck: bool,
+    feature_tail_truck: bool,
     hide_sea_soc: bool = False,
 ) -> list:
-    if truck_start_point_id and not head_truck:
-        raise ValueError("Can not use 'truck_start_point_id' when feature flag 'head-truck' is turned off")
-    if truck_end_point_id and not tail_truck:
-        raise ValueError("Can not use 'truck_end_point_id' when feature flag 'tail-truck' is turned off")
+    if head_truck and not feature_head_truck:
+        raise ValueError("Can not use 'head_truck' when feature flag 'head-truck' is turned off")
+    if tail_truck and not feature_tail_truck:
+        raise ValueError("Can not use 'tail_truck' when feature flag 'tail-truck' is turned off")
 
     base = RouteBuilder(date)
     base.set_containers(container_ids)
+    base.set_start_point(start_point_id)
+    base.set_end_point(end_point_id)
 
     queries = []
     if rail_direct:
-        queries.append(_build_direct(base.copy(), start_point_id, end_point_id, RouteType.RAIL))
+        queries.append(_build_direct(base.copy(), RouteType.RAIL))
     if sea_direct:
-        queries.append(_build_direct(base.copy(), start_point_id, end_point_id, RouteType.SEA))
+        queries.append(_build_direct(base.copy(), RouteType.SEA))
     if sea_rail:
         builder = base.copy()
         q_sea_rail = _build_sea_rail(
-            builder, container_ids, date, start_point_id, end_point_id, hide_sea_soc=hide_sea_soc,
+            builder, container_ids, date, hide_sea_soc=hide_sea_soc,
         )
         queries.append(q_sea_rail)
     if rail_sea:
-        queries.append(_build_rail_sea(base, start_point_id, end_point_id))
+        queries.append(_build_rail_sea(base.copy()))
 
-    if truck_start_point_id and head_truck:
-        _attach_head_trucks(queries, truck_start_point_id)
+    if head_truck:
+        _attach_head_trucks(queries, start_point_id)
 
-    if truck_end_point_id and tail_truck:
-        _attach_tail_trucks(queries, truck_end_point_id)
+    if tail_truck:
+        _attach_tail_trucks(queries, end_point_id)
 
     return [q.build() for q in queries]
 
@@ -284,8 +276,9 @@ async def find_all_paths(
     start_point_id: int,
     end_point_id: int,
     container_ids: list[int],
-    truck_start_point_id: int | None = None,
-    truck_end_point_id: int | None = None,
+    *,
+    head_truck: bool = False,
+    tail_truck: bool = False,
 ) -> list[RouteResult]:
     flag_values: dict[str, bool] = {}
 
@@ -310,9 +303,15 @@ async def find_all_paths(
 
     all_queries = build_queries(
         date, start_point_id, end_point_id, container_ids,
-        **flag_values,
-        truck_start_point_id=truck_start_point_id,
-        truck_end_point_id=truck_end_point_id,
+        head_truck=head_truck,
+        tail_truck=tail_truck,
+        feature_head_truck=flag_values["head_truck"],
+        feature_tail_truck=flag_values["tail_truck"],
+        rail_direct=flag_values["rail_direct"],
+        sea_direct=flag_values["sea_direct"],
+        sea_rail=flag_values["sea_rail"],
+        rail_sea=flag_values["rail_sea"],
+        hide_sea_soc=flag_values["hide_sea_soc"],
     )
 
     coroutines = [_execute_query(query) for query in all_queries]

@@ -14,5 +14,5 @@ class CalculateFormRequest(BaseModel):
     cargoWeight: float
     containerType: int
 
-    truckStartPointId: str | None = None
-    truckEndPointId: str | None = None
+    headTruck: bool = False
+    tailTruck: bool = False

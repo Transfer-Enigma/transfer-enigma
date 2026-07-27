@@ -16,10 +16,11 @@ async def find_all_paths(
     destination_id: str,
     wte_ids: list[str],
     _: bool = False,
-    truck_start_point_id: str | None = None,
-    truck_end_point_id: str | None = None,
+    *,
+    head_truck: bool = False,
+    tail_truck: bool = False,
 ) -> Iterable[RouteResult]:
-    if truck_start_point_id or truck_end_point_id:
+    if head_truck or tail_truck:
         raise NotImplementedError("Truck routing is not supported by FESCO API")
 
     cache_key = CacheKeys.get_routes_cache_key(date, departure_id, destination_id, wte_ids)
