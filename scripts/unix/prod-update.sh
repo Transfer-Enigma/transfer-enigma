@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$PROJECT_DIR" || exit 1
+
 GIT_REF="${1:-master}"
 DOCKER_TAG="${2:-}"
 GIT_TAG="${3:-}"
@@ -60,5 +64,5 @@ mkdir -p logs
 docker compose down
 docker compose pull
 docker compose -f docker-compose.migrate.yml pull
-./scripts/unix/prod-db-migrate.sh upgrade head
+"$SCRIPT_DIR/prod-db-migrate.sh" upgrade head
 docker compose up -d
