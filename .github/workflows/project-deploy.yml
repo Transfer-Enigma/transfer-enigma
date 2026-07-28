@@ -49,4 +49,4 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd "${{ secrets.PROJECT_DIR }}"
-            ./scripts/prod-update.sh ${{ github.ref_name }} ${{ inputs.docker_tag }} ${{ inputs.docker_tag }} "${{ inputs.tag_message }}"
+            ./scripts/unix/prod-update.sh ${{ github.ref_name }} ${{ inputs.docker_tag }} ${{ inputs.docker_tag }} "${{ inputs.tag_message }}"

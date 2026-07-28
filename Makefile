@@ -6,22 +6,22 @@ build:
 	docker buildx bake $(ARGS)
 
 build-dev:
-	docker buildx bake $(ARGS) && ./scripts/rebuild-hot-dev.sh $(ARGS)
+	docker buildx bake $(ARGS) && ./scripts/unix/rebuild-hot-dev.sh $(ARGS)
 
 prod:
 	@trap 'docker compose down' EXIT; docker compose up $(ARGS)
 
 dev:
-	@trap './scripts/stop-dev.sh' EXIT; ./scripts/run-dev.sh $(ARGS)
+	@trap './scripts/unix/stop-dev.sh' EXIT; ./scripts/unix/run-dev.sh $(ARGS)
 
 stop-prod:
 	docker compose down $(ARGS)
 
 stop-dev:
-	./scripts/stop-dev.sh $(ARGS)
+	./scripts/unix/stop-dev.sh $(ARGS)
 
 test:
-	./scripts/run-test.sh $(ARGS)
+	./scripts/unix/run-test.sh $(ARGS)
 
 lint:
 	pre-commit run --all-files $(ARGS)
@@ -36,16 +36,16 @@ lint-backend:
 	pre-commit run --all-files $(ARGS)
 
 update:
-	./scripts/prod-update.sh $(ARGS)
+	./scripts/unix/prod-update.sh $(ARGS)
 
 export-deps:
-	./scripts/export-python-dependencies.sh $(ARGS)
+	./scripts/unix/export-python-dependencies.sh $(ARGS)
 
 alembic:
-	./scripts/alembic-proxy.sh $(ARGS)
+	./scripts/unix/alembic-proxy.sh $(ARGS)
 
 migrate:
-	./scripts/prod-db-migrate.sh $(ARGS)
+	./scripts/unix/prod-db-migrate.sh $(ARGS)
 
 %:
 	@true

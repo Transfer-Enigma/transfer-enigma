@@ -314,7 +314,7 @@ Module prefixes:
 - **Currency rates**: tests use RUB-relative rates `{"USD": 90.0, "RUB": 1.0}`; `_convert_currency` formula is `amount * rates[from] / rates[to]`
 - Run locally: `PYTHONPATH=Python/apps python -m pytest Python/tests/ -v`
 - Run in Docker (profile `test`, won't start with `docker compose up`):
-  `./scripts/run-test.sh`
+  `./scripts/unix/run-test.sh`
 
 ### Python Module Dependencies Graph
 ```
@@ -539,11 +539,11 @@ All output is JSON by default (for AI/script parsing).
 |--------|-------------|
 | `make build` | Docker buildx bake (all targets) |
 | `make prod` | `docker compose up` — Ctrl+C runs `down` |
-| `make dev` | `./scripts/run-dev.sh` — Ctrl+C runs `./scripts/stop-dev.sh` |
-| `make update [args]` | `./scripts/prod-update.sh` — pass args directly |
-| `make export-deps` | `./scripts/export-python-dependencies.sh` |
-| `make alembic [args]` | `./scripts/alembic-proxy.sh` — pass alembic subcommand via args |
-| `make migrate [args]` | `./scripts/prod-db-migrate.sh` — pass alembic subcommand via args |
+| `make dev` | `./scripts/unix/run-dev.sh` — Ctrl+C runs `./scripts/unix/stop-dev.sh` |
+| `make update [args]` | `./scripts/unix/prod-update.sh` — pass args directly |
+| `make export-deps` | `./scripts/unix/export-python-dependencies.sh` |
+| `make alembic [args]` | `./scripts/unix/alembic-proxy.sh` — pass alembic subcommand via args |
+| `make migrate [args]` | `./scripts/unix/prod-db-migrate.sh` — pass alembic subcommand via args |
 
 ---
 

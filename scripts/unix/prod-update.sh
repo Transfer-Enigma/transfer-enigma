@@ -60,5 +60,5 @@ mkdir -p logs
 docker compose down
 docker compose pull
 docker compose -f docker-compose.migrate.yml pull
-./scripts/prod-db-migrate.sh upgrade head
+./scripts/unix/prod-db-migrate.sh upgrade head
 docker compose up -d
