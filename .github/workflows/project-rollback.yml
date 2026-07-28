@@ -1,0 +1,117 @@
+name: project-rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_tag:
+        description: "Tag to rollback to (default: previous tag)"
+        required: false
+        type: string
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Validate required secrets and variables
+        run: |
+          errors=()
+          if [ -z "${{ secrets.SERVER_ADDR }}" ]; then errors+=("SERVER_ADDR"); fi
+          if [ -z "${{ secrets.SERVER_USER }}" ]; then errors+=("SERVER_USER"); fi
+          if [ -z "${{ secrets.SERVER_SSH_KEY }}" ]; then errors+=("SERVER_SSH_KEY"); fi
+          if [ -z "${{ secrets.PROJECT_DIR }}" ]; then errors+=("PROJECT_DIR"); fi
+          if [ -z "${{ secrets.DOCKER_USERNAME }}" ]; then errors+=("DOCKER_USERNAME"); fi
+          if [ -z "${{ secrets.DOCKER_PASSWORD }}" ]; then errors+=("DOCKER_PASSWORD"); fi
+
+          if [ ${#errors[@]} -gt 0 ]; then
+            echo "::error::Missing required configuration: ${errors[*]}"
+            exit 1
+          fi
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine rollback target
+        id: target
+        run: |
+          TARGET_TAG="${{ inputs.target_tag }}"
+
+          CURRENT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          # Check 'CURRENT_TAG'
+          if [ -z "$CURRENT_TAG" ]; then
+            echo "::error::No tags found in the history of this commit"
+            exit 1
+          fi
+
+          if [ -z "$TARGET_TAG" ]; then
+            # Find the latest tag before 'CURRENT_TAG'
+            TARGET_TAG=$(git describe --abbrev=0 --tags "$CURRENT_TAG^" 2>/dev/null || echo "")
+            if [ -z "$TARGET_TAG" ]; then
+              echo "::error::No previous tag found before $CURRENT_TAG"
+              exit 1
+            fi
+            echo "::notice::Current tag (by history): $CURRENT_TAG → Rolling back to: $TARGET_TAG"
+          else
+            echo "::notice::Rolling back to specified tag: $TARGET_TAG (current tag by history: $CURRENT_TAG)"
+          fi
+
+          # Chech 'TARGET_TAG'
+          if ! git show-ref --verify --quiet "refs/tags/$TARGET_TAG"; then
+            echo "::error::Tag '$TARGET_TAG' does not exist"
+            exit 1
+          fi
+
+          echo "current_tag=$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+          echo "tag=$TARGET_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Determine target migration revision
+        id: revision
+        run: |
+          TARGET_TAG="${{ steps.target.outputs.tag }}"
+          IMAGE_NAME="danielgreen1806/calculator-db-migration:${TARGET_TAG}"
+
+          echo "Pulling migration image: $IMAGE_NAME"
+          docker pull "$IMAGE_NAME"
+
+          echo "Running migration history check..."
+          HISTORY=$(docker run --rm "$IMAGE_NAME" history 2>&1)
+
+          if [ $? -ne 0 ]; then
+            echo "::error::Docker run failed. Container output:"
+            echo "$HISTORY"
+            exit 1
+          fi
+
+          DOWNGRADE_TO=$(echo "$HISTORY" | awk '/^[0-9a-f]+/ {print $1; exit}')
+
+          if [ -z "$DOWNGRADE_TO" ]; then
+            echo "::error::Could not determine migration revision from alembic history. Output was:"
+            echo "$HISTORY"
+            exit 1
+          fi
+
+          echo "::notice::Downgrade target revision: $DOWNGRADE_TO"
+          echo "revision=$DOWNGRADE_TO" >> "$GITHUB_OUTPUT"
+
+      - name: Rollback via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_ADDR }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd "${{ secrets.PROJECT_DIR }}"
+            ./scripts/unix/prod-rollback.sh ${{ steps.target.outputs.current_tag }} ${{ steps.target.outputs.tag }} ${{ steps.revision.outputs.revision }}
