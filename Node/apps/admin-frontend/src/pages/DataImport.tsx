@@ -1,7 +1,20 @@
 import { ChangeEvent, useRef, useState } from "react";
+import axios from "axios";
 import { deleteAllData, updateFromFile, updateFromGsheets, uploadBackup } from "@/api/Data";
 import { API_ENDPOINTS } from "@/api/ApiConfig";
 import { UpdateResponse } from "@/interfaces/Data";
+
+function formatApiError(e: unknown, fallback: string): string {
+    if (axios.isAxiosError(e)) {
+        const status = e.response?.status;
+        const data = e.response?.data;
+        if (status !== undefined && data !== undefined)
+            return `Ошибка ${status}: ${JSON.stringify(data)}`;
+        if (status !== undefined)
+            return `Ошибка ${status}: ${(e as Error).message}`;
+    }
+    return (e as Error).message || fallback;
+}
 
 export default function DataImport() {
     const [ loading, setLoading ] = useState(false);
@@ -25,7 +38,7 @@ export default function DataImport() {
             if (result && "warnings" in result)
                 setWarnings(result.warnings);
         } catch (e) {
-            setError((e as Error).message || "Произошла ошибка");
+            setError(formatApiError(e, "Произошла ошибка"));
         } finally {
             setLoading(false);
         }
@@ -92,7 +105,7 @@ export default function DataImport() {
             if (result && "warnings" in result)
                 setWarnings(result.warnings);
         } catch (e) {
-            setError((e as Error).message || "Произошла ошибка при жестком обновлении.");
+            setError(formatApiError(e, "Произошла ошибка при жестком обновлении."));
         } finally {
             setLoading(false);
         }
