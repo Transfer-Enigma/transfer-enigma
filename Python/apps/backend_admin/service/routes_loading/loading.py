@@ -199,7 +199,8 @@ async def sync_validated(uow: UnitOfWork, data: ValidatedData, fc: UploaderField
 async def synchronize(db_session: AsyncSession, frames: dict[str, DataFrame | None],
                       fc: UploaderFieldsConfig, document: str | None,
                       load_on_warnings: bool, points_sheet: str = "points",
-                      update_existing: bool = True, sync_document_id: int | None = None) -> SyncOutcome:
+                      update_existing: bool = True, sync_document_id: int | None = None,
+                      uid_column: str = "__uid") -> SyncOutcome:
     snapshot = await load_reference_snapshot(db_session)
     validated = validate_frames(
         frames["sea"],
@@ -212,6 +213,7 @@ async def synchronize(db_session: AsyncSession, frames: dict[str, DataFrame | No
         snapshot,
         document=document,
         points_sheet=points_sheet,
+        uid_column=uid_column,
     )
     if (validated.report.errors or validated.report.warnings) and not load_on_warnings:
         return SyncOutcome(ok=False, built_routes=0, report=validated.report)

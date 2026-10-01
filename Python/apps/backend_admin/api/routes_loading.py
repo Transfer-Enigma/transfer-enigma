@@ -19,6 +19,7 @@ from backend_admin.service.routes_loading.sync_errors import (
     unexpected_error,
     ws_not_found_error,
 )
+from backend_admin.service.routes_loading.uid_sheet import ensure_sheet_uids
 from backend_admin.service.routes_loading.validation import load_reference_snapshot, validate_frames
 from gspread_dataframe import get_as_dataframe
 from module_shared.database import get_database
@@ -37,7 +38,8 @@ def get_fields_config_from_file():
 
 def _download_all(data_file, gsheets_url, sea_routes_ws_name, rail_routes_ws_name,
                   truck_routes_ws_name, dropp_routes_ws_name,
-                  services_ws_name, points_ws_name) -> tuple[dict, str | None]:
+                  services_ws_name, points_ws_name) -> tuple[dict, str | None, dict]:
+    worksheets: dict[str, object] = {}
     if data_file:
         def download_data(ws):
             return pandas.read_excel(BytesIO(data_file), ws)
@@ -53,8 +55,9 @@ def _download_all(data_file, gsheets_url, sea_routes_ws_name, rail_routes_ws_nam
             raise gsheets_unavailable_error(e, document=gsheets_url) from e
 
         def download_data(ws):
+            worksheets[ws] = sources_gs.worksheet(ws)
             return get_as_dataframe(
-                sources_gs.worksheet(ws),
+                worksheets[ws],
                 evaluate_formulas=True,
             )
 
@@ -72,7 +75,7 @@ def _download_all(data_file, gsheets_url, sea_routes_ws_name, rail_routes_ws_nam
     except Exception as e:
         raise ws_not_found_error(e, document=document) from e
 
-    return frames, document
+    return frames, document, worksheets
 
 
 @router.post("/update-from-gsheets")
@@ -136,7 +139,7 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
         points_ws_name = sync_document.points_ws
         services_ws_name = sync_document.services_ws
 
-    frames, document = _download_all(
+    frames, document, _worksheets = _download_all(
         data_file,
         gsheets_url,
         sea_routes_ws_name,
@@ -157,6 +160,7 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
             load_on_warnings,
             update_existing=(mode == "all"),
             sync_document_id=sync_document.id if sync_document else None,
+            uid_column=sync_document.uid_column if sync_document else "__uid",
         )
     except Exception as e:
         raise unexpected_error(e, document=document) from e
@@ -206,6 +210,7 @@ async def validate_from_gsheets(
     services_ws_name: str | None = settings.DEFAULT_SERVICES_WS,
     data_file: Annotated[bytes | None, File()] = None,
     document_id: int | None = None,
+    ensure_uids: bool = False,
 ):
     sync_document = None
     if document_id is not None:
@@ -218,7 +223,8 @@ async def validate_from_gsheets(
         points_ws_name = sync_document.points_ws
         services_ws_name = sync_document.services_ws
 
-    frames, document = _download_all(
+    uid_column = sync_document.uid_column if sync_document else "__uid"
+    frames, document, worksheets = _download_all(
         data_file,
         gsheets_url,
         sea_routes_ws_name,
@@ -240,10 +246,24 @@ async def validate_from_gsheets(
         snapshot,
         document=document,
         points_sheet=points_ws_name or "points",
+        uid_column=uid_column,
     )
+    uids_written = 0
+    if ensure_uids and worksheets:
+        uids_written = ensure_sheet_uids(
+            worksheets,
+            {
+                "sea": ("SEA", sea_routes_ws_name),
+                "rail": ("RAIL", rail_routes_ws_name),
+                "truck": ("TRUCK", truck_routes_ws_name),
+                "dropp": ("DROPP", dropp_routes_ws_name),
+            },
+            validated.row_uids,
+            uid_column,
+        )
     if sync_document is not None:
         document_service.record_validation_status(
             sync_document,
             len(validated.report.errors) + len(validated.report.warnings),
         )
-    return validated.report.to_dict()
+    return {**validated.report.to_dict(), "uids_written": uids_written}

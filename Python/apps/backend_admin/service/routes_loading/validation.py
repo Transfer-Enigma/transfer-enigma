@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from .dedupe import find_duplicate_groups, row_payload_uid
-from .uid import natural_uid_for_dropp_values, natural_uid_for_route_values
+from .uid import extract_uids, natural_uid_for_dropp_values, natural_uid_for_route_values
 from .uploader import ContainerRawType, create_dropp, create_route
 
 REFERENCE_CONTAINERS: list[ContainerRawType] = [
@@ -73,6 +73,43 @@ class ValidatedData:
     services_df: DataFrame | None
     row_errors: dict[tuple[str, int], list[SyncError]]
     document: str | None = None
+    row_uids: dict[tuple[str, int], str] = field(default_factory=dict)
+
+
+def _row_values(row, fc: UploaderFieldsConfig, route_type: RouteType | None) -> dict:
+    def _cell(column: str):
+        if column not in row.index:
+            return None
+        value = row[column]
+        if value is None:
+            return None
+        try:
+            is_missing = pd.isna(value)
+        except (TypeError, ValueError):
+            is_missing = False
+        return None if is_missing else value
+
+    if route_type is None:
+        return {
+            "start_point": _cell(fc.start_point),
+            "end_point": _cell(fc.end_point),
+            "company": _cell(fc.company),
+            "effective_from": _cell(fc.effective_from),
+            "effective_to": _cell(fc.effective_to),
+        }
+    return {
+        "type": route_type.value,
+        "company": _cell(fc.company),
+        "start_point": _cell(fc.start_point),
+        "end_point": _cell(fc.end_point),
+        "dropp_off_point": _cell(fc.dropp_off_point),
+        "effective_from": _cell(fc.effective_from),
+        "effective_to": _cell(fc.effective_to),
+        "container_shipment_terms": _cell(fc.container_shipment_terms),
+        "container_transfer_terms": _cell(fc.container_transfer_terms),
+        "container_owner": _cell(fc.container_condition),
+        "is_through": _cell(fc.is_through),
+    }
 
 
 async def load_reference_snapshot(db_session: AsyncSession) -> ReferenceSnapshot:
@@ -439,6 +476,20 @@ def validate_frames(
     report = RulesReport()
     fc = fields_config
 
+    existing_uids = {
+        ("SEA", idx): uid
+        for idx, uid in extract_uids(sea_routes_df, uid_column).items()
+    } | {
+        ("RAIL", idx): uid
+        for idx, uid in extract_uids(rail_routes_df, uid_column).items()
+    } | {
+        ("TRUCK", idx): uid
+        for idx, uid in extract_uids(truck_routes_df, uid_column).items()
+    } | {
+        ("DROPP", idx): uid
+        for idx, uid in extract_uids(dropp_df, uid_column).items()
+    }
+
     points_df, points_fatal = _check_points_frame(points_df, document, points_sheet)
     if points_fatal is not None:
         report.add(points_fatal)
@@ -469,6 +520,7 @@ def validate_frames(
     containers, companies, points, services = _stub_stores(snapshot)
 
     row_errors: dict[tuple[str, int], list[SyncError]] = {}
+    row_uids: dict[tuple[str, int], str] = {}
     dup_keys, dup_findings = _collect_duplicate_findings(
         routes_df, dropp_df, fc, all_route_dfs, document, uid_column,
     )
@@ -485,6 +537,10 @@ def validate_frames(
             report.extend(findings)
             if findings:
                 row_errors[(route_type.value, orig_idx)] = findings
+            row_uids[(route_type.value, orig_idx)] = existing_uids.get(
+                (route_type.value, orig_idx),
+                natural_uid_for_route_values(_row_values(row, fc, route_type)),
+            )
 
     for orig_idx, row in dropp_df.iterrows():
         if ("DROPP", orig_idx) in dup_keys:
@@ -495,6 +551,10 @@ def validate_frames(
         report.extend(findings)
         if findings:
             row_errors[("DROPP", orig_idx)] = findings
+        row_uids[("DROPP", orig_idx)] = existing_uids.get(
+            ("DROPP", orig_idx),
+            natural_uid_for_dropp_values(_row_values(row, fc, None)),
+        )
 
     checked_rows = len(routes_df) + len(dropp_df)
 
@@ -506,4 +566,5 @@ def validate_frames(
         services_df=services_df,
         row_errors=row_errors,
         document=document,
+        row_uids=row_uids,
     )

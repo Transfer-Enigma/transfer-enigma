@@ -178,3 +178,21 @@ def fingerprint_drop(item: DropModel) -> str:
         "currency": _norm_text(item.currency),
     }
     return _hash_payload(payload)
+
+
+def extract_uids(df, uid_column: str) -> dict[int, str]:
+    if df is None or uid_column not in df.columns:
+        return {}
+    uids = {}
+    for idx, value in df[uid_column].items():
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text and text.lower() != "nan":
+            uids[idx] = text
+    return uids
+
+
+def plan_uid_updates(existing: dict[int, str] | None, computed: dict[int, str]) -> dict[int, str]:
+    existing = existing or {}
+    return {row: uid for row, uid in computed.items() if not existing.get(row)}
