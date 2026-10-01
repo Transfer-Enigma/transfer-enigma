@@ -140,7 +140,15 @@ export default function DataImport() {
         } else {
             return (
                 <div key={ index } className="warning-item">
-                    <div className="warning-header">{ warning }</div>
+                    <div className="warning-header">{ warning.error ?? warning.message ?? String(warning) }</div>
+                    { warning.code && (
+                        <div>
+                            Код: { warning.code }
+                            { warning.sheet ? `, лист: ${warning.sheet}` : "" }
+                            { warning.row ? `, строка: ${warning.row}` : "" }
+                            { warning.cell ? `, ячейка: ${warning.cell}` : "" }
+                        </div>
+                    ) }
                 </div>
             );
         }
