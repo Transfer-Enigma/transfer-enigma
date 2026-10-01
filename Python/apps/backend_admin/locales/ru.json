@@ -2,6 +2,7 @@
   "GSHEETS_UNAVAILABLE": "Не удалось подключиться к Google Sheets: {detail}",
   "WS_NOT_FOUND": "Не удалось загрузить лист '{sheet}': {detail}",
   "DOCUMENT_NOT_FOUND": "Документ синхронизации не найден: {document}",
+  "BAD_INPUT_FORMAT": "Не удалось прочитать загруженный файл: {detail}",
   "REQUIRED_CELL_EMPTY": "Ошибка в листе {sheet}: не заполнены обязательные столбцы в следующих строках ({count}):",
   "BAD_ENUM_VALUE": "Неверное значение '{value}' в поле '{field}' (лист {sheet}, строка {row})",
   "POINT_NOT_FOUND": "Не найден город или порт: '{key}' (лист {sheet}, строка {row})",

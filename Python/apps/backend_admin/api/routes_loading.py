@@ -1,4 +1,3 @@
-from io import BytesIO
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException
@@ -6,11 +5,11 @@ from fastapi.params import Depends, File
 from starlette.status import HTTP_400_BAD_REQUEST
 
 import gspread
-import pandas
 from backend_admin.config import get_settings
 from backend_admin.dependencies.auth import request_auth
 from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
 from backend_admin.service.routes_loading import documents as document_service
+from backend_admin.service.routes_loading.inputs import read_upload, select_upload_frames
 from backend_admin.service.routes_loading.loading import synchronize
 from backend_admin.service.routes_loading.sync_errors import (
     SyncErrorCode,
@@ -41,27 +40,33 @@ def _download_all(data_file, gsheets_url, sea_routes_ws_name, rail_routes_ws_nam
                   services_ws_name, points_ws_name) -> tuple[dict, str | None, dict]:
     worksheets: dict[str, object] = {}
     if data_file:
-        def download_data(ws):
-            return pandas.read_excel(BytesIO(data_file), ws)
+        parsed = read_upload(data_file)
+        frames = select_upload_frames(parsed, {
+            "sea": sea_routes_ws_name,
+            "rail": rail_routes_ws_name,
+            "truck": truck_routes_ws_name,
+            "dropp": dropp_routes_ws_name,
+            "services": services_ws_name,
+            "points": points_ws_name,
+        })
+        return frames, None, worksheets
 
-        document = None
-    else:
-        try:
-            gs = gspread.service_account(
-                filename=Resources.get(settings.GOOGLE_SERVICE_ACCOUNT_RESOURCE_NAME, scope="backend_admin").path,
-            )
-            sources_gs = gs.open_by_url(gsheets_url)
-        except Exception as e:
-            raise gsheets_unavailable_error(e, document=gsheets_url) from e
+    try:
+        gs = gspread.service_account(
+            filename=Resources.get(settings.GOOGLE_SERVICE_ACCOUNT_RESOURCE_NAME, scope="backend_admin").path,
+        )
+        sources_gs = gs.open_by_url(gsheets_url)
+    except Exception as e:
+        raise gsheets_unavailable_error(e, document=gsheets_url) from e
 
-        def download_data(ws):
-            worksheets[ws] = sources_gs.worksheet(ws)
-            return get_as_dataframe(
-                worksheets[ws],
-                evaluate_formulas=True,
-            )
+    def download_data(ws):
+        worksheets[ws] = sources_gs.worksheet(ws)
+        return get_as_dataframe(
+            worksheets[ws],
+            evaluate_formulas=True,
+        )
 
-        document = gsheets_url
+    document = gsheets_url
 
     try:
         frames = {
