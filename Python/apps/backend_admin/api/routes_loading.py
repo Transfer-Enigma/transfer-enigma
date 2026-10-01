@@ -19,6 +19,7 @@ from backend_admin.service.routes_loading.sync_errors import (
     unexpected_error,
     ws_not_found_error,
 )
+from backend_admin.service.routes_loading.validation import load_reference_snapshot, validate_frames
 from gspread_dataframe import get_as_dataframe
 from module_shared.database import get_database
 from module_shared.resources import Resources
@@ -32,6 +33,46 @@ def get_fields_config_from_file():
     return UploaderFieldsConfig(
         **Resources.get(settings.DEFAULT_UPLOADER_FIELDS_CONFIG_RESOURCE_NAME, scope="backend_admin").read_json(),
     )
+
+
+def _download_all(data_file, gsheets_url, sea_routes_ws_name, rail_routes_ws_name,
+                  truck_routes_ws_name, dropp_routes_ws_name,
+                  services_ws_name, points_ws_name) -> tuple[dict, str | None]:
+    if data_file:
+        def download_data(ws):
+            return pandas.read_excel(BytesIO(data_file), ws)
+
+        document = None
+    else:
+        try:
+            gs = gspread.service_account(
+                filename=Resources.get(settings.GOOGLE_SERVICE_ACCOUNT_RESOURCE_NAME, scope="backend_admin").path,
+            )
+            sources_gs = gs.open_by_url(gsheets_url)
+        except Exception as e:
+            raise gsheets_unavailable_error(e, document=gsheets_url) from e
+
+        def download_data(ws):
+            return get_as_dataframe(
+                sources_gs.worksheet(ws),
+                evaluate_formulas=True,
+            )
+
+        document = gsheets_url
+
+    try:
+        frames = {
+            "sea": download_data(sea_routes_ws_name),
+            "rail": download_data(rail_routes_ws_name),
+            "truck": download_data(truck_routes_ws_name),
+            "dropp": download_data(dropp_routes_ws_name),
+            "services": download_data(services_ws_name),
+            "points": download_data(points_ws_name) if points_ws_name else None,
+        }
+    except Exception as e:
+        raise ws_not_found_error(e, document=document) from e
+
+    return frames, document
 
 
 @router.post("/update-from-gsheets")
@@ -65,7 +106,7 @@ async def update_from_gsheets(
 
 
 @router.post("/update-from-gsheets-with-custom-fields")
-async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split it by worksheets
+async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheets
     db_session: Annotated[AsyncSession, Depends(get_database().session)],
     fields_config: UploaderFieldsConfig,
     gsheets_url: str = settings.DEFAULT_GSHEETS_URL,
@@ -78,48 +119,27 @@ async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split i
     load_on_warnings: bool = True,
     data_file: Annotated[bytes | None, File()] = None,
 ):
-    if data_file:
-        document = None
+    frames, document = _download_all(
+        data_file,
+        gsheets_url,
+        sea_routes_ws_name,
+        rail_routes_ws_name,
+        truck_routes_ws_name,
+        dropp_routes_ws_name,
+        services_ws_name,
+        points_ws_name,
+    )
 
-        def download_data(ws):
-            return pandas.read_excel(BytesIO(data_file), ws)
-    else:
-        document = gsheets_url
-        try:
-            gs = gspread.service_account(
-                filename=Resources.get(settings.GOOGLE_SERVICE_ACCOUNT_RESOURCE_NAME, scope="backend_admin").path,
-            )
-            sources_gs = gs.open_by_url(gsheets_url)
-        except Exception as e:
-            raise gsheets_unavailable_error(e, document=document) from e
-
-        def download_data(ws):
-            return get_as_dataframe(
-                sources_gs.worksheet(ws),
-                evaluate_formulas=True,
-            )
-
-    try:
-        sea_routes_df = download_data(sea_routes_ws_name)
-        rail_routes_df = download_data(rail_routes_ws_name)
-        truck_routes_df = download_data(truck_routes_ws_name)
-        dropp_routes_df = download_data(dropp_routes_ws_name)
-        services_df = download_data(services_ws_name)
-        points_df = download_data(points_ws_name) if points_ws_name else None
-
-    except Exception as e:
-        raise ws_not_found_error(e, document=document) from e
-
-    routes_count = len(sea_routes_df) + len(rail_routes_df) + len(truck_routes_df)
+    routes_count = len(frames["sea"]) + len(frames["rail"]) + len(frames["truck"])
     try:
         res, res_metadata, warnings = await load_data(
             db_session,
-            sea_routes_df,
-            rail_routes_df,
-            truck_routes_df,
-            dropp_routes_df,
-            services_df,
-            points_df,
+            frames["sea"],
+            frames["rail"],
+            frames["truck"],
+            frames["dropp"],
+            frames["services"],
+            frames["points"],
             fields_config,
             load_on_warnings,
         )
@@ -145,3 +165,43 @@ async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split i
         "routesInsertedCount": str(res_metadata),
         "warnings": parsed_warnings,
     }
+
+
+@router.post("/validate-from-gsheets")
+async def validate_from_gsheets(
+    _: Annotated[None, Depends(request_auth)],
+    fields_config: Annotated[UploaderFieldsConfig, Depends(get_fields_config_from_file)],
+    db_session: Annotated[AsyncSession, Depends(get_database().session)],
+    gsheets_url: str = settings.DEFAULT_GSHEETS_URL,
+    sea_routes_ws_name: str = settings.DEFAULT_SEA_ROUTES_WS,
+    rail_routes_ws_name: str = settings.DEFAULT_RAIL_ROUTES_WS,
+    truck_routes_ws_name: str = settings.DEFAULT_TRUCK_ROUTES_WS,
+    dropp_routes_ws_name: str = settings.DEFAULT_DROPP_ROUTES_WS,
+    points_ws_name: str | None = settings.DEFAULT_POINTS_WS,
+    services_ws_name: str | None = settings.DEFAULT_SERVICES_WS,
+    data_file: Annotated[bytes | None, File()] = None,
+):
+    frames, document = _download_all(
+        data_file,
+        gsheets_url,
+        sea_routes_ws_name,
+        rail_routes_ws_name,
+        truck_routes_ws_name,
+        dropp_routes_ws_name,
+        services_ws_name,
+        points_ws_name,
+    )
+    snapshot = await load_reference_snapshot(db_session)
+    report = validate_frames(
+        frames["sea"],
+        frames["rail"],
+        frames["truck"],
+        frames["dropp"],
+        frames["services"],
+        frames["points"],
+        fields_config,
+        snapshot,
+        document=document,
+        points_sheet=points_ws_name or "points",
+    )
+    return report.to_dict()

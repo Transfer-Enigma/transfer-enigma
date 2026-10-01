@@ -40,6 +40,7 @@ class SyncError(BaseModel):
     code: SyncErrorCode
     message: str
     severity: Severity = "error"
+    details: dict[str, Any] | None = None
 
 
 def _locales_dir() -> Path:

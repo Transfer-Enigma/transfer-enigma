@@ -68,6 +68,7 @@ class TestSyncErrorSchema:
             "code": "NO_PRICE",
             "message": "m",
             "severity": "error",
+            "details": None,
         }
 
     def test_optional_fields_default_to_none(self):
