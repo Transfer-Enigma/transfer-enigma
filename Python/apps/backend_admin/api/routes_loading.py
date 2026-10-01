@@ -10,6 +10,7 @@ import pandas
 from backend_admin.config import get_settings
 from backend_admin.dependencies.auth import request_auth
 from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
+from backend_admin.service.routes_loading import documents as document_service
 from backend_admin.service.routes_loading.loading import synchronize
 from backend_admin.service.routes_loading.sync_errors import (
     SyncErrorCode,
@@ -61,11 +62,11 @@ def _download_all(data_file, gsheets_url, sea_routes_ws_name, rail_routes_ws_nam
 
     try:
         frames = {
-            "sea": download_data(sea_routes_ws_name),
-            "rail": download_data(rail_routes_ws_name),
-            "truck": download_data(truck_routes_ws_name),
-            "dropp": download_data(dropp_routes_ws_name),
-            "services": download_data(services_ws_name),
+            "sea": download_data(sea_routes_ws_name) if sea_routes_ws_name else None,
+            "rail": download_data(rail_routes_ws_name) if rail_routes_ws_name else None,
+            "truck": download_data(truck_routes_ws_name) if truck_routes_ws_name else None,
+            "dropp": download_data(dropp_routes_ws_name) if dropp_routes_ws_name else None,
+            "services": download_data(services_ws_name) if services_ws_name else None,
             "points": download_data(points_ws_name) if points_ws_name else None,
         }
     except Exception as e:
@@ -88,6 +89,7 @@ async def update_from_gsheets(
     services_ws_name: str | None = settings.DEFAULT_SERVICES_WS,
     load_on_warnings: bool = True,
     data_file: Annotated[bytes | None, File()] = None,
+    document_id: int | None = None,
 ):
     return await update_from_gsheets_with_custom_fields(
         db_session,
@@ -101,6 +103,7 @@ async def update_from_gsheets(
         services_ws_name,
         load_on_warnings,
         data_file,
+        document_id,
     )
 
 
@@ -117,7 +120,19 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
     services_ws_name: str | None = settings.DEFAULT_SERVICES_WS,
     load_on_warnings: bool = True,
     data_file: Annotated[bytes | None, File()] = None,
+    document_id: int | None = None,
 ):
+    sync_document = None
+    if document_id is not None:
+        sync_document = await document_service.resolve_document(db_session, document_id)
+        gsheets_url = sync_document.url
+        sea_routes_ws_name = sync_document.sea_ws
+        rail_routes_ws_name = sync_document.rail_ws
+        truck_routes_ws_name = sync_document.truck_ws
+        dropp_routes_ws_name = sync_document.dropp_ws
+        points_ws_name = sync_document.points_ws
+        services_ws_name = sync_document.services_ws
+
     frames, document = _download_all(
         data_file,
         gsheets_url,
@@ -129,7 +144,7 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
         points_ws_name,
     )
 
-    routes_count = len(frames["sea"]) + len(frames["rail"]) + len(frames["truck"])
+    routes_count = sum(len(frames[key]) for key in ("sea", "rail", "truck") if frames[key] is not None)
     try:
         outcome = await synchronize(
             db_session,
@@ -140,6 +155,13 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
         )
     except Exception as e:
         raise unexpected_error(e, document=document) from e
+
+    if sync_document is not None:
+        document_service.record_sync_status(
+            sync_document,
+            outcome.ok,
+            len(outcome.report.errors) + len(outcome.report.warnings),
+        )
 
     if not outcome.ok:
         errors = outcome.report.errors
@@ -176,7 +198,19 @@ async def validate_from_gsheets(
     points_ws_name: str | None = settings.DEFAULT_POINTS_WS,
     services_ws_name: str | None = settings.DEFAULT_SERVICES_WS,
     data_file: Annotated[bytes | None, File()] = None,
+    document_id: int | None = None,
 ):
+    sync_document = None
+    if document_id is not None:
+        sync_document = await document_service.resolve_document(db_session, document_id)
+        gsheets_url = sync_document.url
+        sea_routes_ws_name = sync_document.sea_ws
+        rail_routes_ws_name = sync_document.rail_ws
+        truck_routes_ws_name = sync_document.truck_ws
+        dropp_routes_ws_name = sync_document.dropp_ws
+        points_ws_name = sync_document.points_ws
+        services_ws_name = sync_document.services_ws
+
     frames, document = _download_all(
         data_file,
         gsheets_url,
@@ -200,4 +234,9 @@ async def validate_from_gsheets(
         document=document,
         points_sheet=points_ws_name or "points",
     )
+    if sync_document is not None:
+        document_service.record_validation_status(
+            sync_document,
+            len(validated.report.errors) + len(validated.report.warnings),
+        )
     return validated.report.to_dict()

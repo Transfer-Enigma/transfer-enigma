@@ -70,7 +70,7 @@ class ValidatedData:
     routes_df: DataFrame
     dropp_df: DataFrame
     points_df: DataFrame | None
-    services_df: DataFrame
+    services_df: DataFrame | None
     row_errors: dict[tuple[str, int], list[SyncError]]
     document: str | None = None
 
@@ -385,33 +385,50 @@ def _import_legacy_warnings(report: RulesReport, legacy_warnings: list,
         report.add(finding)
 
 
-def _sanitize_route_frames(sea_routes_df: DataFrame, rail_routes_df: DataFrame,
-                           truck_routes_df: DataFrame | None, dropp_df: DataFrame,
+def _sanitize_route_frames(sea_routes_df: DataFrame | None, rail_routes_df: DataFrame | None,
+                           truck_routes_df: DataFrame | None, dropp_df: DataFrame | None,
                            fc: UploaderFieldsConfig,
                            legacy_warnings: list) -> tuple[list, DataFrame, DataFrame]:
-    sea_routes_df = process_routes_df(sea_routes_df, RouteType.SEA, legacy_warnings, fc)
-    rail_routes_df = process_routes_df(rail_routes_df, RouteType.RAIL, legacy_warnings, fc)
-    all_route_dfs = [(RouteType.SEA, sea_routes_df), (RouteType.RAIL, rail_routes_df)]
-
+    all_route_dfs = []
+    if sea_routes_df is not None and not sea_routes_df.empty:
+        all_route_dfs.append((
+            RouteType.SEA,
+            process_routes_df(sea_routes_df, RouteType.SEA, legacy_warnings, fc),
+        ))
+    if rail_routes_df is not None and not rail_routes_df.empty:
+        all_route_dfs.append((
+            RouteType.RAIL,
+            process_routes_df(rail_routes_df, RouteType.RAIL, legacy_warnings, fc),
+        ))
     if truck_routes_df is not None and not truck_routes_df.empty:
-        truck_routes_df = process_routes_df(truck_routes_df, RouteType.TRUCK, legacy_warnings, fc)
-        all_route_dfs.append((RouteType.TRUCK, truck_routes_df))
+        all_route_dfs.append((
+            RouteType.TRUCK,
+            process_routes_df(truck_routes_df, RouteType.TRUCK, legacy_warnings, fc),
+        ))
 
-    dropp_df = process_dropp_df(dropp_df, legacy_warnings, fc)
+    if dropp_df is not None and not dropp_df.empty:
+        dropp_df = process_dropp_df(dropp_df, legacy_warnings, fc)
+    else:
+        dropp_df = pd.DataFrame(columns=[fc.terminal])
 
-    routes_df: DataFrame = pd.concat(
-        [routes for _, routes in all_route_dfs],
-        ignore_index=False,
-    )
+    if all_route_dfs:
+        routes_df: DataFrame = pd.concat(
+            [routes for _, routes in all_route_dfs],
+            ignore_index=False,
+        )
+    else:
+        routes_df = pd.DataFrame(columns=[fc.route_type])
+    # NOTE: terminals are appended by the caller after _extend_snapshot_with_terminals,
+    # which matches pre-append point names against the points sheet.
     return all_route_dfs, routes_df, dropp_df
 
 
 def validate_frames(
-    sea_routes_df: DataFrame,
-    rail_routes_df: DataFrame,
+    sea_routes_df: DataFrame | None,
+    rail_routes_df: DataFrame | None,
     truck_routes_df: DataFrame | None,
-    dropp_df: DataFrame,
-    services_df: DataFrame,  # Accepted for signature parity with load_data; service rows need no validation yet.
+    dropp_df: DataFrame | None,
+    services_df: DataFrame | None,  # Accepted for signature parity with load_data; service rows need no validation yet.
     points_df: DataFrame | None,
     fields_config: UploaderFieldsConfig,
     snapshot: ReferenceSnapshot,
@@ -431,8 +448,8 @@ def validate_frames(
                 warnings=report.warnings,
                 checked_rows=0,
             ),
-            routes_df=sea_routes_df.iloc[0:0],
-            dropp_df=dropp_df.iloc[0:0],
+            routes_df=pd.DataFrame(columns=[fc.route_type]),
+            dropp_df=pd.DataFrame(columns=[fc.terminal]),
             points_df=points_df,
             services_df=services_df,
             row_errors={},

@@ -16,6 +16,7 @@ from .route import (
 )
 from .service import ServiceModel
 from .setting import SettingModel, SettingType
+from .sync_document import SyncDocumentModel
 
 __all__ = [
     "Base",
@@ -35,4 +36,5 @@ __all__ = [
     "ServicePriceModel",
     "SettingModel",
     "SettingType",
+    "SyncDocumentModel",
 ]

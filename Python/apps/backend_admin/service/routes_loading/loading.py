@@ -98,7 +98,10 @@ async def _ensure_reference_data(uow: UnitOfWork, data: ValidatedData, fc: Uploa
 
     companies = await load_companies(uow, valid_companies)
     containers = await load_containers(uow, [dict(raw) for raw in REFERENCE_CONTAINERS])
-    services = await load_services(uow, data.services_df, fc)
+    if data.services_df is not None:
+        services = await load_services(uow, data.services_df, fc)
+    else:
+        services = {}
     return hashed_points, companies, containers, services
 
 

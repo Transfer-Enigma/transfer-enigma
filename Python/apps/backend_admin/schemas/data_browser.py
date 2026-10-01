@@ -6,6 +6,7 @@ from module_shared.schemas.point import PointModel
 from module_shared.schemas.route import PriceModel, RouteModel, ServicePriceModel
 from module_shared.schemas.service import ServiceModel
 from module_shared.schemas.setting import SettingModel
+from module_shared.schemas.sync_document import SyncDocumentModel
 from pydantic import BaseModel
 
 # ─── Companies ────────────────────────────────────────────────────────────────
@@ -403,4 +404,73 @@ class SettingResponse(BaseModel):
             value_type=model.value_type,
             value=model.value,
             locked=model.locked,
+        )
+
+
+# ─── Sync documents ────────────────────────────────────────────────────────────
+
+
+class SyncDocumentCreate(BaseModel):
+    title: str
+    url: str
+    source_type: str = "gsheets"
+    file_name: str | None = None
+    sea_ws: str | None = None
+    rail_ws: str | None = None
+    truck_ws: str | None = None
+    dropp_ws: str | None = None
+    points_ws: str | None = None
+    services_ws: str | None = None
+    uid_column: str = "__uid"
+
+
+class SyncDocumentPatch(BaseModel):
+    title: str | None = None
+    url: str | None = None
+    source_type: str | None = None
+    file_name: str | None = None
+    sea_ws: str | None = None
+    rail_ws: str | None = None
+    truck_ws: str | None = None
+    dropp_ws: str | None = None
+    points_ws: str | None = None
+    services_ws: str | None = None
+    uid_column: str | None = None
+
+
+class SyncDocumentResponse(BaseModel):
+    id: int  # noqa: A003
+    title: str
+    url: str
+    source_type: str
+    file_name: str | None
+    sea_ws: str | None
+    rail_ws: str | None
+    truck_ws: str | None
+    dropp_ws: str | None
+    points_ws: str | None
+    services_ws: str | None
+    uid_column: str
+    last_status: str | None
+    last_errors_count: int
+    loaded_at: str | None
+
+    @classmethod
+    def from_model(cls, model: SyncDocumentModel) -> SyncDocumentResponse:
+        return cls(
+            id=model.id,
+            title=model.title,
+            url=model.url,
+            source_type=model.source_type,
+            file_name=model.file_name,
+            sea_ws=model.sea_ws,
+            rail_ws=model.rail_ws,
+            truck_ws=model.truck_ws,
+            dropp_ws=model.dropp_ws,
+            points_ws=model.points_ws,
+            services_ws=model.services_ws,
+            uid_column=model.uid_column,
+            last_status=model.last_status,
+            last_errors_count=model.last_errors_count,
+            loaded_at=model.loaded_at.isoformat() if model.loaded_at else None,
         )

@@ -43,7 +43,7 @@ class TestLocaleCoverage:
     def test_every_code_has_ru_template(self):
         for code in SyncErrorCode:
             assert get_message(code, sheet="S", row=1, count=1, key="K", value="V",
-                               field="F", col_from="A", col_to="B", uid="U",
+                               field="F", col_from="A", col_to="B", uid="U", document="D",
                                condition="C", type="T", detail="D") != ""
 
     def test_unknown_code_raises(self):
