@@ -11,6 +11,10 @@ from backend_admin.service.routes_loading.sync_errors import SyncError, SyncErro
 from module_shared.schemas.route import RouteType
 
 
+def to_sync_error(data: dict) -> SyncError:
+    return SyncError(**{key: value for key, value in data.items() if key in SyncError.model_fields})
+
+
 def parse_all_warning_types(warnings, fc, document=None):
     seen_errors: dict[tuple, dict] = {}
     for err in warnings:

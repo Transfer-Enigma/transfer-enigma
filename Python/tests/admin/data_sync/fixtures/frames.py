@@ -69,12 +69,20 @@ def clean_dropp_row(fc: UploaderFieldsConfig, **overrides) -> dict:
 
 
 def make_points_frame(**overrides) -> DataFrame:
-    rows = [{
-        "city": "Vladivostok",
-        "country": "RU",
-        "RU_city": "Владивосток",
-        "RU_country": "РФ",
-    }]
+    rows = [
+        {
+            "city": "Vladivostok",
+            "country": "RU",
+            "RU_city": "Владивосток",
+            "RU_country": "РФ",
+        },
+        {
+            "city": "Moscow",
+            "country": "RU",
+            "RU_city": "Москва",
+            "RU_country": "РФ",
+        },
+    ]
     rows[0].update(overrides)
     return pd.DataFrame(rows)
 

@@ -5,6 +5,7 @@ from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
 from backend_admin.service.routes_loading.error_reporting import (
     parse_all_warning_types,
     parse_error,
+    to_sync_error,
 )
 from backend_admin.service.routes_loading.errors import LoadingErrorException
 from backend_admin.service.routes_loading.processor import (
@@ -30,13 +31,12 @@ from pandas import DataFrame
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
-from sqlalchemy.orm import joinedload
 
 from .dedupe import find_duplicate_groups, row_payload_uid
 from .uid import natural_uid_for_dropp_values, natural_uid_for_route_values
-from .uploader import create_dropp, create_route
+from .uploader import ContainerRawType, create_dropp, create_route
 
-REFERENCE_CONTAINERS = [
+REFERENCE_CONTAINERS: list[ContainerRawType] = [
     {"size": 20, "weight_from": 0, "weight_to": 24, "type": "DC", "name": "20DC≤24t"},
     {"size": 20, "weight_from": 24, "weight_to": 28, "type": "DC", "name": "20DC 24-28t"},
     {"size": 40, "weight_from": 0, "weight_to": 28, "type": "HC", "name": "40HC≤28t"},
@@ -62,6 +62,17 @@ class ValidationReport:
             "warnings": [warning.model_dump() for warning in self.warnings],
             "checked_rows": self.checked_rows,
         }
+
+
+@dataclass
+class ValidatedData:
+    report: ValidationReport
+    routes_df: DataFrame
+    dropp_df: DataFrame
+    points_df: DataFrame | None
+    services_df: DataFrame
+    row_errors: dict[tuple[str, int], list[SyncError]]
+    document: str | None = None
 
 
 async def load_reference_snapshot(db_session: AsyncSession) -> ReferenceSnapshot:
@@ -144,17 +155,13 @@ def _stub_stores(snapshot: ReferenceSnapshot) -> tuple:
     return containers, companies, points, services
 
 
-def _to_sync_error(data: dict) -> SyncError:
-    return SyncError(**{key: value for key, value in data.items() if key in SyncError.model_fields})
-
-
 def _trial_build_route(containers, companies, points, services, row, fc, route_type, ctx) -> SyncError | None:
     try:
         create_route(containers, companies, points, services, row, fc, route_type)
     except Exception as e:  # Validate must never crash on a broken row, report it instead.
         if isinstance(e, (LoadingErrorException, ValueError, KeyError, AttributeError)):
             parsed = parse_error(e, ctx.row_number - 2, route_type, document=ctx.document)
-            finding = _to_sync_error(parsed)
+            finding = to_sync_error(parsed)
         else:
             finding = make_error(
                 SyncErrorCode.UNKNOWN,
@@ -176,7 +183,7 @@ def _trial_build_dropp(containers, companies, points, row, fc, ctx) -> SyncError
     except Exception as e:  # Validate must never crash on a broken row, report it instead.
         if isinstance(e, (LoadingErrorException, ValueError, KeyError, AttributeError)):
             parsed = parse_error(e, ctx.row_number - 2, None, document=ctx.document)
-            finding = _to_sync_error(parsed)
+            finding = to_sync_error(parsed)
         else:
             finding = make_error(
                 SyncErrorCode.UNKNOWN,
@@ -234,9 +241,9 @@ def _validate_dropp_row(row, orig_idx, containers, companies, points,
 
 def _extend_snapshot_with_terminals(snapshot: ReferenceSnapshot, points_df: DataFrame | None,
                                     routes_df: DataFrame, dropp_df: DataFrame,
-                                    fc: UploaderFieldsConfig) -> ReferenceSnapshot:
+                                    fc: UploaderFieldsConfig) -> tuple[ReferenceSnapshot, DataFrame | None]:
     if points_df is None or fc.terminal not in routes_df.columns or fc.terminal not in dropp_df.columns:
-        return snapshot
+        return snapshot, points_df
 
     routes_with_terminal = routes_df.dropna(subset=[fc.terminal])[
         [fc.start_point, fc.end_point, fc.terminal, fc.route_type]
@@ -270,12 +277,14 @@ def _extend_snapshot_with_terminals(snapshot: ReferenceSnapshot, points_df: Data
     if "RU_city" in suffixed.columns:
         extra_keys |= set(suffixed["RU_city"].dropna().str.lower().tolist())
 
+    points_with_terminals = pd.concat((points_df, suffixed)).drop_duplicates()
+
     return ReferenceSnapshot(
         companies=snapshot.companies,
         point_keys=snapshot.point_keys | frozenset(extra_keys),
         services=snapshot.services,
         existing_row_uids=snapshot.existing_row_uids,
-    )
+    ), points_with_terminals
 
 
 def _append_terminals(routes_df: DataFrame, dropp_df: DataFrame, fc: UploaderFieldsConfig):
@@ -349,12 +358,31 @@ def _check_points_frame(points_df: DataFrame | None, document: str | None,
     points_df = points_df.drop_duplicates(subset=["city", "country"], ignore_index=False)
     points_rows_with_nan = [i + 2 for i in points_df[points_df.isna().any(axis=1)].index.tolist()]
     if points_rows_with_nan:
-        return points_df, make_error(
+        finding = make_error(
             SyncErrorCode.POINTS_SHEET_NAN,
             document=document,
             sheet=points_sheet,
         )
+        finding.details = {"row_numbers": points_rows_with_nan}
+        return points_df, finding
     return points_df, None
+
+
+def _import_legacy_warnings(report: RulesReport, legacy_warnings: list,
+                            fc: UploaderFieldsConfig, document: str | None) -> None:
+    for converted in parse_all_warning_types(legacy_warnings, fc, document=document):
+        base = {
+            key: value for key, value in converted.items()
+            if key in SyncError.model_fields and key != "details"
+        }
+        extras = {
+            key: value for key, value in converted.items()
+            if key not in SyncError.model_fields and key != "error"
+        }
+        finding = SyncError(**base, details=extras or None)
+        if finding.sheet in ("SEA", "RAIL", "TRUCK", "DROPP"):
+            finding.sheet = {"SEA": "МОРЕ", "RAIL": "ЖД", "TRUCK": "АВТО", "DROPP": "ДРОПП"}[finding.sheet]
+        report.add(finding)
 
 
 def _sanitize_route_frames(sea_routes_df: DataFrame, rail_routes_df: DataFrame,
@@ -390,17 +418,25 @@ def validate_frames(
     document: str | None = None,
     points_sheet: str = "points",
     uid_column: str = "__uid",
-) -> ValidationReport:
+) -> ValidatedData:
     report = RulesReport()
     fc = fields_config
 
     points_df, points_fatal = _check_points_frame(points_df, document, points_sheet)
     if points_fatal is not None:
         report.add(points_fatal)
-        return ValidationReport(
-            errors=report.errors,
-            warnings=report.warnings,
-            checked_rows=0,
+        return ValidatedData(
+            report=ValidationReport(
+                errors=report.errors,
+                warnings=report.warnings,
+                checked_rows=0,
+            ),
+            routes_df=sea_routes_df.iloc[0:0],
+            dropp_df=dropp_df.iloc[0:0],
+            points_df=points_df,
+            services_df=services_df,
+            row_errors={},
+            document=document,
         )
 
     legacy_warnings: list = []
@@ -408,25 +444,14 @@ def validate_frames(
         sea_routes_df, rail_routes_df, truck_routes_df, dropp_df, fc, legacy_warnings,
     )
 
-    for converted in parse_all_warning_types(legacy_warnings, fc, document=document):
-        base = {
-            key: value for key, value in converted.items()
-            if key in SyncError.model_fields and key != "details"
-        }
-        extras = {
-            key: value for key, value in converted.items()
-            if key not in SyncError.model_fields and key != "error"
-        }
-        finding = SyncError(**base, details=extras or None)
-        if finding.sheet in ("SEA", "RAIL", "TRUCK", "DROPP"):
-            finding.sheet = {"SEA": "МОРЕ", "RAIL": "ЖД", "TRUCK": "АВТО", "DROPP": "ДРОПП"}[finding.sheet]
-        report.add(finding)
+    _import_legacy_warnings(report, legacy_warnings, fc, document)
 
-    snapshot = _extend_snapshot_with_terminals(snapshot, points_df, routes_df, dropp_df, fc)
+    snapshot, points_df = _extend_snapshot_with_terminals(snapshot, points_df, routes_df, dropp_df, fc)
     routes_df, dropp_df = _append_terminals(routes_df, dropp_df, fc)
 
     containers, companies, points, services = _stub_stores(snapshot)
 
+    row_errors: dict[tuple[str, int], list[SyncError]] = {}
     dup_keys, dup_findings = _collect_duplicate_findings(
         routes_df, dropp_df, fc, all_route_dfs, document, uid_column,
     )
@@ -436,18 +461,32 @@ def validate_frames(
         for orig_idx, row in routes_df[routes_df[fc.route_type] == route_type].iterrows():
             if (route_type.value, orig_idx) in dup_keys:
                 continue
-            report.extend(_validate_route_row(
+            findings = _validate_route_row(
                 row, route_type, orig_idx, containers, companies, points,
                 services, fc, snapshot, document,
-            ))
+            )
+            report.extend(findings)
+            if findings:
+                row_errors[(route_type.value, orig_idx)] = findings
 
     for orig_idx, row in dropp_df.iterrows():
         if ("DROPP", orig_idx) in dup_keys:
             continue
-        report.extend(_validate_dropp_row(
+        findings = _validate_dropp_row(
             row, orig_idx, containers, companies, points, fc, snapshot, document,
-        ))
+        )
+        report.extend(findings)
+        if findings:
+            row_errors[("DROPP", orig_idx)] = findings
 
     checked_rows = len(routes_df) + len(dropp_df)
 
-    return ValidationReport(errors=report.errors, warnings=report.warnings, checked_rows=checked_rows)
+    return ValidatedData(
+        report=ValidationReport(errors=report.errors, warnings=report.warnings, checked_rows=checked_rows),
+        routes_df=routes_df,
+        dropp_df=dropp_df,
+        points_df=points_df,
+        services_df=services_df,
+        row_errors=row_errors,
+        document=document,
+    )

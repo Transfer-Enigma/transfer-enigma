@@ -186,10 +186,11 @@ class TestValidateFrames:
     def test_clean_frames_have_no_findings(self):
         fc = make_fc()
         frames = _clean_frames(fc)
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(), document="doc",
         )
+        report = validated.report
         assert report.errors == []
         assert report.warnings == []
         assert report.checked_rows == 3
@@ -208,10 +209,11 @@ class TestValidateFrames:
         )
         frames = _clean_frames(fc)
         frames["sea"] = make_frame(fc, [broken])
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(), document="doc",
         )
+        report = validated.report
         codes = sorted(finding.code for finding in report.errors)
         assert codes == [
             SyncErrorCode.BAD_ENUM_VALUE,
@@ -227,10 +229,11 @@ class TestValidateFrames:
         fc = make_fc()
         frames = _clean_frames(fc)
         frames["sea"] = make_frame(fc, [clean_sea_row(fc, **{fc.company: None})])
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(),
         )
+        report = validated.report
         assert report.errors == []
         assert [warning.code for warning in report.warnings] == [SyncErrorCode.REQUIRED_CELL_EMPTY]
         assert report.warnings[0].details["rows_list"][0]["row_number"] == 2
@@ -240,10 +243,11 @@ class TestValidateFrames:
         fc = make_fc()
         frames = _clean_frames(fc)
         frames["sea"] = make_frame(fc, [clean_sea_row(fc, **{fc.effective_to: "not-a-date"})])
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(),
         )
+        report = validated.report
         assert report.errors == []
         assert [warning.code for warning in report.warnings] == [SyncErrorCode.BAD_DATE_FORMAT]
 
@@ -251,10 +255,11 @@ class TestValidateFrames:
         fc = make_fc()
         frames = _clean_frames(fc)
         frames["points"] = pd.DataFrame([{"city": "X", "country": float("nan")}])
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(), points_sheet="Точки",
         )
+        report = validated.report
         assert [error.code for error in report.errors] == [SyncErrorCode.POINTS_SHEET_NAN]
         assert report.errors[0].sheet == "Точки"
         assert report.checked_rows == 0
@@ -269,10 +274,11 @@ class TestValidateFrames:
         frames["sea"] = make_frame(fc, [
             clean_sea_row(fc, **{fc.end_point: "Novorossiysk", fc.terminal: "T1"}),
         ])
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(),
         )
+        report = validated.report
         assert SyncErrorCode.POINT_NOT_FOUND not in [error.code for error in report.errors]
 
     def test_trial_build_backstop_never_raises(self):
@@ -280,20 +286,22 @@ class TestValidateFrames:
         frames = _clean_frames(fc)
         frames["sea"] = make_frame(fc, [clean_sea_row(fc, **{fc.exp: "not-a-number"})])
         snapshot = make_snapshot(services=("exp",))
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, snapshot,
         )
+        report = validated.report
         assert len(report.errors) == 1
         assert report.errors[0].code == SyncErrorCode.UNKNOWN
 
     def test_report_serializes(self):
         fc = make_fc()
         frames = _clean_frames(fc)
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(),
         )
+        report = validated.report
         assert report.to_dict() == {"errors": [], "warnings": [], "checked_rows": 3}
 
 
@@ -340,10 +348,11 @@ class TestValidateDryRun:
         fc = make_fc()
         frames = _clean_frames(fc)
         snapshot = await load_reference_snapshot(sqlite_session)
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, snapshot,
         )
+        report = validated.report
 
         assert report.errors == []
         assert report.checked_rows == 3
@@ -363,10 +372,11 @@ class TestValidateDryRun:
         frames = _clean_frames(fc)
         frames["sea"] = make_frame(fc, [clean_sea_row(fc, **{fc.company: "ghost"})])
         snapshot = await load_reference_snapshot(sqlite_session)
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, snapshot,
         )
+        report = validated.report
 
         assert [error.code for error in report.errors] == [SyncErrorCode.COMPANY_NOT_FOUND]
         assert await _table_counts(sqlite_session) == counts_before
@@ -377,10 +387,11 @@ class TestDuplicateRows:
         fc = make_fc()
         frames = _clean_frames(fc)
         frames["sea"] = make_frame(fc, [clean_sea_row(fc), clean_sea_row(fc)])
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(),
         )
+        report = validated.report
         duplicates = [finding for finding in report.errors
                       if finding.code == SyncErrorCode.DUPLICATE_ROW]
         assert len(duplicates) == 1
@@ -394,20 +405,22 @@ class TestDuplicateRows:
             clean_sea_row(fc, **{fc.company: "fesco"}),
             clean_sea_row(fc, **{fc.company: "FESCO "}),
         ])
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(),
         )
+        report = validated.report
         assert [finding.code for finding in report.errors] == [SyncErrorCode.DUPLICATE_ROW]
 
     def test_triple_duplicate_flags_two_rows(self):
         fc = make_fc()
         frames = _clean_frames(fc)
         frames["sea"] = make_frame(fc, [clean_sea_row(fc)] * 3)
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(),
         )
+        report = validated.report
         rows = sorted(
             finding.row for finding in report.errors
             if finding.code == SyncErrorCode.DUPLICATE_ROW
@@ -417,10 +430,11 @@ class TestDuplicateRows:
     def test_same_content_different_type_is_not_duplicate(self):
         fc = make_fc()
         frames = _clean_frames(fc)
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(),
         )
+        report = validated.report
         assert SyncErrorCode.DUPLICATE_ROW not in [finding.code for finding in report.errors]
 
     def test_different_price_is_not_duplicate(self):
@@ -430,10 +444,11 @@ class TestDuplicateRows:
             clean_sea_row(fc, **{fc.sea_20dc: 100.0}),
             clean_sea_row(fc, **{fc.sea_20dc: 150.0}),
         ])
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(),
         )
+        report = validated.report
         assert SyncErrorCode.DUPLICATE_ROW not in [finding.code for finding in report.errors]
 
 
@@ -462,10 +477,11 @@ class TestUidKnownInDb:
     def test_frames_level_unknown_uids(self):
         fc = make_fc()
         frames = _clean_frames(fc)
-        report = validate_frames(
+        validated = validate_frames(
             frames["sea"], frames["rail"], frames["truck"], frames["dropp"],
             frames["services"], frames["points"], fc, make_snapshot(existing_row_uids={"other"}),
         )
+        report = validated.report
         uid_errors = [finding for finding in report.errors
                       if finding.code == SyncErrorCode.UID_NOT_IN_DB]
         assert len(uid_errors) == 3

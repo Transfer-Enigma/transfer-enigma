@@ -10,10 +10,9 @@ import pandas
 from backend_admin.config import get_settings
 from backend_admin.dependencies.auth import request_auth
 from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
-from backend_admin.service.routes_loading.error_reporting import parse_all_warning_types
-from backend_admin.service.routes_loading.errors import PointsWithNanException
-from backend_admin.service.routes_loading.processor import load_data
+from backend_admin.service.routes_loading.loading import synchronize
 from backend_admin.service.routes_loading.sync_errors import (
+    SyncErrorCode,
     gsheets_unavailable_error,
     points_sheet_nan_error,
     unexpected_error,
@@ -132,38 +131,35 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
 
     routes_count = len(frames["sea"]) + len(frames["rail"]) + len(frames["truck"])
     try:
-        res, res_metadata, warnings = await load_data(
+        outcome = await synchronize(
             db_session,
-            frames["sea"],
-            frames["rail"],
-            frames["truck"],
-            frames["dropp"],
-            frames["services"],
-            frames["points"],
+            frames,
             fields_config,
+            document,
             load_on_warnings,
         )
-
-    except PointsWithNanException as e:
-        raise points_sheet_nan_error(e.row_numbers, sheet=points_ws_name) from e
-
     except Exception as e:
         raise unexpected_error(e, document=document) from e
 
-    if not res:
+    if not outcome.ok:
+        errors = outcome.report.errors
+        warnings = outcome.report.warnings
+        points_fatal = [error for error in errors if error.code == SyncErrorCode.POINTS_SHEET_NAN]
+        if len(errors) == 1 and not warnings and points_fatal and points_fatal[0].details:
+            raise points_sheet_nan_error(
+                points_fatal[0].details.get("row_numbers", []), sheet=points_ws_name,
+            )
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail={
             "error": "Несколько ошибок во время загрузки данных из листов"
                      f"'{sea_routes_ws_name}' и '{rail_routes_ws_name}'"
                      ". Выполните поиск по таблице, чтобы найти ошибки",
-            "errors_list": parse_all_warning_types(warnings, fields_config, document=document),
+            "errors_list": [error.model_dump() for error in (*errors, *warnings)],
         })
-
-    parsed_warnings = parse_all_warning_types(warnings, fields_config, document=document)
 
     return {
         "routesCount": str(routes_count),
-        "routesInsertedCount": str(res_metadata),
-        "warnings": parsed_warnings,
+        "routesInsertedCount": str(outcome.built_routes),
+        "warnings": [finding.model_dump() for finding in (*outcome.report.errors, *outcome.report.warnings)],
     }
 
 
@@ -192,7 +188,7 @@ async def validate_from_gsheets(
         points_ws_name,
     )
     snapshot = await load_reference_snapshot(db_session)
-    report = validate_frames(
+    validated = validate_frames(
         frames["sea"],
         frames["rail"],
         frames["truck"],
@@ -204,4 +200,4 @@ async def validate_from_gsheets(
         document=document,
         points_sheet=points_ws_name or "points",
     )
-    return report.to_dict()
+    return validated.report.to_dict()

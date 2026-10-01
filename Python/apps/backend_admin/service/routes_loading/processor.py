@@ -1,6 +1,5 @@
 import re
 from collections import defaultdict
-from typing import Any
 
 import pandas as pd
 from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
@@ -12,18 +11,8 @@ from module_shared.schemas.route import (
 )
 from pandas import DataFrame
 
-from .errors import InvalidRouteTypeException, LoadingErrorException, PointsWithNanException
+from .errors import InvalidRouteTypeException
 from .helpers import format_date, none_filter, price_filter
-from .uploader import (
-    create_dropp,
-    create_route,
-    load_companies,
-    load_containers,
-    load_dropp,
-    load_points,
-    load_routes,
-    load_services,
-)
 
 
 def remove_extra_spaces(value):
@@ -162,7 +151,7 @@ def process_dropp_df(processed_dropp_df: DataFrame, warnings, fields_config: Upl
     )
 
     if missing_info:
-        warnings.append(("MissingRouteDataException", missing_info, "DROPP"))
+        warnings.append(("MissingRoutesDataException", missing_info, "DROPP"))
 
     processed_dropp_df = processed_dropp_df.dropna(subset=df_dropna_subset)
 
@@ -363,189 +352,3 @@ def points_city_concat_terminal(points_df_merged_with_terminal: DataFrame, field
         set(points_df_merged_with_terminal.columns)
         - {fields_config.terminal}
     )]
-
-
-async def load_data(  # noqa: C901
-    db_session,
-    sea_routes_df: DataFrame,
-    rail_routes_df: DataFrame,
-    truck_routes_df: DataFrame | None,
-    dropp_df: DataFrame,
-    services_df: DataFrame,
-    points_df: DataFrame,
-    fields_config: UploaderFieldsConfig,
-    load_on_warnings: bool = False,
-):
-    warnings: list[Any] = []
-    # cleanup DF points
-    points_df = points_df.apply(lambda x: x.str.strip() if x.dtype == "str" else x)
-    points_df = points_df.drop_duplicates(subset=["city", "country"], ignore_index=False)
-
-    points_rows_with_nan = [i + 2 for i in points_df[points_df.isna().any(axis=1)].index.tolist()]
-    if points_rows_with_nan:
-        raise PointsWithNanException(points_rows_with_nan)
-
-    # cleanup DF services
-    services_df = services_df.apply(lambda x: x.str.strip() if x.dtype == "str" else x)
-
-    services_fingerprint = [
-        fields_config.column_name,
-        fields_config.service_name,
-    ]
-    services_df = services_df.dropna(ignore_index=False, subset=services_fingerprint)
-    services_df = services_df.drop_duplicates(subset=services_fingerprint, ignore_index=False)
-
-    # process routes and setup new index for correct concatenation
-    sea_routes_df = process_routes_df(sea_routes_df, RouteType.SEA, warnings, fields_config)
-    sea_routes_df["Index"] = sea_routes_df.index.to_series()
-    sea_routes_df = sea_routes_df.set_index([fields_config.route_type, "Index"])
-
-    rail_routes_df = process_routes_df(rail_routes_df, RouteType.RAIL, warnings, fields_config)
-    rail_routes_df["Index"] = rail_routes_df.index.to_series()
-    rail_routes_df = rail_routes_df.set_index([fields_config.route_type, "Index"])
-
-    all_route_dfs = [sea_routes_df, rail_routes_df]
-    del sea_routes_df, rail_routes_df
-
-    if truck_routes_df is not None and not truck_routes_df.empty:
-        truck_routes_df = process_routes_df(truck_routes_df, RouteType.TRUCK, warnings, fields_config)
-        truck_routes_df["Index"] = truck_routes_df.index.to_series()
-        truck_routes_df = truck_routes_df.set_index([fields_config.route_type, "Index"])
-        all_route_dfs.append(truck_routes_df)
-    del truck_routes_df
-
-    routes_df: DataFrame = pd.concat(all_route_dfs, ignore_index=False)
-
-    # cleanup dropp
-    dropp_df = process_dropp_df(dropp_df, warnings, fields_config)
-
-    # Merging points with terminals
-    has_terminal = fields_config.terminal in routes_df.columns
-    routes_with_terminal = (
-        routes_df.dropna(subset=[fields_config.terminal])[
-            [fields_config.start_point, fields_config.end_point, fields_config.terminal]
-        ] if has_terminal
-        else pd.DataFrame(columns=[fields_config.start_point, fields_config.end_point, fields_config.terminal])
-    )
-    dropp_with_terminal = dropp_df.dropna(subset=[fields_config.terminal])[[
-        fields_config.start_point,
-        fields_config.end_point,
-        fields_config.terminal,
-    ]]
-
-    points_df_merged_with_terminal = pd.concat((
-        merge_points_with_terminal(
-            points_df,
-            routes_with_terminal.loc[[RouteType.SEA]],
-            fields_config,
-            fields_config.end_point,
-        ),
-        merge_points_with_terminal(
-            points_df,
-            routes_with_terminal.loc[[RouteType.RAIL]],
-            fields_config,
-            fields_config.start_point,
-        ),
-        merge_points_with_terminal(
-            points_df,
-            dropp_with_terminal,
-            fields_config,
-            fields_config.start_point,
-        ),
-    ))
-
-    points_df = pd.concat((
-        points_df,
-        points_city_concat_terminal(points_df_merged_with_terminal, fields_config),
-    )).drop_duplicates()
-    del points_df_merged_with_terminal
-
-    # add terminal to the start/end point in routes
-    if has_terminal:
-        mask = routes_df[fields_config.terminal].notna()
-        mask &= routes_df[fields_config.terminal].str.strip() != ""
-
-        sea_mask = (routes_df.index.get_level_values(fields_config.route_type) == RouteType.SEA) & mask
-        routes_df.loc[sea_mask, fields_config.end_point] = (
-            routes_df.loc[sea_mask, fields_config.end_point]
-            + " (" + routes_df.loc[sea_mask, fields_config.terminal] + ")"
-        )
-
-        rail_mask = (routes_df.index.get_level_values(fields_config.route_type) == RouteType.RAIL) & mask
-        routes_df.loc[rail_mask, fields_config.start_point] = (
-            routes_df.loc[rail_mask, fields_config.start_point]
-            + " (" + routes_df.loc[rail_mask, fields_config.terminal] + ")"
-        )
-
-    # do the same for dropp off
-    mask = dropp_df[fields_config.terminal].notna()
-    mask &= dropp_df[fields_config.terminal].str.strip() != ""
-
-    dropp_df.loc[mask, fields_config.start_point] = (
-        dropp_df.loc[mask, fields_config.start_point] + " (" + dropp_df.loc[mask, fields_config.terminal] + ")"
-    )
-
-    # load points
-    points_data = await load_points(db_session, points_df) or []
-    del points_df
-
-    # hash points
-    hashed_points = {}
-    for point in points_data:
-        hashed_points[point.city.lower()] = hashed_points[point.RU_city.lower()] = point
-    points = hashed_points
-
-    # load companies
-    companies = await load_companies(
-        db_session,
-        set(routes_df[fields_config.company].tolist()) | set(dropp_df[fields_config.company].tolist()),
-    )
-
-    # load containers
-    containers = await load_containers(db_session, [
-        {"size": 20, "weight_from": 0, "weight_to": 24, "type": "DC", "name": "20DC≤24t"},
-        {"size": 20, "weight_from": 24, "weight_to": 28, "type": "DC", "name": "20DC 24-28t"},
-        {"size": 40, "weight_from": 0, "weight_to": 28, "type": "HC", "name": "40HC≤28t"},
-    ])
-
-    # load services
-    services = await load_services(db_session, services_df, fields_config)
-    del services_df
-
-    # load routes
-    routes_lst = []
-
-    for index, row in routes_df.iterrows():
-        route_type, i = index
-        try:
-            route = create_route(containers, companies, points, services, row, fields_config, route_type)
-        except (LoadingErrorException, ValueError) as e:
-            warnings.append((e, i, route_type))
-            continue
-
-        if route:
-            routes_lst.append(route)
-
-    del routes_df
-
-    # load dropp
-    dropp_lst = []
-
-    for i, row in dropp_df.iterrows():
-        try:
-            drop = create_dropp(containers, companies, points, row, fields_config)
-        except (LoadingErrorException, ValueError) as e:
-            warnings.append((e, i, None))
-            continue
-
-        if drop:
-            dropp_lst.append(drop)
-
-    del dropp_df
-
-    if warnings and not load_on_warnings:
-        return False, len(routes_lst), warnings
-
-    await load_routes(db_session, routes_lst)
-    await load_dropp(db_session, dropp_lst)
-    return True, len(routes_lst), warnings

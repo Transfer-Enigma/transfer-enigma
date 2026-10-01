@@ -27,7 +27,8 @@ from .errors import (
     NoPriceInRouteException,
     PointNotFoundException,
 )
-from .helpers import nan_to_none_mapper
+from .helpers import nan_to_none_mapper, to_date, to_iso_date
+from .unit_of_work import UnitOfWork
 
 ContainerRawType = dict[str, str | int | ContainerType]
 ContainerUid = tuple[int, int, int]
@@ -41,27 +42,27 @@ PointsStore = list[PointModel]
 PointsHashedStore = dict[str, PointModel]
 
 
-async def load_companies(db_session, companies) -> CompaniesStore:
+async def load_companies(uow: UnitOfWork, companies) -> CompaniesStore:
     models = {}
-    existing_models = (await db_session.execute(select(CompanyModel))).scalars().all()
+    existing_models = (await uow.session.execute(select(CompanyModel))).scalars().all()
 
     for company in existing_models:
         models[company.name] = company
 
     for company in companies:
         if not models.get(company):
-            models[company] = await db_session.merge(
+            models[company] = await uow.session.merge(
                 CompanyModel(name=company),
                 load=True,
             )
 
-    await db_session.commit()
+    await uow.commit()
     return models
 
 
-async def load_points(db_session, df) -> PointsStore:
+async def load_points(uow: UnitOfWork, df) -> PointsStore:
     models: list[PointModel | None] = [None] * len(df)
-    existing_points = (await db_session.execute(select(PointModel))).scalars().all()
+    existing_points = (await uow.session.execute(select(PointModel))).scalars().all()
     existing_models_lower = {point.city.lower(): point for point in existing_points}
 
     for i, row in enumerate(df.itertuples()):
@@ -70,7 +71,7 @@ async def load_points(db_session, df) -> PointsStore:
 
         point = existing_models_lower.get(arguments["city"].lower())
         if not point:
-            point = await db_session.merge(
+            point = await uow.session.merge(
                 PointModel(**arguments),
                 load=True,
             )
@@ -78,13 +79,13 @@ async def load_points(db_session, df) -> PointsStore:
 
         models[i] = point
 
-    await db_session.commit()
+    await uow.commit()
     return models  # type: ignore[return-value]
 
 
-async def load_services(db_session, df: DataFrame, fc: UploaderFieldsConfig) -> ServicesStore:
+async def load_services(uow: UnitOfWork, df: DataFrame, fc: UploaderFieldsConfig) -> ServicesStore:
     models = {}
-    existing_models = (await db_session.execute(select(ServiceModel))).scalars().all()
+    existing_models = (await uow.session.execute(select(ServiceModel))).scalars().all()
 
     for service in existing_models:
         models[service.internal_name] = service
@@ -102,7 +103,7 @@ async def load_services(db_session, df: DataFrame, fc: UploaderFieldsConfig) -> 
             else:
                 mandatory = default = True
 
-            models[internal_name] = await db_session.merge(
+            models[internal_name] = await uow.session.merge(
                 ServiceModel(
                     name=row[fc.service_name],
                     internal_name=internal_name,
@@ -113,13 +114,13 @@ async def load_services(db_session, df: DataFrame, fc: UploaderFieldsConfig) -> 
                 load=True,
             )
 
-    await db_session.commit()
+    await uow.commit()
     return models
 
 
-async def load_containers(db_session, containers: list[ContainerRawType]) -> ContainerStore:
+async def load_containers(uow: UnitOfWork, containers: list[ContainerRawType]) -> ContainerStore:
     models = {}
-    existing_models = (await db_session.execute(select(ContainerModel))).scalars().all()
+    existing_models = (await uow.session.execute(select(ContainerModel))).scalars().all()
 
     for container in existing_models:
         models[(
@@ -136,12 +137,12 @@ async def load_containers(db_session, containers: list[ContainerRawType]) -> Con
         )
         if not models.get(container_complex_id):
             container["type"] = ContainerType(container["type"])
-            models[container_complex_id] = await db_session.merge(
+            models[container_complex_id] = await uow.session.merge(
                 ContainerModel(**container),
                 load=True,
             )
 
-    await db_session.commit()
+    await uow.commit()
     return models
 
 
@@ -255,8 +256,8 @@ def create_route(  # noqa: C901
     except KeyError as e:
         raise PointNotFoundException(e.args[0]) from e
 
-    effective_from = row[fc.effective_from]
-    effective_to = row[fc.effective_to]
+    effective_from = to_date(row[fc.effective_from])
+    effective_to = to_date(row[fc.effective_to])
 
     is_through = bool(row[fc.is_through])
 
@@ -355,8 +356,8 @@ def create_dropp(
     except KeyError as e:
         raise PointNotFoundException(e.args[0]) from e
 
-    effective_from = row[fc.effective_from]
-    effective_to = row[fc.effective_to]
+    effective_from = to_date(row[fc.effective_from])
+    effective_to = to_date(row[fc.effective_to])
 
     if not effective_from or not effective_to:
         raise InvalidDroppRow
@@ -388,8 +389,8 @@ def create_dropp(
     return all_dropp
 
 
-async def load_routes(db_session, routes):
-    existing_routes = (await db_session.execute(select(RouteModel).options(
+async def load_routes(uow: UnitOfWork, routes):
+    existing_routes = (await uow.session.execute(select(RouteModel).options(
         joinedload(RouteModel.start_point),
         joinedload(RouteModel.end_point),
         joinedload(RouteModel.company),
@@ -400,8 +401,8 @@ async def load_routes(db_session, routes):
         route.start_point.city,
         route.end_point.city,
         route.dropp_off_point.city if route.dropp_off_point else None,
-        route.effective_from if isinstance(route.effective_from, str) else route.effective_from.date().isoformat(),
-        route.effective_to if isinstance(route.effective_to, str) else route.effective_to.date().isoformat(),
+        to_iso_date(route.effective_from),
+        to_iso_date(route.effective_to),
         route.container_shipment_terms,
         route.container_transfer_terms,
         route.container_owner,
@@ -414,8 +415,8 @@ async def load_routes(db_session, routes):
             route.start_point.city,
             route.end_point.city,
             route.dropp_off_point.city if route.dropp_off_point else None,
-            route.effective_from if isinstance(route.effective_from, str) else route.effective_from.date().isoformat(),
-            route.effective_to if isinstance(route.effective_to, str) else route.effective_to.date().isoformat(),
+            to_iso_date(route.effective_from),
+            to_iso_date(route.effective_to),
             route.container_shipment_terms,
             route.container_transfer_terms,
             route.container_owner,
@@ -424,14 +425,14 @@ async def load_routes(db_session, routes):
         if route_key in existing_routes_set:
             continue
 
-        await db_session.merge(route)
+        await uow.session.merge(route)
         existing_routes_set.add(route_key)
 
-    await db_session.commit()
+    await uow.commit()
 
 
-async def load_dropp(db_session, dropp: list[Iterable[DropModel]]):
-    existing_dropp = (await db_session.execute(select(DropModel).options(
+async def load_dropp(uow: UnitOfWork, dropp: list[Iterable[DropModel]]):
+    existing_dropp = (await uow.session.execute(select(DropModel).options(
         joinedload(DropModel.start_point),
         joinedload(DropModel.end_point),
         joinedload(DropModel.company),
@@ -443,8 +444,8 @@ async def load_dropp(db_session, dropp: list[Iterable[DropModel]]):
         item.end_point.city,
         item.company.name,
         (item.container.size, item.container.weight_from, item.container.weight_to),
-        item.effective_from if isinstance(item.effective_from, str) else item.effective_from.date().isoformat(),
-        item.effective_to if isinstance(item.effective_to, str) else item.effective_to.date().isoformat(),
+        to_iso_date(item.effective_from),
+        to_iso_date(item.effective_to),
     ) for item in existing_dropp}
 
     for items_group in dropp:
@@ -454,13 +455,13 @@ async def load_dropp(db_session, dropp: list[Iterable[DropModel]]):
                 item.end_point.city,
                 item.company.name,
                 (item.container.size, item.container.weight_from, item.container.weight_to),
-                item.effective_from if isinstance(item.effective_from, str) else item.effective_from.date().isoformat(),
-                item.effective_to if isinstance(item.effective_to, str) else item.effective_to.date().isoformat(),
+                to_iso_date(item.effective_from),
+                to_iso_date(item.effective_to),
             )
             if dropp_key in existing_dropp_set:
                 continue
 
-            await db_session.merge(item)
+            await uow.session.merge(item)
             existing_dropp_set.add(dropp_key)
 
-    await db_session.commit()
+    await uow.commit()
