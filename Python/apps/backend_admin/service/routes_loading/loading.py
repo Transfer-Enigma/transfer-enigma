@@ -32,6 +32,8 @@ class SyncResult:
     built_routes: int = 0
     built_dropp_groups: int = 0
     skipped_rows: int = 0
+    deleted_routes: int = 0
+    deleted_dropp: int = 0
     extra_errors: list[SyncError] = field(default_factory=list)
 
 
@@ -40,6 +42,8 @@ class SyncOutcome:
     ok: bool
     built_routes: int
     report: ValidationReport
+    deleted_routes: int = 0
+    deleted_dropp: int = 0
 
 
 CREATABLE_CODES = frozenset({
@@ -141,7 +145,26 @@ def _build_dropp(data: ValidatedData, fc: UploaderFieldsConfig, stores: tuple,
     return dropp_lst
 
 
-async def sync_validated(uow: UnitOfWork, data: ValidatedData, fc: UploaderFieldsConfig) -> SyncResult:
+def _presence_by_scope(data: ValidatedData, fc: UploaderFieldsConfig) -> dict[str, frozenset[str]]:
+    present: dict[str, set[str]] = {}
+    for route_type in (RouteType.SEA, RouteType.RAIL, RouteType.TRUCK):
+        frame = data.routes_df[data.routes_df[fc.route_type] == route_type]
+        if frame.empty:
+            continue
+        scope_uids = {
+            uid for (scope, _), uid in data.row_uids.items() if scope == route_type.value
+        }
+        if scope_uids:
+            present[route_type.value] = scope_uids
+    if not data.dropp_df.empty:
+        dropp_uids = {uid for (scope, _), uid in data.row_uids.items() if scope == "DROPP"}
+        if dropp_uids:
+            present["DROPP"] = dropp_uids
+    return {scope: frozenset(uids) for scope, uids in present.items()}
+
+
+async def sync_validated(uow: UnitOfWork, data: ValidatedData, fc: UploaderFieldsConfig,
+                         update_existing: bool = True, sync_document_id: int | None = None) -> SyncResult:
     result = SyncResult()
 
     valid_companies = set()
@@ -159,14 +182,24 @@ async def sync_validated(uow: UnitOfWork, data: ValidatedData, fc: UploaderField
     result.built_routes = len(routes_lst)
     result.built_dropp_groups = len(dropp_lst)
 
-    await load_routes(uow, routes_lst)
-    await load_dropp(uow, dropp_lst)
+    present_by_scope = _presence_by_scope(data, fc) if update_existing else None
+    if not present_by_scope:
+        present_by_scope = None
+    result.deleted_routes = await load_routes(
+        uow, routes_lst, update_existing=update_existing,
+        sync_document_id=sync_document_id, present_by_scope=present_by_scope,
+    )
+    result.deleted_dropp = await load_dropp(
+        uow, dropp_lst, update_existing=update_existing,
+        sync_document_id=sync_document_id, present_by_scope=present_by_scope,
+    )
     return result
 
 
 async def synchronize(db_session: AsyncSession, frames: dict[str, DataFrame | None],
                       fc: UploaderFieldsConfig, document: str | None,
-                      load_on_warnings: bool, points_sheet: str = "points") -> SyncOutcome:
+                      load_on_warnings: bool, points_sheet: str = "points",
+                      update_existing: bool = True, sync_document_id: int | None = None) -> SyncOutcome:
     snapshot = await load_reference_snapshot(db_session)
     validated = validate_frames(
         frames["sea"],
@@ -183,6 +216,9 @@ async def synchronize(db_session: AsyncSession, frames: dict[str, DataFrame | No
     if (validated.report.errors or validated.report.warnings) and not load_on_warnings:
         return SyncOutcome(ok=False, built_routes=0, report=validated.report)
 
-    result = await sync_validated(UnitOfWork(db_session), validated, fc)
+    result = await sync_validated(UnitOfWork(db_session), validated, fc,
+                                  update_existing=update_existing,
+                                  sync_document_id=sync_document_id)
     validated.report.errors.extend(result.extra_errors)
-    return SyncOutcome(ok=True, built_routes=result.built_routes, report=validated.report)
+    return SyncOutcome(ok=True, built_routes=result.built_routes, report=validated.report,
+                       deleted_routes=result.deleted_routes, deleted_dropp=result.deleted_dropp)

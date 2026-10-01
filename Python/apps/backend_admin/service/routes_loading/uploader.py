@@ -17,7 +17,7 @@ from module_shared.schemas.route import (
 )
 from module_shared.schemas.service import ServiceModel
 from pandas import DataFrame
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import joinedload
 
 from .errors import (
@@ -27,7 +27,13 @@ from .errors import (
     NoPriceInRouteException,
     PointNotFoundException,
 )
-from .helpers import nan_to_none_mapper, to_date, to_iso_date
+from .helpers import nan_to_none_mapper, to_date
+from .uid import (
+    fingerprint_drop,
+    fingerprint_route,
+    natural_uid_for_dropp_item,
+    natural_uid_for_route_model,
+)
 from .unit_of_work import UnitOfWork
 
 ContainerRawType = dict[str, str | int | ContainerType]
@@ -389,49 +395,121 @@ def create_dropp(
     return all_dropp
 
 
-async def load_routes(uow: UnitOfWork, routes):
+def _scope_of(route: RouteModel) -> str:
+    route_type = route.type
+    return route_type.value if hasattr(route_type, "value") else str(route_type)
+
+
+def _container_key_of(container) -> tuple:
+    return (container.size, container.weight_from, container.weight_to)
+
+
+async def _update_route(uow: UnitOfWork, persistent_id: int, route: RouteModel) -> None:
+    persistent = await uow.session.get(RouteModel, persistent_id)
+    if persistent is None:
+        await uow.session.merge(route)
+        return
+    persistent.type = route.type
+    persistent.company = route.company
+    persistent.start_point = route.start_point
+    persistent.end_point = route.end_point
+    persistent.dropp_off_point = route.dropp_off_point
+    persistent.effective_from = route.effective_from
+    persistent.effective_to = route.effective_to
+    persistent.comment = route.comment
+    persistent.timetable = route.timetable
+    persistent.container_transfer_terms = route.container_transfer_terms
+    persistent.container_shipment_terms = route.container_shipment_terms
+    persistent.container_owner = route.container_owner
+    persistent.is_through = route.is_through
+    persistent.payload_hash = route.payload_hash
+    if route.sync_document_id is not None:
+        persistent.sync_document_id = route.sync_document_id
+
+    await uow.session.execute(delete(PriceModel).where(PriceModel.route_id == persistent_id))
+    await uow.session.execute(
+        delete(ServicePriceModel).where(ServicePriceModel.route_id == persistent_id),
+    )
+    for price in list(route.prices):
+        price.route = persistent
+        uow.session.add(price)
+    for service_price in list(route.services):
+        service_price.route = persistent
+        uow.session.add(service_price)
+
+
+async def load_routes(uow: UnitOfWork, routes, update_existing: bool = True,
+                      sync_document_id: int | None = None,
+                      present_by_scope: dict[str, frozenset[str]] | None = None) -> int:
     existing_routes = (await uow.session.execute(select(RouteModel).options(
         joinedload(RouteModel.start_point),
         joinedload(RouteModel.end_point),
+        joinedload(RouteModel.dropp_off_point),
         joinedload(RouteModel.company),
     ))).scalars().all()
 
-    existing_routes_set = {(
-        route.company.name,
-        route.start_point.city,
-        route.end_point.city,
-        route.dropp_off_point.city if route.dropp_off_point else None,
-        to_iso_date(route.effective_from),
-        to_iso_date(route.effective_to),
-        route.container_shipment_terms,
-        route.container_transfer_terms,
-        route.container_owner,
-        route.is_through,
-    ) for route in existing_routes}
+    existing_map = {natural_uid_for_route_model(route): route for route in existing_routes}
 
     for route in routes:
-        route_key = (
-            route.company.name,
-            route.start_point.city,
-            route.end_point.city,
-            route.dropp_off_point.city if route.dropp_off_point else None,
-            to_iso_date(route.effective_from),
-            to_iso_date(route.effective_to),
-            route.container_shipment_terms,
-            route.container_transfer_terms,
-            route.container_owner,
-            route.is_through,
-        )
-        if route_key in existing_routes_set:
-            continue
+        uid = natural_uid_for_route_model(route)
+        route.payload_hash = fingerprint_route(route)
+        if sync_document_id is not None:
+            route.sync_document_id = sync_document_id
 
-        await uow.session.merge(route)
-        existing_routes_set.add(route_key)
+        existing = existing_map.get(uid)
+        if existing is None:
+            await uow.session.merge(route)
+            existing_map[uid] = route
+            continue
+        if update_existing and sync_document_id is not None and existing.sync_document_id != sync_document_id:
+            existing.sync_document_id = sync_document_id
+        if existing.payload_hash != route.payload_hash and update_existing:
+            await _update_route(uow, existing.id, route)
+            existing_map[uid] = route
+
+    deleted = 0
+    if update_existing and present_by_scope is not None:
+        missing_ids = [
+            route.id for route in existing_routes
+            if _scope_of(route) in present_by_scope
+            and natural_uid_for_route_model(route) not in present_by_scope[_scope_of(route)]
+        ]
+        if missing_ids:
+            await uow.session.execute(
+                delete(ServicePriceModel).where(ServicePriceModel.route_id.in_(missing_ids)),
+            )
+            await uow.session.execute(
+                delete(PriceModel).where(PriceModel.route_id.in_(missing_ids)),
+            )
+            await uow.session.execute(delete(RouteModel).where(RouteModel.id.in_(missing_ids)))
+            deleted = len(missing_ids)
 
     await uow.commit()
+    return deleted
 
 
-async def load_dropp(uow: UnitOfWork, dropp: list[Iterable[DropModel]]):
+async def _update_drop(uow: UnitOfWork, persistent_id: int, item: DropModel) -> None:
+    persistent = await uow.session.get(DropModel, persistent_id)
+    if persistent is None:
+        await uow.session.merge(item)
+        return
+    persistent.start_point = item.start_point
+    persistent.end_point = item.end_point
+    persistent.company = item.company
+    persistent.container = item.container
+    persistent.effective_from = item.effective_from
+    persistent.effective_to = item.effective_to
+    persistent.price = item.price
+    persistent.conversation_percents = item.conversation_percents
+    persistent.currency = item.currency
+    persistent.payload_hash = item.payload_hash
+    if item.sync_document_id is not None:
+        persistent.sync_document_id = item.sync_document_id
+
+
+async def load_dropp(uow: UnitOfWork, dropp: list[Iterable[DropModel]], update_existing: bool = True,
+                     sync_document_id: int | None = None,
+                     present_by_scope: dict[str, frozenset[str]] | None = None) -> int:
     existing_dropp = (await uow.session.execute(select(DropModel).options(
         joinedload(DropModel.start_point),
         joinedload(DropModel.end_point),
@@ -439,29 +517,40 @@ async def load_dropp(uow: UnitOfWork, dropp: list[Iterable[DropModel]]):
         joinedload(DropModel.container),
     ))).scalars().all()
 
-    existing_dropp_set = {(
-        item.start_point.city,
-        item.end_point.city,
-        item.company.name,
-        (item.container.size, item.container.weight_from, item.container.weight_to),
-        to_iso_date(item.effective_from),
-        to_iso_date(item.effective_to),
-    ) for item in existing_dropp}
+    existing_dropp_map = {
+        (natural_uid_for_dropp_item(item), _container_key_of(item.container)): item
+        for item in existing_dropp
+    }
 
     for items_group in dropp:
         for item in items_group:
-            dropp_key = (
-                item.start_point.city,
-                item.end_point.city,
-                item.company.name,
-                (item.container.size, item.container.weight_from, item.container.weight_to),
-                to_iso_date(item.effective_from),
-                to_iso_date(item.effective_to),
-            )
-            if dropp_key in existing_dropp_set:
-                continue
+            uid = natural_uid_for_dropp_item(item)
+            item.payload_hash = fingerprint_drop(item)
+            if sync_document_id is not None:
+                item.sync_document_id = sync_document_id
 
-            await uow.session.merge(item)
-            existing_dropp_set.add(dropp_key)
+            match_key = (uid, _container_key_of(item.container))
+            existing = existing_dropp_map.get(match_key)
+            if existing is None:
+                await uow.session.merge(item)
+                existing_dropp_map[match_key] = item
+                continue
+            if update_existing and sync_document_id is not None and existing.sync_document_id != sync_document_id:
+                existing.sync_document_id = sync_document_id
+            if existing.payload_hash != item.payload_hash and update_existing:
+                await _update_drop(uow, existing.id, item)
+                existing_dropp_map[match_key] = item
+
+    deleted = 0
+    if update_existing and present_by_scope is not None and "DROPP" in present_by_scope:
+        present = present_by_scope["DROPP"]
+        missing_ids = [
+            item.id for item in existing_dropp
+            if natural_uid_for_dropp_item(item) not in present
+        ]
+        if missing_ids:
+            await uow.session.execute(delete(DropModel).where(DropModel.id.in_(missing_ids)))
+            deleted = len(missing_ids)
 
     await uow.commit()
+    return deleted

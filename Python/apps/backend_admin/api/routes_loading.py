@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends, File
@@ -90,6 +90,7 @@ async def update_from_gsheets(
     load_on_warnings: bool = True,
     data_file: Annotated[bytes | None, File()] = None,
     document_id: int | None = None,
+    mode: Literal["all", "new"] = "all",
 ):
     return await update_from_gsheets_with_custom_fields(
         db_session,
@@ -104,6 +105,7 @@ async def update_from_gsheets(
         load_on_warnings,
         data_file,
         document_id,
+        mode,
     )
 
 
@@ -121,6 +123,7 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
     load_on_warnings: bool = True,
     data_file: Annotated[bytes | None, File()] = None,
     document_id: int | None = None,
+    mode: Literal["all", "new"] = "all",
 ):
     sync_document = None
     if document_id is not None:
@@ -152,6 +155,8 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
             fields_config,
             document,
             load_on_warnings,
+            update_existing=(mode == "all"),
+            sync_document_id=sync_document.id if sync_document else None,
         )
     except Exception as e:
         raise unexpected_error(e, document=document) from e
@@ -181,6 +186,8 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
     return {
         "routesCount": str(routes_count),
         "routesInsertedCount": str(outcome.built_routes),
+        "deletedRoutesCount": str(outcome.deleted_routes),
+        "deletedDroppCount": str(outcome.deleted_dropp),
         "warnings": [finding.model_dump() for finding in (*outcome.report.errors, *outcome.report.warnings)],
     }
 
