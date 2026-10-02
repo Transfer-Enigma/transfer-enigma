@@ -17,6 +17,7 @@ from backend_admin.service.routes_loading.inputs import (
     select_upload_frames,
 )
 from backend_admin.service.routes_loading.loading import synchronize
+from backend_admin.service.routes_loading.report import build_affected_rows
 from backend_admin.service.routes_loading.sync_errors import (
     SyncErrorCode,
     gsheets_unavailable_error,
@@ -244,6 +245,9 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
         "deletedDroppCount": str(outcome.deleted_dropp),
         "warnings": [finding.model_dump() for finding in (*outcome.report.errors, *outcome.report.warnings)],
         "fixes": fixes,
+        "affected_rows": build_affected_rows(outcome.validated, fixes, fields_config)
+        if outcome.validated
+        else [],
     }
 
 
@@ -375,4 +379,5 @@ async def validate_from_gsheets(
         "uids_written": uids_written,
         "fixes": fixes,
         "highlighted": highlighted,
+        "affected_rows": build_affected_rows(validated, fixes, fields_config),
     }

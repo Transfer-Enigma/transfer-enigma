@@ -44,6 +44,7 @@ class SyncOutcome:
     report: ValidationReport
     deleted_routes: int = 0
     deleted_dropp: int = 0
+    validated: ValidatedData | None = None
 
 
 CREATABLE_CODES = frozenset({
@@ -216,11 +217,12 @@ async def synchronize(db_session: AsyncSession, frames: dict[str, DataFrame | No
         uid_column=uid_column,
     )
     if (validated.report.errors or validated.report.warnings) and not load_on_warnings:
-        return SyncOutcome(ok=False, built_routes=0, report=validated.report)
+        return SyncOutcome(ok=False, built_routes=0, report=validated.report, validated=validated)
 
     result = await sync_validated(UnitOfWork(db_session), validated, fc,
                                   update_existing=update_existing,
                                   sync_document_id=sync_document_id)
     validated.report.errors.extend(result.extra_errors)
     return SyncOutcome(ok=True, built_routes=result.built_routes, report=validated.report,
-                       deleted_routes=result.deleted_routes, deleted_dropp=result.deleted_dropp)
+                       deleted_routes=result.deleted_routes, deleted_dropp=result.deleted_dropp,
+                       validated=validated)
