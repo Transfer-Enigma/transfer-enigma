@@ -3,6 +3,7 @@ import axios from "axios";
 import { deleteAllData, downloadValidatedFile, syncDocument, updateFromFile, updateFromGsheets, uploadBackup, validateDocument } from "@/api/Data";
 import { createSyncDocument, deleteSyncDocument, listSyncDocuments, previewDocumentSheets, previewUploadFile } from "@/api/SyncDocuments";
 import SyncDocModal, { ModalSource } from "@/components/SyncDocModal";
+import AffectedRowsView from "@/components/AffectedRowsView";
 import { API_ENDPOINTS } from "@/api/ApiConfig";
 import { SyncDocument, SyncErrorItem, UpdateResponse, ValidateResponse } from "@/interfaces/Data";
 
@@ -218,6 +219,7 @@ export default function DataImport() {
             ...(result.report?.errors ?? []),
             ...(result.report?.warnings ?? []),
         ];
+        const affectedRows = result.report?.affected_rows ?? [];
         return (
             <div key={ index } className="run-result">
                 <div className="warning-header">
@@ -225,19 +227,21 @@ export default function DataImport() {
                     { result.report?.checked_rows !== undefined && ` (проверено строк: ${result.report.checked_rows})` }
                     { result.report?.routesInsertedCount !== undefined && ` (маршрутов: ${result.report.routesInsertedCount})` }
                 </div>
-                { findings.length > 0 && (
-                    <ul>
-                        { findings.map((finding, findingIndex) => (
-                            <li key={ findingIndex }>
-                                { finding.message ?? finding.error ?? JSON.stringify(finding) }
-                                { finding.code ? ` [${finding.code}]` : "" }
-                                { finding.sheet ? `, лист: ${finding.sheet}` : "" }
-                                { finding.row ? `, строка: ${finding.row}` : "" }
-                                { finding.cell ? `, ячейка: ${finding.cell}` : "" }
-                            </li>
-                        )) }
-                    </ul>
-                ) }
+                { affectedRows.length > 0
+                    ? <AffectedRowsView rows={ affectedRows } />
+                    : findings.length > 0 && (
+                        <ul>
+                            { findings.map((finding, findingIndex) => (
+                                <li key={ findingIndex }>
+                                    { finding.message ?? finding.error ?? JSON.stringify(finding) }
+                                    { finding.code ? ` [${finding.code}]` : "" }
+                                    { finding.sheet ? `, лист: ${finding.sheet}` : "" }
+                                    { finding.row ? `, строка: ${finding.row}` : "" }
+                                    { finding.cell ? `, ячейка: ${finding.cell}` : "" }
+                                </li>
+                            )) }
+                        </ul>
+                    ) }
             </div>
         );
     };

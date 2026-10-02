@@ -2,6 +2,8 @@ export interface UpdateResponse {
     routesCount: string;
     routesInsertedCount: string;
     warnings: any[];
+    fixes?: Array<{ sheet: string; row: number; column: string; old: unknown; new: unknown }>;
+    affected_rows?: AffectedRow[];
 }
 
 export interface SyncErrorItem {
@@ -25,6 +27,19 @@ export interface ValidateResponse {
     uids_written?: number;
     fixes?: Array<{ sheet: string; row: number; column: string; old: unknown; new: unknown }>;
     highlighted?: number;
+    affected_rows?: AffectedRow[];
+}
+
+export interface AffectedRow {
+    document?: string | null;
+    scope: string;
+    sheet: string;
+    row: number;
+    uid: string;
+    values: Record<string, unknown>;
+    fixed: boolean;
+    errors: SyncErrorItem[];
+    fixes: Array<{ sheet: string; row: number; column: string; old: unknown; new: unknown }>;
 }
 
 export interface SyncDocument {
