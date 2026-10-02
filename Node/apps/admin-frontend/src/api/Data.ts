@@ -1,12 +1,36 @@
 import { API_ENDPOINTS } from "./ApiConfig";
-import { UpdateResponse } from "@/interfaces/Data";
+import { UpdateResponse, ValidateResponse } from "@/interfaces/Data";
 import axios from "axios";
+
+export interface RunParams {
+    document_id?: number;
+    load_on_warnings?: boolean;
+    mode?: "all" | "new";
+    fix?: boolean;
+    highlight?: boolean;
+    ensure_uids?: boolean;
+    sheets?: string[];
+}
 
 export const updateFromGsheets = async (): Promise<UpdateResponse> =>
     (await axios.post(
         `${API_ENDPOINTS.DATA.UPDATE_FROM_GSHEETS}`,
         null,
         { withCredentials: true },
+    )).data;
+
+export const syncDocument = async (params: RunParams): Promise<UpdateResponse> =>
+    (await axios.post(
+        `${API_ENDPOINTS.DATA.UPDATE_FROM_GSHEETS}`,
+        null,
+        { params, withCredentials: true },
+    )).data;
+
+export const validateDocument = async (params: RunParams): Promise<ValidateResponse> =>
+    (await axios.post(
+        `${API_ENDPOINTS.DATA.VALIDATE_FROM_GSHEETS}`,
+        null,
+        { params, withCredentials: true },
     )).data;
 
 export async function updateFromFile(file: File): Promise<UpdateResponse> {

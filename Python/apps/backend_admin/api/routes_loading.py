@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Response
-from fastapi.params import Depends, File
+from fastapi.params import Depends, File, Query
 from starlette.status import HTTP_400_BAD_REQUEST
 
 import gspread
@@ -47,18 +47,25 @@ def get_fields_config_from_file():
 
 def _download_all(data_file, gsheets_url, sea_routes_ws_name, rail_routes_ws_name,
                   truck_routes_ws_name, dropp_routes_ws_name,
-                  services_ws_name, points_ws_name) -> tuple[dict, str | None, dict]:
+                  services_ws_name, points_ws_name,
+                  only_sheets: set[str] | None = None) -> tuple[dict, str | None, dict]:
     worksheets: dict[str, object] = {}
     if data_file:
         parsed = read_upload(data_file)
-        frames = select_upload_frames(parsed, {
+        requested_names = {
             "sea": sea_routes_ws_name,
             "rail": rail_routes_ws_name,
             "truck": truck_routes_ws_name,
             "dropp": dropp_routes_ws_name,
             "services": services_ws_name,
             "points": points_ws_name,
-        })
+        }
+        if only_sheets is not None:
+            requested_names = {
+                key: (ws_name if key in only_sheets else None)
+                for key, ws_name in requested_names.items()
+            }
+        frames = select_upload_frames(parsed, requested_names)
         return frames, None, worksheets
 
     try:
@@ -79,14 +86,20 @@ def _download_all(data_file, gsheets_url, sea_routes_ws_name, rail_routes_ws_nam
     document = gsheets_url
 
     try:
-        frames = {
-            "sea": download_data(sea_routes_ws_name) if sea_routes_ws_name else None,
-            "rail": download_data(rail_routes_ws_name) if rail_routes_ws_name else None,
-            "truck": download_data(truck_routes_ws_name) if truck_routes_ws_name else None,
-            "dropp": download_data(dropp_routes_ws_name) if dropp_routes_ws_name else None,
-            "services": download_data(services_ws_name) if services_ws_name else None,
-            "points": download_data(points_ws_name) if points_ws_name else None,
+        requested = {
+            "sea": sea_routes_ws_name,
+            "rail": rail_routes_ws_name,
+            "truck": truck_routes_ws_name,
+            "dropp": dropp_routes_ws_name,
+            "services": services_ws_name,
+            "points": points_ws_name,
         }
+        frames = {}
+        for key, ws_name in requested.items():
+            if not ws_name or (only_sheets is not None and key not in only_sheets):
+                frames[key] = None
+            else:
+                frames[key] = download_data(ws_name)
     except Exception as e:
         raise ws_not_found_error(e, document=document) from e
 
@@ -110,6 +123,7 @@ async def update_from_gsheets(
     document_id: int | None = None,
     mode: Literal["all", "new"] = "all",
     fix: bool = False,
+    sheets: Annotated[list[str] | None, Query()] = None,
 ):
     return await update_from_gsheets_with_custom_fields(
         db_session,
@@ -126,6 +140,7 @@ async def update_from_gsheets(
         document_id,
         mode,
         fix,
+        sheets,
     )
 
 
@@ -145,6 +160,7 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
     document_id: int | None = None,
     mode: Literal["all", "new"] = "all",
     fix: bool = False,
+    sheets: Annotated[list[str] | None, Query()] = None,
 ):
     sync_document = None
     if document_id is not None:
@@ -166,6 +182,7 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
         dropp_routes_ws_name,
         services_ws_name,
         points_ws_name,
+        only_sheets=set(sheets) if sheets else None,
     )
 
     fixes: list[dict] = []
@@ -248,6 +265,7 @@ async def validate_from_gsheets(
     fix: bool = False,
     highlight: bool = False,
     artifact: Literal["report", "file"] = "report",
+    sheets: Annotated[list[str] | None, Query()] = None,
 ):
     sync_document = None
     if document_id is not None:
@@ -270,6 +288,7 @@ async def validate_from_gsheets(
         dropp_routes_ws_name,
         services_ws_name,
         points_ws_name,
+        only_sheets=set(sheets) if sheets else None,
     )
     fixes: list[dict] = []
     if fix:
