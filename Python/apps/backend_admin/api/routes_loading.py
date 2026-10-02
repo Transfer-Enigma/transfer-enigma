@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from fastapi.params import Depends, File
 from starlette.status import HTTP_400_BAD_REQUEST
 
@@ -9,8 +9,13 @@ from backend_admin.config import get_settings
 from backend_admin.dependencies.auth import request_auth
 from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
 from backend_admin.service.routes_loading import documents as document_service
+from backend_admin.service.routes_loading.artifacts import build_report_workbook
 from backend_admin.service.routes_loading.fixes import apply_fixes
-from backend_admin.service.routes_loading.inputs import read_upload, select_upload_frames
+from backend_admin.service.routes_loading.inputs import (
+    bad_input_error,
+    read_upload,
+    select_upload_frames,
+)
 from backend_admin.service.routes_loading.loading import synchronize
 from backend_admin.service.routes_loading.sync_errors import (
     SyncErrorCode,
@@ -19,7 +24,11 @@ from backend_admin.service.routes_loading.sync_errors import (
     unexpected_error,
     ws_not_found_error,
 )
-from backend_admin.service.routes_loading.uid_sheet import ensure_sheet_uids
+from backend_admin.service.routes_loading.uid_sheet import (
+    ensure_sheet_uids,
+    highlight_report_cells,
+    write_fix_cells,
+)
 from backend_admin.service.routes_loading.validation import load_reference_snapshot, validate_frames
 from gspread_dataframe import get_as_dataframe
 from module_shared.database import get_database
@@ -148,7 +157,7 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
         points_ws_name = sync_document.points_ws
         services_ws_name = sync_document.services_ws
 
-    frames, document, _worksheets = _download_all(
+    frames, document, worksheets = _download_all(
         data_file,
         gsheets_url,
         sea_routes_ws_name,
@@ -162,6 +171,17 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
     fixes: list[dict] = []
     if fix:
         frames, fixes = apply_fixes(frames, fields_config)
+        if worksheets:
+            write_fix_cells(
+                worksheets,
+                {
+                    "sea": ("SEA", sea_routes_ws_name),
+                    "rail": ("RAIL", rail_routes_ws_name),
+                    "truck": ("TRUCK", truck_routes_ws_name),
+                    "dropp": ("DROPP", dropp_routes_ws_name),
+                },
+                fixes,
+            )
 
     routes_count = sum(len(frames[key]) for key in ("sea", "rail", "truck") if frames[key] is not None)
     try:
@@ -226,6 +246,8 @@ async def validate_from_gsheets(
     document_id: int | None = None,
     ensure_uids: bool = False,
     fix: bool = False,
+    highlight: bool = False,
+    artifact: Literal["report", "file"] = "report",
 ):
     sync_document = None
     if document_id is not None:
@@ -252,6 +274,17 @@ async def validate_from_gsheets(
     fixes: list[dict] = []
     if fix:
         frames, fixes = apply_fixes(frames, fields_config)
+        if worksheets:
+            write_fix_cells(
+                worksheets,
+                {
+                    "sea": ("SEA", sea_routes_ws_name),
+                    "rail": ("RAIL", rail_routes_ws_name),
+                    "truck": ("TRUCK", truck_routes_ws_name),
+                    "dropp": ("DROPP", dropp_routes_ws_name),
+                },
+                fixes,
+            )
     snapshot = await load_reference_snapshot(db_session)
     validated = validate_frames(
         frames["sea"],
@@ -284,4 +317,43 @@ async def validate_from_gsheets(
             sync_document,
             len(validated.report.errors) + len(validated.report.warnings),
         )
-    return {**validated.report.to_dict(), "uids_written": uids_written, "fixes": fixes}
+    findings = [*validated.report.errors, *validated.report.warnings]
+    highlighted = 0
+    if highlight and worksheets:
+        highlighted = highlight_report_cells(
+            worksheets,
+            {
+                "sea": ("SEA", sea_routes_ws_name),
+                "rail": ("RAIL", rail_routes_ws_name),
+                "truck": ("TRUCK", truck_routes_ws_name),
+                "dropp": ("DROPP", dropp_routes_ws_name),
+            },
+            findings,
+        )
+    if artifact == "file":
+        if not data_file:
+            raise bad_input_error("artifact=file requires an uploaded file")
+        content = build_report_workbook(
+            frames,
+            findings,
+            fixes,
+            {
+                "sea": sea_routes_ws_name,
+                "rail": rail_routes_ws_name,
+                "truck": truck_routes_ws_name,
+                "dropp": dropp_routes_ws_name,
+                "services": services_ws_name,
+                "points": points_ws_name,
+            },
+        )
+        return Response(
+            content=content,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": 'attachment; filename="validated.xlsx"'},
+        )
+    return {
+        **validated.report.to_dict(),
+        "uids_written": uids_written,
+        "fixes": fixes,
+        "highlighted": highlighted,
+    }
