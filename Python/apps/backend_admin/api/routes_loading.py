@@ -9,6 +9,7 @@ from backend_admin.config import get_settings
 from backend_admin.dependencies.auth import request_auth
 from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
 from backend_admin.service.routes_loading import documents as document_service
+from backend_admin.service.routes_loading.fixes import apply_fixes
 from backend_admin.service.routes_loading.inputs import read_upload, select_upload_frames
 from backend_admin.service.routes_loading.loading import synchronize
 from backend_admin.service.routes_loading.sync_errors import (
@@ -99,6 +100,7 @@ async def update_from_gsheets(
     data_file: Annotated[bytes | None, File()] = None,
     document_id: int | None = None,
     mode: Literal["all", "new"] = "all",
+    fix: bool = False,
 ):
     return await update_from_gsheets_with_custom_fields(
         db_session,
@@ -114,6 +116,7 @@ async def update_from_gsheets(
         data_file,
         document_id,
         mode,
+        fix,
     )
 
 
@@ -132,6 +135,7 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
     data_file: Annotated[bytes | None, File()] = None,
     document_id: int | None = None,
     mode: Literal["all", "new"] = "all",
+    fix: bool = False,
 ):
     sync_document = None
     if document_id is not None:
@@ -154,6 +158,10 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
         services_ws_name,
         points_ws_name,
     )
+
+    fixes: list[dict] = []
+    if fix:
+        frames, fixes = apply_fixes(frames, fields_config)
 
     routes_count = sum(len(frames[key]) for key in ("sea", "rail", "truck") if frames[key] is not None)
     try:
@@ -198,6 +206,7 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
         "deletedRoutesCount": str(outcome.deleted_routes),
         "deletedDroppCount": str(outcome.deleted_dropp),
         "warnings": [finding.model_dump() for finding in (*outcome.report.errors, *outcome.report.warnings)],
+        "fixes": fixes,
     }
 
 
@@ -216,6 +225,7 @@ async def validate_from_gsheets(
     data_file: Annotated[bytes | None, File()] = None,
     document_id: int | None = None,
     ensure_uids: bool = False,
+    fix: bool = False,
 ):
     sync_document = None
     if document_id is not None:
@@ -239,6 +249,9 @@ async def validate_from_gsheets(
         services_ws_name,
         points_ws_name,
     )
+    fixes: list[dict] = []
+    if fix:
+        frames, fixes = apply_fixes(frames, fields_config)
     snapshot = await load_reference_snapshot(db_session)
     validated = validate_frames(
         frames["sea"],
@@ -271,4 +284,4 @@ async def validate_from_gsheets(
             sync_document,
             len(validated.report.errors) + len(validated.report.warnings),
         )
-    return {**validated.report.to_dict(), "uids_written": uids_written}
+    return {**validated.report.to_dict(), "uids_written": uids_written, "fixes": fixes}

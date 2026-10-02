@@ -279,36 +279,40 @@ def _validate_dropp_row(row, orig_idx, containers, companies, points,
 def _extend_snapshot_with_terminals(snapshot: ReferenceSnapshot, points_df: DataFrame | None,
                                     routes_df: DataFrame, dropp_df: DataFrame,
                                     fc: UploaderFieldsConfig) -> tuple[ReferenceSnapshot, DataFrame | None]:
-    if points_df is None or fc.terminal not in routes_df.columns or fc.terminal not in dropp_df.columns:
+    if points_df is None:
         return snapshot, points_df
 
-    routes_with_terminal = routes_df.dropna(subset=[fc.terminal])[
-        [fc.start_point, fc.end_point, fc.terminal, fc.route_type]
-    ]
-    dropp_with_terminal = dropp_df.dropna(subset=[fc.terminal])[
-        [fc.start_point, fc.end_point, fc.terminal]
-    ]
-
-    merged = pd.concat((
-        merge_points_with_terminal(
+    parts = []
+    if {fc.start_point, fc.end_point, fc.terminal, fc.route_type} <= set(routes_df.columns):
+        routes_with_terminal = routes_df.dropna(subset=[fc.terminal])[
+            [fc.start_point, fc.end_point, fc.terminal, fc.route_type]
+        ]
+        parts.append(merge_points_with_terminal(
             points_df,
             routes_with_terminal[routes_with_terminal[fc.route_type] == RouteType.SEA],
             fc,
             fc.end_point,
-        ),
-        merge_points_with_terminal(
+        ))
+        parts.append(merge_points_with_terminal(
             points_df,
             routes_with_terminal[routes_with_terminal[fc.route_type] == RouteType.RAIL],
             fc,
             fc.start_point,
-        ),
-        merge_points_with_terminal(
+        ))
+    if {fc.start_point, fc.end_point, fc.terminal} <= set(dropp_df.columns):
+        dropp_with_terminal = dropp_df.dropna(subset=[fc.terminal])[
+            [fc.start_point, fc.end_point, fc.terminal]
+        ]
+        parts.append(merge_points_with_terminal(
             points_df,
             dropp_with_terminal,
             fc,
             fc.start_point,
-        ),
-    ))
+        ))
+    if not parts:
+        return snapshot, points_df
+
+    merged = pd.concat(parts)
     suffixed = points_city_concat_terminal(merged, fc)
     extra_keys = set(suffixed["city"].str.lower().tolist())
     if "RU_city" in suffixed.columns:
@@ -328,7 +332,7 @@ def _append_terminals(routes_df: DataFrame, dropp_df: DataFrame, fc: UploaderFie
     routes_df = routes_df.copy()
     dropp_df = dropp_df.copy()
 
-    if fc.terminal in routes_df.columns:
+    if {fc.terminal, fc.route_type, fc.start_point, fc.end_point} <= set(routes_df.columns):
         mask = routes_df[fc.terminal].notna() & (routes_df[fc.terminal].str.strip() != "")
 
         sea_mask = (routes_df[fc.route_type] == RouteType.SEA) & mask
@@ -343,7 +347,7 @@ def _append_terminals(routes_df: DataFrame, dropp_df: DataFrame, fc: UploaderFie
             + " (" + routes_df.loc[rail_mask, fc.terminal] + ")"
         )
 
-    if fc.terminal in dropp_df.columns:
+    if {fc.terminal, fc.start_point} <= set(dropp_df.columns):
         mask = dropp_df[fc.terminal].notna() & (dropp_df[fc.terminal].str.strip() != "")
         dropp_df.loc[mask, fc.start_point] = (
             dropp_df.loc[mask, fc.start_point] + " (" + dropp_df.loc[mask, fc.terminal] + ")"
