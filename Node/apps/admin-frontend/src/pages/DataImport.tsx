@@ -1,7 +1,8 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { deleteAllData, syncDocument, updateFromFile, updateFromGsheets, uploadBackup, validateDocument } from "@/api/Data";
-import { deleteSyncDocument, listSyncDocuments } from "@/api/SyncDocuments";
+import { deleteAllData, downloadValidatedFile, syncDocument, updateFromFile, updateFromGsheets, uploadBackup, validateDocument } from "@/api/Data";
+import { createSyncDocument, deleteSyncDocument, listSyncDocuments, previewDocumentSheets, previewUploadFile } from "@/api/SyncDocuments";
+import SyncDocModal, { ModalSource } from "@/components/SyncDocModal";
 import { API_ENDPOINTS } from "@/api/ApiConfig";
 import { SyncDocument, SyncErrorItem, UpdateResponse, ValidateResponse } from "@/interfaces/Data";
 
@@ -56,6 +57,10 @@ export default function DataImport() {
     const [ ensureUids, setEnsureUids ] = useState(false);
     const [ running, setRunning ] = useState(false);
     const [ runResults, setRunResults ] = useState<any[]>([]);
+    const [ newDocUrl, setNewDocUrl ] = useState("");
+    const [ modalSource, setModalSource ] = useState<ModalSource | null>(null);
+    const [ runFiles, setRunFiles ] = useState<Record<number, File>>({});
+    const createFileRef = useRef<HTMLInputElement | null>(null);
 
     const SHEET_ROLES = [
         { key: "sea", label: "Море", field: "sea_ws" },
@@ -125,6 +130,41 @@ export default function DataImport() {
         }
     };
 
+    const handleAddGoogleDoc = async () => {
+        const url = newDocUrl.trim();
+        if (!url) {
+            setError("Укажите URL Google-документа");
+            return;
+        }
+        try {
+            const created = await createSyncDocument({ title: url, url });
+            const preview = await previewDocumentSheets(url);
+            setNewDocUrl("");
+            setModalSource({ kind: "google", url, fileName: "", docId: created.id, preview });
+            await loadDocuments();
+        } catch (e) {
+            setError(formatApiError(e, "Не удалось добавить документ"));
+        }
+    };
+
+    const handleCreateFileSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file)
+            return;
+        try {
+            const preview = await previewUploadFile(file);
+            setModalSource({
+                kind: "file",
+                url: `upload:${file.name}`,
+                fileName: file.name,
+                preview,
+            });
+        } catch (e) {
+            setError(formatApiError(e, "Не удалось прочитать файл"));
+        }
+    };
+
     const handleRun = async () => {
         const selectedDocs = documents.filter((doc) => selection[doc.id]?.length > 0);
         if (selectedDocs.length === 0) {
@@ -138,6 +178,11 @@ export default function DataImport() {
             for (const doc of selectedDocs) {
                 const mapped = docSheets(doc).map((role) => role.key);
                 const selected = selection[doc.id];
+                const file = doc.source_type === "file" ? runFiles[doc.id] : undefined;
+                if (doc.source_type === "file" && !file) {
+                    results.push({ doc, ok: false, error: "Приложите файл для запуска" });
+                    continue;
+                }
                 const params = {
                     document_id: doc.id,
                     sheets: selected.length < mapped.length ? selected : undefined,
@@ -149,10 +194,12 @@ export default function DataImport() {
                 };
                 try {
                     if (runMode === "validate") {
-                        const report: ValidateResponse = await validateDocument(params);
+                        const report: ValidateResponse = await validateDocument(params, file);
                         results.push({ doc, ok: true, report });
+                        if (file && (highlightChecked || fixChecked))
+                            await downloadValidatedFile(params, file, `${doc.title}-validated.xlsx`);
                     } else {
-                        const result: UpdateResponse = await syncDocument(params);
+                        const result: UpdateResponse = await syncDocument(params, file);
                         results.push({ doc, ok: true, report: result });
                     }
                 } catch (e) {
@@ -312,6 +359,29 @@ export default function DataImport() {
             <div className="sync-panel">
                 <h2>Синхронизация документов</h2>
 
+                <div>
+                    <input
+                        value={ newDocUrl }
+                        onChange={ (event) => setNewDocUrl(event.target.value) }
+                        placeholder="https://docs.google.com/spreadsheets/..."
+                        disabled={ running }
+                        style={ { width: 320 } }
+                    />
+                    <button type="button" onClick={ handleAddGoogleDoc } disabled={ running }>
+                        Добавить Google Doc
+                    </button>
+                    <button type="button" onClick={ () => createFileRef.current?.click() } disabled={ running }>
+                        Добавить xlsx/csv
+                    </button>
+                    <input
+                        ref={ createFileRef }
+                        type="file"
+                        style={ { display: "none" } }
+                        onChange={ handleCreateFileSelected }
+                        accept=".xlsx,.csv"
+                    />
+                </div>
+
                 { documents.length === 0 && <div>Нет документов. Добавьте Google Doc или файл.</div> }
 
                 { documents.map((doc) => {
@@ -330,6 +400,18 @@ export default function DataImport() {
                                 { ` ${doc.title} (${doc.source_type})` }
                             </label>
                             { doc.last_status && <span>{ ` [${doc.last_status}]` }</span> }
+                            { doc.source_type === "file" && (
+                                <input
+                                    type="file"
+                                    onChange={ (event) => {
+                                        const file = event.target.files?.[0];
+                                        if (file)
+                                            setRunFiles((prev) => ({ ...prev, [doc.id]: file }));
+                                    } }
+                                    disabled={ running }
+                                    accept=".xlsx,.csv"
+                                />
+                            ) }
                             <button type="button" onClick={ () => handleDeleteDocument(doc) } disabled={ running }>
                                 🗑
                             </button>
@@ -425,6 +507,12 @@ export default function DataImport() {
                         { runResults.map((result, index) => renderRunResult(result, index)) }
                     </div>
                 ) }
+
+                <SyncDocModal
+                    source={ modalSource }
+                    onClose={ () => setModalSource(null) }
+                    onSaved={ () => void loadDocuments() }
+                />
             </div>
 
             <div className="button-group">

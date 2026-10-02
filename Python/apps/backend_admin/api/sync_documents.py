@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Query
-from fastapi.params import Depends
+from fastapi.params import Depends, File
 
 import gspread
 from backend_admin.config import get_settings
@@ -13,6 +13,7 @@ from backend_admin.schemas.data_browser import (
 )
 from backend_admin.service.crud_sync_documents import crud_sync_documents
 from backend_admin.service.routes_loading.documents import suggest_mapping
+from backend_admin.service.routes_loading.inputs import preview_upload
 from module_shared.database import Database, get_database
 from module_shared.resources import Resources
 
@@ -41,6 +42,14 @@ async def preview_document_sheets(
     )
     titles = [worksheet.title for worksheet in gs.open_by_url(url).worksheets()]
     return {"sheets": titles, "suggested_mapping": suggest_mapping(titles)}
+
+
+@router.post("/preview-file")
+async def preview_upload_file(
+    _: Annotated[None, Depends(request_auth)],
+    data_file: Annotated[bytes, File()],
+):
+    return preview_upload(data_file)
 
 
 @router.get("/{document_id}", response_model=SyncDocumentResponse)

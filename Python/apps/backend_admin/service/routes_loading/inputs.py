@@ -6,6 +6,7 @@ from starlette.status import HTTP_400_BAD_REQUEST
 import pandas as pd
 from pandas import DataFrame
 
+from .documents import suggest_mapping
 from .sync_errors import SyncErrorCode, make_error
 
 SHEET_KEYS = ("sea", "rail", "truck", "dropp", "services", "points")
@@ -54,3 +55,18 @@ def select_upload_frames(parsed: dict[str, DataFrame] | DataFrame,
             selected[key] = parsed
             break
     return selected
+
+
+def preview_upload(data: bytes) -> dict:
+    parsed = read_upload(data)
+    if isinstance(parsed, dict):
+        titles = list(parsed)
+        single_sheet = False
+    else:
+        titles = ["sheet"]
+        single_sheet = True
+    return {
+        "sheets": titles,
+        "suggested_mapping": suggest_mapping(titles),
+        "single_sheet": single_sheet,
+    }

@@ -18,6 +18,7 @@ export const deleteSyncDocument = async (id: number): Promise<void> => {
 export interface SheetsPreview {
     sheets: string[];
     suggested_mapping: Record<string, string | null>;
+    single_sheet?: boolean;
 }
 
 export const previewDocumentSheets = async (url: string): Promise<SheetsPreview> =>
@@ -39,3 +40,16 @@ export const patchSyncDocument = async (id: number, payload: Partial<SyncDocumen
         payload,
         { withCredentials: true },
     )).data;
+
+export const previewUploadFile = async (file: File): Promise<SheetsPreview> => {
+    const formData = new FormData();
+    formData.append("data_file", file);
+    return (await axios.post(
+        `${API_ENDPOINTS.SYNC_DOCUMENTS.ROOT}/preview-file`,
+        formData,
+        {
+            headers: { "Content-Type": "multipart/form-data" },
+            withCredentials: true,
+        },
+    )).data;
+};

@@ -4,7 +4,11 @@ from fastapi import HTTPException
 
 import pandas as pd
 import pytest
-from backend_admin.service.routes_loading.inputs import read_upload, select_upload_frames
+from backend_admin.service.routes_loading.inputs import (
+    preview_upload,
+    read_upload,
+    select_upload_frames,
+)
 from backend_admin.service.routes_loading.sync_errors import SyncErrorCode
 
 
@@ -73,3 +77,20 @@ class TestSelectUploadFrames:
                                                        "dropp": None, "services": None, "points": None})
         assert set(frames) == {"sea", "rail", "truck", "dropp", "services", "points"}
         assert all(value is None for value in frames.values())
+
+
+class TestPreviewUpload:
+    def test_xlsx_preview(self):
+        preview = preview_upload(_xlsx_bytes({
+            "Море": pd.DataFrame([{"a": 1}]),
+            "README": pd.DataFrame([{"a": 1}]),
+        }))
+        assert preview["sheets"] == ["Море", "README"]
+        assert preview["suggested_mapping"]["Море"] == "sea_ws"
+        assert preview["suggested_mapping"]["README"] is None
+        assert preview["single_sheet"] is False
+
+    def test_csv_preview(self):
+        preview = preview_upload(_csv_bytes(pd.DataFrame([{"a": 1}])))
+        assert preview["sheets"] == ["sheet"]
+        assert preview["single_sheet"] is True
