@@ -29,7 +29,7 @@ const isEmpty = computed<boolean>(() => {
         </button>
 
         <div class="services-content" v-show="isExpanded">
-            <div v-for="(service, index) in services" :key="index" class="mb-2">
+            <div v-for="(service, index) in services" :key="service.segment_id + ':' + service.name" class="mb-2">
                 <ServiceView :service="service" @update:checked="(val: boolean) => $emit('update:checked', val, index)" />
             </div>
         </div>
