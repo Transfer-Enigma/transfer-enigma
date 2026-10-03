@@ -1,8 +1,11 @@
-import { ChangeEvent, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { deleteAllData, updateFromFile, updateFromGsheets, uploadBackup } from "@/api/Data";
+import { deleteAllData, downloadValidatedFile, syncDocument, updateFromFile, updateFromGsheets, uploadBackup, validateDocument } from "@/api/Data";
+import { createSyncDocument, deleteSyncDocument, listSyncDocuments, previewDocumentSheets, previewUploadFile } from "@/api/SyncDocuments";
+import SyncDocModal, { ModalSource } from "@/components/SyncDocModal";
+import AffectedRowsView from "@/components/AffectedRowsView";
 import { API_ENDPOINTS } from "@/api/ApiConfig";
-import { UpdateResponse } from "@/interfaces/Data";
+import { SyncDocument, SyncErrorItem, UpdateResponse, ValidateResponse } from "@/interfaces/Data";
 
 function formatApiError(e: unknown, fallback: string): string {
     if (axios.isAxiosError(e)) {
@@ -42,6 +45,205 @@ export default function DataImport() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const [ documents, setDocuments ] = useState<SyncDocument[]>([]);
+    const [ selection, setSelection ] = useState<Record<number, string[]>>({});
+    const [ expanded, setExpanded ] = useState<Record<number, boolean>>({});
+    const [ runMode, setRunMode ] = useState<"validate" | "sync">("validate");
+    const [ loadOnWarnings, setLoadOnWarnings ] = useState(true);
+    const [ syncMode, setSyncMode ] = useState<"all" | "new">("all");
+    const [ fixChecked, setFixChecked ] = useState(false);
+    const [ highlightChecked, setHighlightChecked ] = useState(false);
+    const [ ensureUids, setEnsureUids ] = useState(false);
+    const [ running, setRunning ] = useState(false);
+    const [ runResults, setRunResults ] = useState<any[]>([]);
+    const [ newDocUrl, setNewDocUrl ] = useState("");
+    const [ modalSource, setModalSource ] = useState<ModalSource | null>(null);
+    const [ runFiles, setRunFiles ] = useState<Record<number, File>>({});
+    const createFileRef = useRef<HTMLInputElement | null>(null);
+
+    const SHEET_ROLES = [
+        { key: "sea", label: "Море", field: "sea_ws" },
+        { key: "rail", label: "ЖД", field: "rail_ws" },
+        { key: "truck", label: "АВТО", field: "truck_ws" },
+        { key: "dropp", label: "ДРОПП", field: "dropp_ws" },
+        { key: "points", label: "Точки", field: "points_ws" },
+        { key: "services", label: "Услуги", field: "services_ws" },
+    ] as const;
+
+    const docSheets = (doc: SyncDocument) =>
+        SHEET_ROLES.filter((role) => (doc as any)[role.field]);
+
+    const loadDocuments = async () => {
+        try {
+            setDocuments(await listSyncDocuments());
+        } catch (e) {
+            setError(formatApiError(e, "Не удалось загрузить документы"));
+        }
+    };
+
+    useEffect(() => {
+        void loadDocuments();
+    }, []);
+
+    const toggleDocument = (doc: SyncDocument) => {
+        setSelection((prev) => {
+            const next = { ...prev };
+            if (next[doc.id])
+                delete next[doc.id];
+            else
+                next[doc.id] = docSheets(doc).map((role) => role.key);
+            return next;
+        });
+    };
+
+    const toggleSheet = (doc: SyncDocument, sheetKey: string) => {
+        setSelection((prev) => {
+            const current = prev[doc.id] ?? [];
+            const next = { ...prev };
+            if (current.includes(sheetKey)) {
+                const rest = current.filter((key) => key !== sheetKey);
+                if (rest.length === 0)
+                    delete next[doc.id];
+                else
+                    next[doc.id] = rest;
+            } else {
+                next[doc.id] = [ ...current, sheetKey ];
+            }
+            return next;
+        });
+    };
+
+    const handleDeleteDocument = async (doc: SyncDocument) => {
+        if (!window.confirm(`Исключить документ "${doc.title}" из синхронизации? Запись будет удалена.`))
+            return;
+        try {
+            await deleteSyncDocument(doc.id);
+            setSelection((prev) => {
+                const next = { ...prev };
+                delete next[doc.id];
+                return next;
+            });
+            await loadDocuments();
+        } catch (e) {
+            setError(formatApiError(e, "Не удалось удалить документ"));
+        }
+    };
+
+    const handleAddGoogleDoc = async () => {
+        const url = newDocUrl.trim();
+        if (!url) {
+            setError("Укажите URL Google-документа");
+            return;
+        }
+        try {
+            const created = await createSyncDocument({ title: url, url });
+            const preview = await previewDocumentSheets(url);
+            setNewDocUrl("");
+            setModalSource({ kind: "google", url, fileName: "", docId: created.id, preview });
+            await loadDocuments();
+        } catch (e) {
+            setError(formatApiError(e, "Не удалось добавить документ"));
+        }
+    };
+
+    const handleCreateFileSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file)
+            return;
+        try {
+            const preview = await previewUploadFile(file);
+            setModalSource({
+                kind: "file",
+                url: `upload:${file.name}`,
+                fileName: file.name,
+                preview,
+            });
+        } catch (e) {
+            setError(formatApiError(e, "Не удалось прочитать файл"));
+        }
+    };
+
+    const handleRun = async () => {
+        const selectedDocs = documents.filter((doc) => selection[doc.id]?.length > 0);
+        if (selectedDocs.length === 0) {
+            setError("Выберите хотя бы один документ");
+            return;
+        }
+        setRunning(true);
+        setError(null);
+        const results: any[] = [];
+        try {
+            for (const doc of selectedDocs) {
+                const mapped = docSheets(doc).map((role) => role.key);
+                const selected = selection[doc.id];
+                const file = doc.source_type === "file" ? runFiles[doc.id] : undefined;
+                if (doc.source_type === "file" && !file) {
+                    results.push({ doc, ok: false, error: "Приложите файл для запуска" });
+                    continue;
+                }
+                const params = {
+                    document_id: doc.id,
+                    sheets: selected.length < mapped.length ? selected : undefined,
+                    load_on_warnings: loadOnWarnings,
+                    mode: syncMode,
+                    fix: fixChecked,
+                    highlight: highlightChecked,
+                    ensure_uids: ensureUids,
+                };
+                try {
+                    if (runMode === "validate") {
+                        const report: ValidateResponse = await validateDocument(params, file);
+                        results.push({ doc, ok: true, report });
+                        if (file && (highlightChecked || fixChecked))
+                            await downloadValidatedFile(params, file, `${doc.title}-validated.xlsx`);
+                    } else {
+                        const result: UpdateResponse = await syncDocument(params, file);
+                        results.push({ doc, ok: true, report: result });
+                    }
+                } catch (e) {
+                    results.push({ doc, ok: false, error: formatApiError(e, "Ошибка запуска") });
+                }
+            }
+            setRunResults(results);
+            await loadDocuments();
+        } finally {
+            setRunning(false);
+        }
+    };
+
+    const renderRunResult = (result: any, index: number) => {
+        const findings: SyncErrorItem[] = [
+            ...(result.report?.errors ?? []),
+            ...(result.report?.warnings ?? []),
+        ];
+        const affectedRows = result.report?.affected_rows ?? [];
+        return (
+            <div key={ index } className="run-result">
+                <div className="warning-header">
+                    { result.doc.title } — { result.ok ? "OK" : `Ошибка: ${result.error}` }
+                    { result.report?.checked_rows !== undefined && ` (проверено строк: ${result.report.checked_rows})` }
+                    { result.report?.routesInsertedCount !== undefined && ` (маршрутов: ${result.report.routesInsertedCount})` }
+                </div>
+                { affectedRows.length > 0
+                    ? <AffectedRowsView rows={ affectedRows } />
+                    : findings.length > 0 && (
+                        <ul>
+                            { findings.map((finding, findingIndex) => (
+                                <li key={ findingIndex }>
+                                    { finding.message ?? finding.error ?? JSON.stringify(finding) }
+                                    { finding.code ? ` [${finding.code}]` : "" }
+                                    { finding.sheet ? `, лист: ${finding.sheet}` : "" }
+                                    { finding.row ? `, строка: ${finding.row}` : "" }
+                                    { finding.cell ? `, ячейка: ${finding.cell}` : "" }
+                                </li>
+                            )) }
+                        </ul>
+                    ) }
+            </div>
+        );
     };
 
     const handleUpdateFromGsheets = async () => {
@@ -140,7 +342,15 @@ export default function DataImport() {
         } else {
             return (
                 <div key={ index } className="warning-item">
-                    <div className="warning-header">{ warning }</div>
+                    <div className="warning-header">{ warning.error ?? warning.message ?? String(warning) }</div>
+                    { warning.code && (
+                        <div>
+                            Код: { warning.code }
+                            { warning.sheet ? `, лист: ${warning.sheet}` : "" }
+                            { warning.row ? `, строка: ${warning.row}` : "" }
+                            { warning.cell ? `, ячейка: ${warning.cell}` : "" }
+                        </div>
+                    ) }
                 </div>
             );
         }
@@ -149,6 +359,165 @@ export default function DataImport() {
     return (
         <div className="data-import-page">
             <h1>Загрузка данных</h1>
+
+            <div className="sync-panel">
+                <h2>Синхронизация документов</h2>
+
+                <div>
+                    <input
+                        value={ newDocUrl }
+                        onChange={ (event) => setNewDocUrl(event.target.value) }
+                        placeholder="https://docs.google.com/spreadsheets/..."
+                        disabled={ running }
+                        style={ { width: 320 } }
+                    />
+                    <button type="button" onClick={ handleAddGoogleDoc } disabled={ running }>
+                        Добавить Google Doc
+                    </button>
+                    <button type="button" onClick={ () => createFileRef.current?.click() } disabled={ running }>
+                        Добавить xlsx/csv
+                    </button>
+                    <input
+                        ref={ createFileRef }
+                        type="file"
+                        style={ { display: "none" } }
+                        onChange={ handleCreateFileSelected }
+                        accept=".xlsx,.csv"
+                    />
+                </div>
+
+                { documents.length === 0 && <div>Нет документов. Добавьте Google Doc или файл.</div> }
+
+                { documents.map((doc) => {
+                    const mapped = docSheets(doc);
+                    const selected = selection[doc.id] ?? [];
+                    const allSelected = selected.length > 0 && selected.length === mapped.length;
+                    return (
+                        <div key={ doc.id } className="sync-document">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={ allSelected }
+                                    onChange={ () => toggleDocument(doc) }
+                                    disabled={ running }
+                                />
+                                { ` ${doc.title} (${doc.source_type})` }
+                            </label>
+                            { doc.last_status && <span>{ ` [${doc.last_status}]` }</span> }
+                            { doc.source_type === "file" && (
+                                <input
+                                    type="file"
+                                    onChange={ (event) => {
+                                        const file = event.target.files?.[0];
+                                        if (file)
+                                            setRunFiles((prev) => ({ ...prev, [doc.id]: file }));
+                                    } }
+                                    disabled={ running }
+                                    accept=".xlsx,.csv"
+                                />
+                            ) }
+                            <button type="button" onClick={ () => handleDeleteDocument(doc) } disabled={ running }>
+                                🗑
+                            </button>
+                            <button
+                                type="button"
+                                onClick={ () => setExpanded((prev) => ({ ...prev, [doc.id]: !prev[doc.id] })) }
+                                disabled={ running }
+                            >
+                                { expanded[doc.id] ? "▲" : "▼" }
+                            </button>
+                            { expanded[doc.id] && (
+                                <ul>
+                                    { mapped.map((role) => (
+                                        <li key={ role.key }>
+                                            <label>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={ selected.includes(role.key) }
+                                                    onChange={ () => toggleSheet(doc, role.key) }
+                                                    disabled={ running }
+                                                />
+                                                { ` ${role.label}: ${(doc as any)[role.field]}` }
+                                            </label>
+                                        </li>
+                                    )) }
+                                </ul>
+                            ) }
+                        </div>
+                    );
+                }) }
+
+                <div className="run-options">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={ runMode === "sync" }
+                            onChange={ (event) => setRunMode(event.target.checked ? "sync" : "validate") }
+                            disabled={ running }
+                        />
+                        { " Синхронизировать (иначе — только проверить)" }
+                    </label>
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={ loadOnWarnings }
+                            onChange={ (event) => setLoadOnWarnings(event.target.checked) }
+                            disabled={ running }
+                        />
+                        { " Загружать при предупреждениях" }
+                    </label>
+                    <label>
+                        { " Режим: " }
+                        <select value={ syncMode } onChange={ (event) => setSyncMode(event.target.value as "all" | "new") } disabled={ running }>
+                            <option value="all">все (upsert)</option>
+                            <option value="new">только новые</option>
+                        </select>
+                    </label>
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={ fixChecked }
+                            onChange={ (event) => setFixChecked(event.target.checked) }
+                            disabled={ running }
+                        />
+                        { " Исправить ошибки" }
+                    </label>
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={ highlightChecked }
+                            onChange={ (event) => setHighlightChecked(event.target.checked) }
+                            disabled={ running }
+                        />
+                        { " Подсветить невалидные поля" }
+                    </label>
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={ ensureUids }
+                            onChange={ (event) => setEnsureUids(event.target.checked) }
+                            disabled={ running }
+                        />
+                        { " Проставить UID" }
+                    </label>
+                </div>
+
+                <button type="button" onClick={ handleRun } disabled={ running }>
+                    { running ? "Выполняется..." : "Запустить" }
+                </button>
+
+                { runResults.length > 0 && (
+                    <div className="run-results">
+                        { runResults.map((result, index) => renderRunResult(result, index)) }
+                    </div>
+                ) }
+
+                <SyncDocModal
+                    source={ modalSource }
+                    onClose={ () => setModalSource(null) }
+                    onSaved={ () => void loadDocuments() }
+                />
+            </div>
 
             <div className="button-group">
                 <button type="button" onClick={ handleUpdateFromGsheets } disabled={ loading }>
