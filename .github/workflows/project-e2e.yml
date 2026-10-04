@@ -91,11 +91,15 @@ jobs:
           EOF
 
       - name: Generate self-signed cert (prod nginx listens on 443)
+        # 644 is required: reverseproxy drops ALL capabilities (incl.
+        # CAP_DAC_OVERRIDE), so even root inside the container is subject
+        # to file perms and cannot read openssl's default 600 key file.
         run: |
           mkdir -p cert
           openssl req -x509 -nodes -days 2 -newkey rsa:2048 \
             -keyout cert/server.key -out cert/server.crt -subj "/CN=localhost"
           cp cert/server.crt cert/ca.crt
+          chmod 644 cert/server.key cert/server.crt cert/ca.crt
 
       - name: Build stack images locally (no registry)
         # --load is required: without it images stay in buildkit and compose

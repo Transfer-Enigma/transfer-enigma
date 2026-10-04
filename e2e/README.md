@@ -53,11 +53,13 @@ DEFAULT_POINTS_WS="POINTS"
 DEFAULT_SERVICES_WS="SERVICES"
 EOF
 
-# 3. Self-signed cert (prod nginx template listens on 443)
+# 3. Self-signed cert (prod nginx template listens on 443).
+# 644: reverseproxy drops ALL capabilities, so the key must be world-readable.
 mkdir -p cert
 openssl req -x509 -nodes -days 2 -newkey rsa:2048 \
   -keyout cert/server.key -out cert/server.crt -subj "/CN=localhost"
 cp cert/server.crt cert/ca.crt
+chmod 644 cert/server.key cert/server.crt cert/ca.crt
 
 # 4. DB + migrations + full stack
 docker compose up -d database redis
