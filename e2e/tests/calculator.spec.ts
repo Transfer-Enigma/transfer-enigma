@@ -96,12 +96,11 @@ test('calculator: API selection + route calculation + UI render', async ({ page 
   await expect(heading.first()).toBeVisible();
   await shot(page, 'calculator-form');
 
-  // 5. Routes list renders (testid first, generic route/result markup as fallback).
-  const routesList = byTestIdOrText(
-    page,
-    'routes-list',
-    page.locator('table.table, [class*="route" i], [class*="result" i]'),
-  );
-  await expect(routesList.first()).toBeVisible({ timeout: 120 * 1000 });
+  // 5. Routes list renders: the results block appears only when routes exist
+  // (v-if on routes.length), and it must contain our synthetic seed data.
+  // A generic class-only selector would be vacuous here, so assert content.
+  const routesBlock = page.locator('#results-direct');
+  await expect(routesBlock.first()).toBeVisible({ timeout: 120 * 1000 });
+  await expect(page.getByText(/E2E Rail Line/).first()).toBeVisible();
   await shot(page, 'calculator-routes');
 });
