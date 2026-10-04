@@ -101,6 +101,8 @@ test('calculator: API selection + route calculation + UI render', async ({ page 
   // A generic class-only selector would be vacuous here, so assert content.
   const routesBlock = page.locator('#results-direct');
   await expect(routesBlock.first()).toBeVisible({ timeout: 120 * 1000 });
-  await expect(page.getByText(/E2E Rail Line/).first()).toBeVisible();
+  // Scope to the results block: the same company name also occurs in the
+  // (hidden) point-autocomplete dropdown above the form.
+  await expect(routesBlock.getByText(/E2E Rail Line/).first()).toBeVisible();
   await shot(page, 'calculator-routes');
 });
