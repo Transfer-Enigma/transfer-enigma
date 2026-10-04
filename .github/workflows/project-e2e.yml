@@ -81,6 +81,13 @@ jobs:
           REDIS_HOST="redis"
           REDIS_PORT=6379
           REDIS_DB=0
+          DEFAULT_GSHEETS_URL="https://docs.google.com/spreadsheets/d/e2e-synthetic"
+          DEFAULT_SEA_ROUTES_WS="SEA"
+          DEFAULT_RAIL_ROUTES_WS="RAIL"
+          DEFAULT_TRUCK_ROUTES_WS="TRUCK"
+          DEFAULT_DROPP_ROUTES_WS="DROPP"
+          DEFAULT_POINTS_WS="POINTS"
+          DEFAULT_SERVICES_WS="SERVICES"
           EOF
 
       - name: Generate self-signed cert (prod nginx listens on 443)
