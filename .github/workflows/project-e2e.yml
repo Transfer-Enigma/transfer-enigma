@@ -95,6 +95,16 @@ jobs:
         # would try to pull ${E2E_TAG} from the registry.
         run: TAG="${E2E_TAG}" docker buildx bake --load -f docker-bake.hcl python-apps db-migration reverseproxy
 
+      - name: Prepare volume dirs and permissions
+        # Fresh checkout dirs are owned by the runner user, but services run
+        # as fixed UIDs: redis/valkey and mariadb as 999:999, backends as
+        # 1000:1000. Without chown the data/log dirs are not writable and
+        # containers exit (redis) or crash on first log write (backends).
+        run: |
+          mkdir -p config/redis/data config/database/mariadb-data config/database/backups logs resources
+          sudo chown -R 999:999 config/redis/data config/database/mariadb-data config/database/backups
+          sudo chown -R 1000:1000 logs resources
+
       - name: Start database and redis
         run: docker compose up -d database redis
 
