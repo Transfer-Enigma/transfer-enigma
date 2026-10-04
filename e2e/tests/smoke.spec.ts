@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
+import { loginAsAdmin } from './auth';
+
 // All selectors prefer data-testid, gracefully falling back to visible text.
 // The frontends currently have no data-testid attributes, so the text
 // fallback is what actually matches today; testids win once they are added.
@@ -13,6 +15,8 @@ async function shot(page: Page, name: string): Promise<void> {
 }
 
 test('home: calculator page opens', async ({ page }) => {
+  // Anonymous visitors are bounced to /login, so authenticate first.
+  await loginAsAdmin(page);
   await page.goto('/');
   const heading = byTestIdOrText(
     page,

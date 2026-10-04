@@ -1,11 +1,15 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
+import { loginAsAdmin } from './auth';
+
 // End-to-end route calculation on synthetic seed data (see e2e/seed.sql):
 //   E2E Alpha -> E2E Gamma, direct RAIL segment, container size 20.
-// Flow: departures/destinations/calculate via API, then the same selection
-// via UI query params (the calculator auto-calculates when all params are
-// present) and assert that the routes list renders.
+// Flow: log in via UI (page + page.request share the browser context, so the
+// JWT cookies apply to API calls too), then departures/destinations/calculate
+// via API, then the same selection via UI query params (the calculator
+// auto-calculates when all params are present) and assert that the routes
+// list renders.
 
 interface GroupedPoint {
   ids: number[];
@@ -34,9 +38,13 @@ function findPointId(points: GroupedPoint[], needle: string): number | undefined
 
 const dispatchDate = new Date().toISOString().slice(0, 10);
 
-test('calculator: API selection + route calculation + UI render', async ({ page, request }) => {
+test('calculator: API selection + route calculation + UI render', async ({ page }) => {
+  await loginAsAdmin(page);
+  // Shares cookies with the page, unlike the standalone `request` fixture.
+  const api = page.request;
+
   // 1. Departure points via API.
-  const depRes = await request.get(`/api/v2/points/departures?date=${dispatchDate}`);
+  const depRes = await api.get(`/api/v2/points/departures?date=${dispatchDate}`);
   expect(depRes.ok()).toBeTruthy();
   const depBody = await depRes.json();
   const departures: GroupedPoint[] = depBody.data ?? [];
@@ -46,7 +54,7 @@ test('calculator: API selection + route calculation + UI render', async ({ page,
   expect(fromId).toBeDefined();
 
   // 2. Destination points via API for the chosen departure.
-  const destRes = await request.get(
+  const destRes = await api.get(
     `/api/v2/points/destinations?date=${dispatchDate}&departure_point_ids=I${fromId}`,
   );
   expect(destRes.ok()).toBeTruthy();
@@ -58,7 +66,7 @@ test('calculator: API selection + route calculation + UI render', async ({ page,
   expect(toId).toBeDefined();
 
   // 3. Route calculation via API.
-  const calcRes = await request.post('/api/v2/routes/calculate', {
+  const calcRes = await api.post('/api/v2/routes/calculate', {
     data: {
       dispatchDate,
       departureInternalIds: [fromId],

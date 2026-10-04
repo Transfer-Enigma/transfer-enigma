@@ -159,6 +159,11 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Run Playwright tests (headless Chromium)
+        # Empty secrets are fine: tests fall back to the same CI defaults
+        # as the synthetic .env (e2e_admin / e2e_admin_pass).
+        env:
+          E2E_ADMIN_LOGIN: ${{ secrets.ADMIN_LOGIN }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           cd e2e
           npx playwright test
