@@ -1,0 +1,189 @@
+name: project-e2e
+
+# Workflow #1: headless-browser E2E on synthetic data.
+# No real secrets are required: DOCKERHUB_*, SERVER_* and FESCO_API_KEY
+# are NOT used here; the stack is built locally and seeded with e2e/seed.sql.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL of the stack under test (default http://localhost:80)"
+        required: false
+        type: string
+      seed:
+        description: "Seed variant: synthetic (default)"
+        required: false
+        type: string
+  pull_request:
+    paths:
+      - "Node/**"
+      - "Python/**"
+      - "config/nginx/**"
+      - "Dockerfile"
+      - "docker-bake.hcl"
+      - "docker-compose*.yml"
+      - "e2e/**"
+      - ".github/workflows/project-e2e.yml"
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      E2E_BASE_URL: ${{ github.event.inputs.base_url }}
+      E2E_SEED: ${{ github.event.inputs.seed }}
+      E2E_TAG: e2e-ci
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate synthetic CI .env
+        env:
+          CI_DB_USER: ${{ secrets.DB_USER }}
+          CI_DB_PASS: ${{ secrets.DB_PASS }}
+          CI_DB_NAME: ${{ secrets.DB_NAME }}
+          CI_ADMIN_LOGIN: ${{ secrets.ADMIN_LOGIN }}
+          CI_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          CI_AUTHJWT_SECRET_KEY: ${{ secrets.AUTHJWT_SECRET_KEY }}
+        run: |
+          cat > .env <<EOF
+          DOCKER_PROD_IMAGES_TAG="${E2E_TAG}"
+          ENVIRONMENT="test"
+          DISABLE_ADMIN_AUTH_CHECK=false
+          LOG_LEVEL="INFO"
+          DB_USER="${CI_DB_USER:-e2e_user}"
+          DB_PASS="${CI_DB_PASS:-e2e_pass}"
+          DB_NAME="${CI_DB_NAME:-e2e_db}"
+          DB_HOST="database"
+          DB_PORT=3306
+          DB_SCHEME="mysql+aiomysql"
+          DB_COLLATE="utf8mb4_unicode_ci"
+          ADMIN_LOGIN="${CI_ADMIN_LOGIN:-e2e_admin}"
+          ADMIN_PASSWORD="${CI_ADMIN_PASSWORD:-e2e_admin_pass}"
+          JWT_ALGORITHM="HS256"
+          AUTHJWT_SECRET_KEY="${CI_AUTHJWT_SECRET_KEY:-e2e-test-secret-key-not-for-prod}"
+          ACCESS_TOKEN_EXPIRE_MINUTES=30
+          REFRESH_TOKEN_EXPIRE_MINUTES=4320
+          APP_PORT=80
+          APP_SSL_PORT=443
+          ADMINER_PORT=8080
+          ADMIN_FRONT_PORT=3000
+          FRONTEND_PORT=5173
+          FESCO_API_KEY=
+          REDIS_HOST="redis"
+          REDIS_PORT=6379
+          REDIS_DB=0
+          DEFAULT_GSHEETS_URL="https://docs.google.com/spreadsheets/d/e2e-synthetic"
+          DEFAULT_SEA_ROUTES_WS="SEA"
+          DEFAULT_RAIL_ROUTES_WS="RAIL"
+          DEFAULT_TRUCK_ROUTES_WS="TRUCK"
+          DEFAULT_DROPP_ROUTES_WS="DROPP"
+          DEFAULT_POINTS_WS="POINTS"
+          DEFAULT_SERVICES_WS="SERVICES"
+          EOF
+
+      - name: Generate self-signed cert (prod nginx listens on 443)
+        # 644 is required: reverseproxy drops ALL capabilities (incl.
+        # CAP_DAC_OVERRIDE), so even root inside the container is subject
+        # to file perms and cannot read openssl's default 600 key file.
+        run: |
+          mkdir -p cert
+          openssl req -x509 -nodes -days 2 -newkey rsa:2048 \
+            -keyout cert/server.key -out cert/server.crt -subj "/CN=localhost"
+          cp cert/server.crt cert/ca.crt
+          chmod 644 cert/server.key cert/server.crt cert/ca.crt
+
+      - name: Build stack images locally (no registry)
+        # --load is required: without it images stay in buildkit and compose
+        # would try to pull ${E2E_TAG} from the registry.
+        run: TAG="${E2E_TAG}" docker buildx bake --load -f docker-bake.hcl python-apps db-migration reverseproxy
+
+      - name: Prepare volume dirs and permissions
+        # Fresh checkout dirs are owned by the runner user, but services run
+        # as fixed UIDs: redis/valkey and mariadb as 999:999, backends as
+        # 1000:1000. Without chown the data/log dirs are not writable and
+        # containers exit (redis) or crash on first log write (backends).
+        run: |
+          mkdir -p config/redis/data config/database/mariadb-data config/database/backups logs resources
+          sudo chown -R 999:999 config/redis/data config/database/mariadb-data config/database/backups
+          sudo chown -R 1000:1000 logs resources
+
+      - name: Start database and redis
+        run: docker compose up -d database redis
+
+      - name: Run DB migrations
+        run: docker compose -f docker-compose.migrate.yml run --rm dbmigrator upgrade head
+
+      - name: Start full stack
+        run: docker compose up -d calculator auth backadmin reverseproxy
+
+      - name: Wait for stack to become healthy
+        run: |
+          BASE_URL="${E2E_BASE_URL:-http://localhost:80}"
+          for i in $(seq 1 60); do
+            if curl -fsS "${BASE_URL}/" >/dev/null && curl -fsS "${BASE_URL}/api/openapi.json" >/dev/null; then
+              echo "Stack is up after $((i * 5))s"
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "Stack did not become healthy in time"
+              docker compose ps
+              docker compose logs --tail=100
+              exit 1
+            fi
+            sleep 5
+          done
+
+      - name: Load synthetic seed data
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          . ./.env
+          set +a
+          SEED="${E2E_SEED:-synthetic}"
+          echo "Loading seed variant: ${SEED}"
+          docker compose exec -T database mariadb -u"${DB_USER}" -p"${DB_PASS}" "${DB_NAME}" < e2e/seed.sql
+
+      - name: Install Playwright
+        run: |
+          cd e2e
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests (headless Chromium)
+        # Empty secrets are fine: tests fall back to the same CI defaults
+        # as the synthetic .env (e2e_admin / e2e_admin_pass).
+        env:
+          E2E_ADMIN_LOGIN: ${{ secrets.ADMIN_LOGIN }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          cd e2e
+          npx playwright test
+
+      - name: Upload E2E screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: e2e/screenshots/**
+          if-no-files-found: warn
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/**
+          if-no-files-found: warn
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v

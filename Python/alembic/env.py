@@ -20,10 +20,14 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 
-from apps.module_shared.config import get_settings
+# NOTE: project_root (the apps/ dir) is on sys.path above, so all imports
+# below must use the top-level package names. Mixing `apps.*` and top-level
+# imports loads every model module twice and SQLAlchemy fails with
+# "Table '<name>' is already defined for this MetaData instance".
+from module_shared.config import get_settings
 
-import apps.module_shared.schemas  # noqa: F401
-from apps.module_data_internal.schemas import Base
+import module_shared.schemas  # noqa: F401
+from module_shared.schemas import Base
 
 
 # this is the Alembic Config object, which provides
