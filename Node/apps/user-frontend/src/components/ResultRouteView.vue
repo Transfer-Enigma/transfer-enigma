@@ -10,6 +10,8 @@ import SinglePriceSegment from "@/components/routes/SinglePriceSegment.vue";
 import PriceWithCurrency from "@/components/PriceWithCurrency.vue";
 
 import { useRates } from "@/stores/rates";
+import { useDemoAuth } from "@/stores/demoAuth";
+import { useToast } from "@/composables/useToast";
 import { computed, inject, nextTick, ref, watch } from "vue";
 
 import type { Ref } from "vue";
@@ -54,6 +56,40 @@ watch(() => props.route, async (newRoute: RouteExtendedDescriptor) => {
 });
 
 watch(allRoutesSelectedSignalRef, () => (routeSelected.value = allRoutesSelected.value));
+
+const shareLink = computed((): string | null => {
+    const routeSegments = segments.value;
+    if (!routeSegments.length || !routeSegments.every((segment) => typeof segment.id === "number"))
+        return null;
+
+    const segmentIds = routeSegments.map((segment) => String(segment.id)).join(",");
+    const serviceIds = (props.route[0][3] ?? [])
+        .filter((service) => service.checked && typeof service.id === "number" && service.id !== null)
+        .map((service) => String(service.id))
+        .join(",");
+
+    const demoUid = useDemoAuth().demoUid;
+    const base = demoUid ? `/demo/${encodeURIComponent(demoUid)}/route` : "/route";
+    const params = new URLSearchParams({ segments: segmentIds });
+    if (serviceIds)
+        params.set("included-services", serviceIds);
+
+    return `${base}?${params.toString()}`;
+});
+
+async function copyShareLink() {
+    if (!shareLink.value)
+        return;
+
+    const url = `${window.location.origin}${shareLink.value}`;
+    try {
+        await navigator.clipboard.writeText(url);
+        useToast().show("Ссылка на маршрут скопирована", "success");
+    } catch (e) {
+        console.log(e);
+        useToast().show(url, "warning", 10000);
+    }
+}
 </script>
 
 <template>
@@ -115,6 +151,12 @@ watch(allRoutesSelectedSignalRef, () => (routeSelected.value = allRoutesSelected
         />
 
         <hr>
+
+        <div v-if="shareLink" class="mb-2">
+            <button class="btn btn-outline-primary btn-sm" @click="copyShareLink">
+                Скопировать ссылку на маршрут
+            </button>
+        </div>
 
         <div class="row">
             <div class="col-md-7">
