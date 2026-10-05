@@ -24,6 +24,7 @@ export interface IDrop {
 }
 
 interface ISegment {
+    id: string | number;
     company: string;
     type: RouteType;
 
