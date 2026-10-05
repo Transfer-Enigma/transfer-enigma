@@ -2,7 +2,7 @@
 import LoadingSpinner from "@/components/LoadingSpinner.vue";
 import ResultsWidget from "@/widgets/ResultsWidget.vue";
 
-import { getRouteDetail, getRouteDetailWithoutMarkup } from "@/api_helpers/routes";
+import { getCollection, getDemoCollection } from "@/api_helpers/collections";
 import { useToast } from "@/composables/useToast";
 import { processRoutes } from "@/services/calculator";
 import { updateUser } from "@/services/auth";
@@ -13,8 +13,7 @@ import { computed, onMounted, ref } from "vue";
 import type { RouteDescriptor, RouteExtendedDescriptor } from "@/interfaces/Routes";
 
 interface Props {
-    segments?: string;
-    includedServices?: string;
+    uid?: string;
     demo: boolean;
 }
 
@@ -44,18 +43,18 @@ async function load() {
         loadCachedRates();
         await updateRates();
 
-        if (!props.segments) {
+        if (!props.uid) {
             notFound.value = true;
             return;
         }
 
-        const descriptor: RouteDescriptor = props.demo
-            ? await getRouteDetail(props.segments, props.includedServices)
-            : await getRouteDetailWithoutMarkup(props.segments, props.includedServices);
-        markupRoutes.value = processRoutes([descriptor], false);
+        const descriptors: RouteDescriptor[] = props.demo
+            ? await getDemoCollection(props.uid)
+            : await getCollection(props.uid);
+        markupRoutes.value = processRoutes(descriptors, false);
     } catch (e) {
         const status = statusOf(e);
-        if (status === 404 || !props.segments)
+        if (status === 404 || !props.uid)
             notFound.value = true;
         else if (status === 401)
             unauthorized.value = true;
@@ -78,8 +77,8 @@ async function toggleMarkup() {
 
     if (showWithoutMarkup.value && !baseLoaded.value) {
         try {
-            const descriptor = await getRouteDetailWithoutMarkup(props.segments!, props.includedServices);
-            baseRoutes.value = processRoutes([descriptor], false);
+            const descriptors = await getCollection(props.uid!);
+            baseRoutes.value = processRoutes(descriptors, false);
             baseLoaded.value = true;
         } catch (e) {
             console.log(e);
@@ -95,18 +94,18 @@ onMounted(load);
 
 <template>
     <div class="my-5">
-        <h2 class="mb-4 text-center">Маршрут</h2>
+        <h2 class="mb-4 text-center">Подборка маршрутов</h2>
 
         <div class="text-center" v-if="loading"><LoadingSpinner /></div>
 
         <div v-else-if="notFound" class="container py-5 text-center">
             <h1>404</h1>
-            <p class="lead">Маршрут не найден</p>
+            <p class="lead">Подборка не найдена</p>
             <router-link to="/" class="btn btn-primary">На главную</router-link>
         </div>
 
         <div v-else-if="unauthorized" class="container py-5 text-center">
-            <p class="lead">Войдите, чтобы посмотреть маршрут</p>
+            <p class="lead">Войдите, чтобы посмотреть подборку</p>
             <router-link to="/login" class="btn btn-primary">Войти</router-link>
         </div>
 

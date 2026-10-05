@@ -12,6 +12,7 @@ import PriceWithCurrency from "@/components/PriceWithCurrency.vue";
 import { useRates } from "@/stores/rates";
 import { useDemoAuth } from "@/stores/demoAuth";
 import { useToast } from "@/composables/useToast";
+import { buildRouteLink, getRouteLinkIds } from "@/services/routeLinks";
 import { computed, inject, nextTick, ref, watch } from "vue";
 
 import type { Ref } from "vue";
@@ -19,9 +20,10 @@ import ServicesView from "@/components/ServicesView.vue";
 
 const props = defineProps<{
     route: RouteExtendedDescriptor,
+    picked: boolean,
 }>();
 
-const emit = defineEmits(["update:singlePrice", "update:multiPrice", "update:serviceChecked", "setSelected"]);
+const emit = defineEmits(["update:singlePrice", "update:multiPrice", "update:serviceChecked", "setSelected", "update:picked"]);
 
 const ratesStore = useRates();
 const currentRate = computed((): string => ratesStore.currentRate);
@@ -57,25 +59,9 @@ watch(() => props.route, async (newRoute: RouteExtendedDescriptor) => {
 
 watch(allRoutesSelectedSignalRef, () => (routeSelected.value = allRoutesSelected.value));
 
-const shareLink = computed((): string | null => {
-    const routeSegments = segments.value;
-    if (!routeSegments.length || !routeSegments.every((segment) => typeof segment.id === "number"))
-        return null;
+const linkable = computed((): boolean => getRouteLinkIds(props.route[0]) !== null);
 
-    const segmentIds = routeSegments.map((segment) => String(segment.id)).join(",");
-    const serviceIds = (props.route[0][3] ?? [])
-        .filter((service) => service.checked && typeof service.id === "number" && service.id !== null)
-        .map((service) => String(service.id))
-        .join(",");
-
-    const demoUid = useDemoAuth().demoUid;
-    const base = demoUid ? `/demo/${encodeURIComponent(demoUid)}/route` : "/route";
-    const params = new URLSearchParams({ segments: segmentIds });
-    if (serviceIds)
-        params.set("included-services", serviceIds);
-
-    return `${base}?${params.toString()}`;
-});
+const shareLink = computed((): string | null => buildRouteLink(props.route[0], useDemoAuth().demoUid));
 
 async function copyShareLink() {
     if (!shareLink.value)
@@ -96,6 +82,15 @@ async function copyShareLink() {
     <div class="p-3 mb-4 border rounded shadow-sm result-item" :class="isDemoModeActive ? '' : routeSelected ? 'included' : 'excluded'">
         <label v-if="editMode"><input type="checkbox" v-model="routeSelected" class="select-route-checkbox"></label>
         <b v-else-if="!isDemoModeActive && !routeSelected">Маршрут не будет отображаться в КП</b>
+        <label v-if="linkable" class="ms-3">
+            <input
+                type="checkbox"
+                class="select-route-checkbox"
+                :checked="picked"
+                @change="$emit('update:picked', ($event.target as HTMLInputElement).checked)"
+            >
+            В подборку
+        </label>
 
         <div v-if="props.route[0][2]" class="alert alert-warning d-flex align-items-center" role="alert">
             <svg class="flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Warning:"><use xlink:href="#exclamation-triangle-fill"/></svg>

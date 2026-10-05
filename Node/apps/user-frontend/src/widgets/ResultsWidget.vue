@@ -2,14 +2,19 @@
 import type {
     IMultiPriceSegment,
     ISinglePriceSegment,
+    RouteDescriptor,
     RouteExtendedDescriptor
 } from "@/interfaces/Routes";
 
 import ResultRouteView from "@/components/ResultRouteView.vue";
 import RoutesSVG from "@/components/RoutesSVG.vue";
 
+import { useToast } from "@/composables/useToast";
+import { createCollection } from "@/api_helpers/collections";
 import { revalidateRoutes } from "@/services/calculator";
-import { inject, provide, ref, watch } from "vue";
+import { getRouteLinkIds } from "@/services/routeLinks";
+import { useDemoAuth } from "@/stores/demoAuth";
+import { computed, inject, provide, ref, watch } from "vue";
 
 import type { Ref } from "vue";
 
@@ -107,6 +112,80 @@ function updateServiceChecked(val: boolean, serviceIndex: number, routeIndex: nu
     revalidateRoutes(false);
 }
 
+const pickedDescriptors = ref<RouteDescriptor[]>([]);
+const pickedCount = computed((): number => pickedDescriptors.value.length);
+const creatingCollection = ref<boolean>(false);
+const collectionPath = ref<string | null>(null);
+const collectionUrl = computed((): string | null =>
+    collectionPath.value ? `${window.location.origin}${collectionPath.value}` : null);
+
+function isPicked(route: RouteDescriptor): boolean {
+    return pickedDescriptors.value.includes(route);
+}
+
+function togglePicked(val: boolean, routeIndex: number) {
+    const descriptor = props.routes[routeIndex]?.[0];
+    if (!descriptor)
+        throw new Error(`Can not pick route with index ${routeIndex}: undefined`);
+
+    if (val) {
+        if (!pickedDescriptors.value.includes(descriptor))
+            pickedDescriptors.value.push(descriptor);
+    } else {
+        pickedDescriptors.value = pickedDescriptors.value.filter((item) => item !== descriptor);
+    }
+}
+
+async function createCollectionFromPicked() {
+    creatingCollection.value = true;
+    collectionPath.value = null;
+
+    try {
+        const present = new Set(props.routes.map((route) => route[0]));
+        const items = [];
+        for (const descriptor of pickedDescriptors.value) {
+            if (!present.has(descriptor))
+                continue;
+
+            const ids = getRouteLinkIds(descriptor);
+            if (!ids)
+                continue;
+
+            items.push({ segments: ids.segmentIds, services: ids.serviceIds });
+        }
+
+        if (!items.length) {
+            useToast().show("Нет маршрутов для подборки", "warning");
+            return;
+        }
+
+        const uid = await createCollection(items);
+        const demoUid = useDemoAuth().demoUid;
+        collectionPath.value = demoUid
+            ? `/demo/${encodeURIComponent(demoUid)}/collections/${uid}`
+            : `/collections/${uid}`;
+        pickedDescriptors.value = [];
+    } catch (e) {
+        console.log(e);
+        useToast().show("Не удалось создать подборку", "error");
+    } finally {
+        creatingCollection.value = false;
+    }
+}
+
+async function copyCollectionLink() {
+    if (!collectionUrl.value)
+        return;
+
+    try {
+        await navigator.clipboard.writeText(collectionUrl.value);
+        useToast().show("Ссылка на подборку скопирована", "success");
+    } catch (e) {
+        console.log(e);
+        useToast().show(collectionUrl.value, "warning", 10000);
+    }
+}
+
 watch(areAllRoutesSelected, () => {
     if (quietAllRoutesSelectedChange) quietAllRoutesSelectedChange = false;
     else areAllRoutesSelectedSignalRef.value = !areAllRoutesSelectedSignalRef.value;
@@ -123,15 +202,29 @@ watch(areAllRoutesSelected, () => {
         <RoutesSVG />
     </div>
 
+    <div v-if="pickedCount > 0" class="mb-3">
+        <button class="btn btn-primary" :disabled="creatingCollection" @click="createCollectionFromPicked">
+            Создать подборку из выбранных ({{ pickedCount }})
+        </button>
+    </div>
+
+    <div v-if="collectionUrl" class="alert alert-success">
+        Ссылка на подборку:
+        <a :href="collectionPath">{{ collectionUrl }}</a>
+        <button class="btn btn-outline-primary btn-sm ms-2" @click="copyCollectionLink">Скопировать</button>
+    </div>
+
     <div id="results-direct" class="mt-4" v-if="props.routes.length">
         <ResultRouteView
             v-for="(route, index) in props.routes"
             :key="index"
             :route="route"
+            :picked="isPicked(route[0])"
             @update:single-price="(val: number, segId: number) => updateSinglePrice(val, segId, index)"
             @update:multi-price="(val: number, segId: number, routeId: number) => updateMultiPrice(val, segId, routeId, index)"
             @set-selected="(val: boolean) => setIsRouteSelected(val, index)"
             @update:serviceChecked="(val: boolean, serviceIndex: number) => updateServiceChecked(val, serviceIndex, index)"
+            @update:picked="(val: boolean) => togglePicked(val, index)"
         />
     </div>
     <div v-else>

@@ -1,4 +1,5 @@
 import CalculatorPage from "@/pages/CalculatorPage.vue";
+import CollectionPage from "@/pages/CollectionPage.vue";
 import Error404Page from "@/pages/Error404Page.vue";
 import LoginPage from "@/pages/LoginPage.vue";
 import RoutePage from "@/pages/RoutePage.vue";
@@ -66,6 +67,7 @@ const router = createRouter({
             props: (route: { query: Record<string, string> }) => ({
                 segments: route.query.segments,
                 includedServices: route.query["included-services"],
+                demo: true,
             }),
             beforeEnter: checkDemoUid,
         },
@@ -76,6 +78,27 @@ const router = createRouter({
             props: (route: { query: Record<string, string> }) => ({
                 segments: route.query.segments,
                 includedServices: route.query["included-services"],
+                demo: false,
+            }),
+            beforeEnter: checkLoggedIn,
+        },
+        {
+            path: "/demo/:uid/collections/:collectionUid",
+            name: "demo-collection",
+            component: CollectionPage,
+            props: (route: { params: Record<string, string> }) => ({
+                uid: route.params.collectionUid,
+                demo: true,
+            }),
+            beforeEnter: checkDemoUid,
+        },
+        {
+            path: "/collections/:uid",
+            name: "collection",
+            component: CollectionPage,
+            props: (route: { params: Record<string, string> }) => ({
+                uid: route.params.uid,
+                demo: false,
             }),
             beforeEnter: checkLoggedIn,
         },
