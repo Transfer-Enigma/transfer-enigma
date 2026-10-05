@@ -14,6 +14,7 @@ from .route import (
     RouteType,
     ServicePriceModel,
 )
+from .route_collection import RouteCollectionModel
 from .service import ServiceModel
 from .setting import SettingModel, SettingType
 
@@ -29,6 +30,7 @@ __all__ = [
     "DropModel",
     "PointModel",
     "PriceModel",
+    "RouteCollectionModel",
     "RouteModel",
     "RouteType",
     "ServiceModel",
