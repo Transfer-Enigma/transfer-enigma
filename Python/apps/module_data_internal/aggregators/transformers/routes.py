@@ -56,6 +56,7 @@ def _segment_from_orm(route: RouteModel) -> RouteSegment:
 def _services_from_segment(route: RouteModel, segment_id: int | str) -> list[ServiceItem]:
     return [
         ServiceItem(
+            id=s.id,
             segment_id=segment_id,
             name=s.service.name,
             description=s.service.description,

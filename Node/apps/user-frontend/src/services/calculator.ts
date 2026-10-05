@@ -159,7 +159,7 @@ export function revalidateRoutes(resort: boolean = true) {
 
 export const clearRoutes = () => useRoutes().setRoutes();
 
-function processRoutes(routes: (RouteDescriptor | RouteExtendedDescriptor)[], sort: boolean): RouteExtendedDescriptor[] {
+export function processRoutes(routes: (RouteDescriptor | RouteExtendedDescriptor)[], sort: boolean): RouteExtendedDescriptor[] {
     const result: RouteExtendedDescriptor[] = Array.from({ length: routes.length });
 
     for (const key in routes) {

@@ -10,6 +10,9 @@ import SinglePriceSegment from "@/components/routes/SinglePriceSegment.vue";
 import PriceWithCurrency from "@/components/PriceWithCurrency.vue";
 
 import { useRates } from "@/stores/rates";
+import { useDemoAuth } from "@/stores/demoAuth";
+import { useToast } from "@/composables/useToast";
+import { buildRouteLink, getRouteLinkIds } from "@/services/routeLinks";
 import { computed, inject, nextTick, ref, watch } from "vue";
 
 import type { Ref } from "vue";
@@ -17,9 +20,10 @@ import ServicesView from "@/components/ServicesView.vue";
 
 const props = defineProps<{
     route: RouteExtendedDescriptor,
+    picked: boolean,
 }>();
 
-const emit = defineEmits(["update:singlePrice", "update:multiPrice", "update:serviceChecked", "setSelected"]);
+const emit = defineEmits(["update:singlePrice", "update:multiPrice", "update:serviceChecked", "setSelected", "update:picked"]);
 
 const ratesStore = useRates();
 const currentRate = computed((): string => ratesStore.currentRate);
@@ -54,12 +58,39 @@ watch(() => props.route, async (newRoute: RouteExtendedDescriptor) => {
 });
 
 watch(allRoutesSelectedSignalRef, () => (routeSelected.value = allRoutesSelected.value));
+
+const linkable = computed((): boolean => getRouteLinkIds(props.route[0]) !== null);
+
+const shareLink = computed((): string | null => buildRouteLink(props.route[0], useDemoAuth().demoUid));
+
+async function copyShareLink() {
+    if (!shareLink.value)
+        return;
+
+    const url = `${window.location.origin}${shareLink.value}`;
+    try {
+        await navigator.clipboard.writeText(url);
+        useToast().show("Ссылка на маршрут скопирована", "success");
+    } catch (e) {
+        console.log(e);
+        useToast().show(url, "warning", 10000);
+    }
+}
 </script>
 
 <template>
     <div class="p-3 mb-4 border rounded shadow-sm result-item" :class="isDemoModeActive ? '' : routeSelected ? 'included' : 'excluded'">
         <label v-if="editMode"><input type="checkbox" v-model="routeSelected" class="select-route-checkbox"></label>
         <b v-else-if="!isDemoModeActive && !routeSelected">Маршрут не будет отображаться в КП</b>
+        <label v-if="linkable" class="ms-3">
+            <input
+                type="checkbox"
+                class="select-route-checkbox"
+                :checked="picked"
+                @change="$emit('update:picked', ($event.target as HTMLInputElement).checked)"
+            >
+            В подборку
+        </label>
 
         <div v-if="props.route[0][2]" class="alert alert-warning d-flex align-items-center" role="alert">
             <svg class="flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Warning:"><use xlink:href="#exclamation-triangle-fill"/></svg>
@@ -115,6 +146,12 @@ watch(allRoutesSelectedSignalRef, () => (routeSelected.value = allRoutesSelected
         />
 
         <hr>
+
+        <div v-if="shareLink" class="mb-2">
+            <button class="btn btn-outline-primary btn-sm" @click="copyShareLink">
+                Скопировать ссылку на маршрут
+            </button>
+        </div>
 
         <div class="row">
             <div class="col-md-7">

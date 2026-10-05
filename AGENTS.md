@@ -464,6 +464,20 @@ module_shared ───┬── backend_auth
 - **"Without delivery" button**: `build_queries` copies base queries before attaching truck segments, then returns `[base_queries + queries]`. The frontend filters out TRUCK segments to show non-truck routes.
 - `_connect_rail` requires either SOC container owner or matching company + COC for the rail connection
 
+### Route Links & Collections
+
+**Single route links** — a route is addressable by explicit segment/service IDs:
+- Backend: `GET /v2/routes/detail?segments=1,2&included-services=3,4` (`backend_user/api/v2/routes/detail.py` + `services/route_link.py`). Any validation failure (missing segments, broken `end_point == start_point` chain, foreign/missing services) → 404. Invalid demo UID in header → 404. Without demo header, JWT is enforced via `get_auth_context` (logged-in users only).
+- `ServiceItem.id` is the `service_prices` row ID (internal) or `None` (FESCO); only internal routes are linkable.
+- Frontend pages: `/route` (auth guard → login redirect) and `/demo/:uid/route` (demo validate guard). Both take a `demo: boolean` prop — the page fetches with (`getRouteDetail`, auto demo header) or without (`getRouteDetailWithoutMarkup`, raw fetch) the demo header based on the prop, never on the store (avoids header leaks when navigating demo → main link).
+- Logged-in users on demo route pages get a "Показать цену без надбавки" toggle (refetches without demo header).
+- Share-link builders live in `user-frontend/src/services/routeLinks.ts` (`getRouteLinkIds`, `buildRouteLink`).
+
+**Route collections (подборки)** — permanent multi-route links:
+- Table `route_collections` (`uid` uuid-hex PK, `demo_uid` nullable, `items` JSON `[{segments, services}]`, `created_at`). Migration `v2_12`, ORM `RouteCollectionModel`.
+- Backend: `POST /v2/collections` (validates every item via `get_route_by_link`, 422 on bad input; binds `demo_uid` when created with a demo header) and `GET /v2/collections/{uid}`. Access rule in `api/v2/route_collections/get.py`: with demo header → only the owning demo (`auth.demo_uid == collection.demo_uid`), otherwise 404 (non-demo collections are never reachable via demo); without header → JWT auth, any collection. Broken stored item → 404 on resolve. Module names avoid stdlib shadowing (`route_collections`, not `collections` — flake8 A005).
+- Frontend: per-card "В подборку" checkbox (only for linkable routes) + "Создать подборку из выбранных" in `ResultsWidget` (picks tracked by descriptor identity, stale picks ignored). Pages `/collections/:uid` and `/demo/:uid/collections/:collectionUid` (`CollectionPage.vue`, same `demo`-prop pattern + markup toggle). `provideUser` early-returns on `demo-route`/`demo-collection` to keep demo context.
+
 ### CLI Tools (`Python/cli/`)
 
 **Entry point:** `PYTHONPATH=Python python -m cli <command>`.
