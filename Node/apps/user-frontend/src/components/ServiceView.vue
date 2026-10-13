@@ -2,16 +2,21 @@
 import BeautifulRatio from "@/components/BeautifulRatio.vue";
 import type { IService } from "@/interfaces/Service";
 
-import { ref, watch } from "vue";
+import { computed } from "vue";
 
 const props = defineProps<{
     service: IService;
 }>();
 
 const emit = defineEmits(["update:checked"]);
-const checked = ref<boolean>(props.service.checked);
 
-watch(checked, (val: boolean) => emit("update:checked", val));
+// No local copy: read the source of truth directly, so reused component
+// instances (SSE streaming re-sorts routes while v-for keys are unstable)
+// can not go stale and show an outdated toggle state.
+const checked = computed<boolean>({
+    get: () => props.service.checked,
+    set: (val: boolean) => emit("update:checked", val),
+});
 </script>
 
 <template>
