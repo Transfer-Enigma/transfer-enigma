@@ -31,7 +31,6 @@ services:
       - no-new-privileges
     user: 1000:1000
     volumes:
-      - "./Python/apps/:/workspace/apps/:ro"
       - "./Python/tests/:/workspace/tests/:ro"
     profiles:
       - test

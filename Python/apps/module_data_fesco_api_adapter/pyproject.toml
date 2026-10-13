@@ -1,0 +1,17 @@
+[project]
+name = "module-data-fesco-api-adapter"
+version = "5.0.0"
+description = "Transfer Enigma FESCO API adapter with Redis caching"
+requires-python = ">=3.14"
+dependencies = [
+  "aiohttp>=3.14.2",
+  "module-shared",
+  "pydantic>=2.13.4",
+]
+
+[tool.uv.sources]
+module-shared = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

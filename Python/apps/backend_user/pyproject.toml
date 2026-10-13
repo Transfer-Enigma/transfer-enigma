@@ -1,0 +1,26 @@
+[project]
+name = "backend-user"
+version = "5.0.0"
+description = "Transfer Enigma user-facing route calculator API"
+requires-python = ">=3.14"
+dependencies = [
+  "fastapi>=0.139.2",
+  "fastapi-another-jwt-auth>=0.1.11",
+  "module-data-fesco-api-adapter",
+  "module-data-internal",
+  "module-shared",
+  "pycbrf>=1.1.0",
+  "pydantic>=2.13.4",
+  "pydantic-settings>=2.14.2",
+  "python-dotenv>=1.2.2",
+  "uvicorn[standard]>=0.51.0",
+]
+
+[tool.uv.sources]
+module-data-fesco-api-adapter = { workspace = true }
+module-data-internal = { workspace = true }
+module-shared = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
