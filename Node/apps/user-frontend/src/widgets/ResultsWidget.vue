@@ -107,6 +107,38 @@ function updateServiceChecked(val: boolean, serviceIndex: number, routeIndex: nu
     revalidateRoutes(false);
 }
 
+// Stable key from immutable route identity (excludes mutable UI state:
+// service toggles, edited prices, selection). With index keys every SSE
+// re-sort reused component instances for different routes.
+function routeKey(route: RouteExtendedDescriptor): string {
+    const descriptor = route[0];
+    const segments = descriptor[0].map((segment) => {
+        const base = [
+            segment.company,
+            segment.type,
+            segment.startPointName,
+            segment.endPointName,
+            segment.container_owner,
+            segment.container_transfer_terms,
+            segment.container_shipment_terms,
+            segment.effectiveFrom,
+            segment.effectiveTo,
+        ].join("|");
+
+        if ((segment as ISinglePriceSegment).price !== undefined) {
+            const single = segment as ISinglePriceSegment;
+            return `${base}|${single.container?.name ?? ""}|${single.beginCond ?? ""}|${single.finishCond ?? ""}`;
+        }
+
+        const multi = segment as IMultiPriceSegment;
+        return `${base}|${multi.prices.map((price) => price.container.name).join(",")}`;
+    }).join("~");
+    const drop = descriptor[1] ? `${descriptor[1].price}|${descriptor[1].currency}` : "";
+    const services = descriptor[3].map((service) => `${service.segment_id}:${service.name}`).join(",");
+
+    return `${segments}||${drop}||${services}`;
+}
+
 watch(areAllRoutesSelected, () => {
     if (quietAllRoutesSelectedChange) quietAllRoutesSelectedChange = false;
     else areAllRoutesSelectedSignalRef.value = !areAllRoutesSelectedSignalRef.value;
@@ -126,7 +158,7 @@ watch(areAllRoutesSelected, () => {
     <div id="results-direct" class="mt-4" v-if="props.routes.length">
         <ResultRouteView
             v-for="(route, index) in props.routes"
-            :key="index"
+            :key="routeKey(route)"
             :route="route"
             @update:single-price="(val: number, segId: number) => updateSinglePrice(val, segId, index)"
             @update:multi-price="(val: number, segId: number, routeId: number) => updateMultiPrice(val, segId, routeId, index)"
