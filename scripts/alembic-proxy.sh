@@ -1,4 +1,4 @@
 curr_loc=$(pwd)
 cd ./Python/ || cd ../Python/ || exit 1;
-alembic "$@";
+uv run --frozen alembic "$@";
 cd "$curr_loc" || exit 1;
