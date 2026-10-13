@@ -1,6 +1,6 @@
 ARGS = $(filter-out $@,$(MAKECMDGOALS))
 
-.PHONY: build prod dev stop-prod stop-dev test lint lint-frontend lint-backend update export-deps alembic migrate
+.PHONY: build prod dev stop-prod stop-dev test lint lint-frontend lint-backend update alembic migrate
 
 build:
 	docker buildx bake $(ARGS)
@@ -37,9 +37,6 @@ lint-backend:
 
 update:
 	./scripts/prod-update.sh $(ARGS)
-
-export-deps:
-	./scripts/export-python-dependencies.sh $(ARGS)
 
 alembic:
 	./scripts/alembic-proxy.sh $(ARGS)

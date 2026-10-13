@@ -1,6 +1,8 @@
 __pycache__
 **/__pycache__
 venv
+.venv
+.uv-cache
 .idea
 .env*
 !.env.example

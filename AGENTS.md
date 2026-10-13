@@ -131,30 +131,27 @@ scripts/                  # Dev workflow scripts (run, stop, rebuild, migrate)
 
 ### Build
 
-**Package Manager:** Poetry (`pyproject.toml` at project root). Always use `poetry add` CLI, don't edit `pyproject.toml` manually.
+**Package Manager:** uv (`Python/pyproject.toml` + `Python/uv.lock`). Always use `uv add` CLI, don't edit dependencies manually.
 
-**Dependency groups:**
-| Group | File | Contents |
-|-------|------|----------|
-| `[tool.poetry.dependencies]` | `Python/requirements.txt` | Runtime deps |
-| `[tool.poetry.group.dev.dependencies]` | `Python/requirements-dev.txt` | Linting/pre-commit tools (black, pre-commit, ipython) |
-| `[tool.poetry.group.tests.dependencies]` | `Python/requirements-tests.txt` | Test frameworks (pytest, pytest-asyncio, httpx, aiosqlite) |
+**Dependency groups** (PEP 735):
+| Group | Contents |
+|-------|----------|
+| `[project] dependencies` | Runtime deps (installed in all images) |
+| `[dependency-groups] dev` | Linting/pre-commit tools (black, pre-commit, ipython) |
+| `[dependency-groups] tests` | Test frameworks (pytest, pytest-asyncio, httpx, aiosqlite) |
 
-**Export commands** (run after every `poetry add` / `poetry remove`):
-```bash
-make export-deps
-```
+`uv.lock` is the single source of truth — committed to git, consumed via `uv sync --frozen` in Docker. No exported `.txt` files.
 
-The `.txt` files are what the Docker build uses, so they must stay in sync with `poetry.lock`.
-
-**Dockerfile stages** (`Python/Dockerfile`):
+**Dockerfile stages** (`Python/Dockerfile`, multistage with `ghcr.io/astral-sh/uv`):
 | Stage | Base | Purpose |
 |-------|------|---------|
-| `python-apps` | `python:3.14-slim` | Runs FastAPI microservices via uvicorn |
-| `db-migration` | `python:3.14-slim` | Runs Alembic database migrations |
-| `test-runner` | `python:3.14-slim` | Runs pytest (install from `requirements-tests.txt`) |
+| `builder` | `python-base` | `uv sync --frozen --no-dev` → prod `.venv` |
+| `builder-tests` | `builder` | `uv sync --frozen --group tests` → prod+tests `.venv` |
+| `python-apps` | `python-base` | Copies prod `.venv` from `builder`, runs FastAPI via uvicorn |
+| `db-migration` | `python-base` | Copies prod `.venv` from `builder`, runs Alembic migrations |
+| `test-runner` | `python-base` | Copies prod+tests `.venv` from `builder-tests`, runs pytest |
 
-The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/workspace/tests/`, and uses hardcoded `/workspace` paths in CMD (JSON exec form, no `ENV`/shell expansion needed). `APP_DIR` is a build-time `ARG` only (default `/workspace`), never used at runtime. At runtime, the hot-dev compose mounts `pyproject.toml` for config.
+The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/workspace/tests/`, and uses hardcoded `/workspace` paths in CMD (JSON exec form, no `ENV`/shell expansion needed). `APP_DIR` is a build-time `ARG` only (default `/workspace`), never used at runtime.
 
 ### Redis Caching
 
@@ -312,7 +309,7 @@ Module prefixes:
 - **FESCO API mocks**: use `unittest.mock.patch` on `module_data_fesco_api_adapter.api_client` directly
 - **Test data**: factory functions in `Python/tests/data/__init__.py` build ORM objects with sensible defaults
 - **Currency rates**: tests use RUB-relative rates `{"USD": 90.0, "RUB": 1.0}`; `_convert_currency` formula is `amount * rates[from] / rates[to]`
-- Run locally: `PYTHONPATH=Python/apps python -m pytest Python/tests/ -v`
+- Run locally: `cd Python && uv run --group tests pytest tests/ -v`
 - Run in Docker (profile `test`, won't start with `docker compose up`):
   `./scripts/run-test.sh`
 
@@ -466,7 +463,7 @@ module_shared ───┬── backend_auth
 
 ### CLI Tools (`Python/cli/`)
 
-**Entry point:** `PYTHONPATH=Python python -m cli <command>`.
+**Entry point:** `cd Python && uv run python -m cli <command>`.
 For sheets commands, also set `GSHEETS_URL` and `GOOGLE_SERVICE_ACCOUNT_PATH` env vars
 (or put them in `.env.cli` in the project root — see `.env.cli.example`).
 **Framework:** `click` (transitive dep via uvicorn; no explicit dependency needed)
@@ -541,7 +538,6 @@ All output is JSON by default (for AI/script parsing).
 | `make prod` | `docker compose up` — Ctrl+C runs `down` |
 | `make dev` | `./scripts/run-dev.sh` — Ctrl+C runs `./scripts/stop-dev.sh` |
 | `make update [args]` | `./scripts/prod-update.sh` — pass args directly |
-| `make export-deps` | `./scripts/export-python-dependencies.sh` |
 | `make alembic [args]` | `./scripts/alembic-proxy.sh` — pass alembic subcommand via args |
 | `make migrate [args]` | `./scripts/prod-db-migrate.sh` — pass alembic subcommand via args |
 
