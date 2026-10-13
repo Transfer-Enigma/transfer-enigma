@@ -2,6 +2,10 @@ variable "TAG" {
   default = "latest"
 }
 
+variable "DOCKER_REGISTRY" {
+  default = "ghcr.io/transfer-enigma"
+}
+
 group "default" {
   targets = ["python-apps", "db-migration", "reverseproxy"]
 }
@@ -9,13 +13,13 @@ group "default" {
 target "python-apps" {
   context = "./Python/"
   target = "python-apps"
-  tags = ["danielgreen1806/calculator-python-apps:${TAG}"]
+  tags = ["${DOCKER_REGISTRY}/calculator-python-apps:${TAG}"]
 }
 
 target "db-migration" {
   context = "./Python/"
   target = "db-migration"
-  tags = ["danielgreen1806/calculator-db-migration:${TAG}"]
+  tags = ["${DOCKER_REGISTRY}/calculator-db-migration:${TAG}"]
 }
 
 target "frontend-builder" {
@@ -32,7 +36,7 @@ target "frontadmin-builder" {
 target "reverseproxy" {
   context = "."
   target = "reverseproxy"
-  tags = ["danielgreen1806/calculator-reverseproxy:${TAG}"]
+  tags = ["${DOCKER_REGISTRY}/calculator-reverseproxy:${TAG}"]
   contexts = {
     frontend-builder = "target:frontend-builder",
     frontadmin-builder = "target:frontadmin-builder"
