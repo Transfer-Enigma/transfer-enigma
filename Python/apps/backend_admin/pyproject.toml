@@ -1,0 +1,30 @@
+[project]
+name = "backend-admin"
+version = "5.0.0"
+description = "Transfer Enigma admin data management API"
+requires-python = ">=3.14"
+dependencies = [
+  "alembic>=1.18.4",
+  "fastapi>=0.139.2",
+  "fastapi-another-jwt-auth>=0.1.11",
+  "gspread>=6.2.1",
+  "gspread-dataframe>=4.0.0",
+  "module-shared",
+  "openpyxl>=3.1.5",
+  "pandas>=3.0.3",
+  "pydantic>=2.13.4",
+  "pydantic-settings>=2.14.2",
+  "pymysql>=1.2.0",
+  "python-dotenv>=1.2.2",
+  "python-multipart>=0.0.22",
+  "sqlalchemy>=2.0.51",
+  "sqlparse>=0.5.5",
+  "uvicorn[standard]>=0.51.0",
+]
+
+[tool.uv.sources]
+module-shared = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,19 @@
+[project]
+name = "module-shared"
+version = "5.0.0"
+description = "Transfer Enigma shared domain models, ORM schemas, cache and config"
+requires-python = ">=3.14"
+dependencies = [
+  "aiomysql>=0.3.2",
+  "fastapi>=0.139.2",
+  "fastapi-another-jwt-auth>=0.1.11",
+  "jinja2>=3.1.6",
+  "pydantic>=2.13.4",
+  "pydantic-settings>=2.14.2",
+  "redis>=8.0.0",
+  "sqlalchemy[asyncio]>=2.0.51",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

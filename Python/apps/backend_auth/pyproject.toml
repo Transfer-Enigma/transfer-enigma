@@ -1,0 +1,20 @@
+[project]
+name = "backend-auth"
+version = "5.0.0"
+description = "Transfer Enigma auth microservice (JWT login)"
+requires-python = ">=3.14"
+dependencies = [
+  "bcrypt>=5.0.0",
+  "fastapi>=0.139.2",
+  "fastapi-another-jwt-auth>=0.1.11",
+  "module-shared",
+  "pydantic>=2.13.4",
+  "uvicorn[standard]>=0.51.0",
+]
+
+[tool.uv.sources]
+module-shared = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

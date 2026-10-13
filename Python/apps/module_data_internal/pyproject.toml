@@ -1,0 +1,16 @@
+[project]
+name = "module-data-internal"
+version = "5.0.0"
+description = "Transfer Enigma internal database route query layer"
+requires-python = ">=3.14"
+dependencies = [
+  "module-shared",
+  "sqlalchemy>=2.0.51",
+]
+
+[tool.uv.sources]
+module-shared = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
