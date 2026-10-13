@@ -131,30 +131,33 @@ scripts/                  # Dev workflow scripts (run, stop, rebuild, migrate)
 
 ### Build
 
-**Package Manager:** Poetry (`pyproject.toml` at project root). Always use `poetry add` CLI, don't edit `pyproject.toml` manually.
+**Package Manager:** uv (`Python/pyproject.toml` + `Python/uv.lock`). Always use `uv add` CLI, don't edit dependencies manually.
 
-**Dependency groups:**
-| Group | File | Contents |
-|-------|------|----------|
-| `[tool.poetry.dependencies]` | `Python/requirements.txt` | Runtime deps |
-| `[tool.poetry.group.dev.dependencies]` | `Python/requirements-dev.txt` | Linting/pre-commit tools (black, pre-commit, ipython) |
-| `[tool.poetry.group.tests.dependencies]` | `Python/requirements-tests.txt` | Test frameworks (pytest, pytest-asyncio, httpx, aiosqlite) |
+**Dependency groups** (PEP 735):
+| Group | Contents |
+|-------|----------|
+| `[project] dependencies` | Runtime deps (installed in all images) |
+| `[dependency-groups] dev` | Linting/pre-commit tools (black, pre-commit, ipython) |
+| `[dependency-groups] tests` | Test frameworks (pytest, pytest-asyncio, httpx, aiosqlite) |
 
-**Export commands** (run after every `poetry add` / `poetry remove`):
-```bash
-make export-deps
-```
+`uv.lock` is the single source of truth — committed to git, consumed via `uv sync --frozen` in Docker. No exported `.txt` files.
 
-The `.txt` files are what the Docker build uses, so they must stay in sync with `poetry.lock`.
+**Updating dependencies:** from `Python/` use `uv lock --upgrade-package <name>` (re-locks only that package, keeps everything else pinned) or `uv lock --upgrade` (everything). `uv add <name>` / `uv remove <name>` for changing the declared set. `poetry` is gone — do not use `poetry lock`/`poetry export`, and do not re-create `requirements*.txt`.
 
-**Dockerfile stages** (`Python/Dockerfile`):
+**Dockerfile stages** (`Python/Dockerfile`, multistage):
 | Stage | Base | Purpose |
 |-------|------|---------|
-| `python-apps` | `python:3.14-slim` | Runs FastAPI microservices via uvicorn |
-| `db-migration` | `python:3.14-slim` | Runs Alembic database migrations |
-| `test-runner` | `python:3.14-slim` | Runs pytest (install from `requirements-tests.txt`) |
+| `uv` | `ghcr.io/astral-sh/uv:0.13.3` | Binary-only source image (no Python/shell) — only `/uv` + `/uvx` are copied from it. **Pin the version** when updating. |
+| `python-base` | `python:3.14-slim` | Common runtime base: user setup, `WORKDIR`, `USER appuser`. No uv, no `UV_*` env. |
+| `builder` | `python-base` | Copies `/uv`+`/uvx` (build-time only), sets `UV_*` env, `uv sync --frozen --no-dev` → prod `.venv` |
+| `builder-tests` | `builder` | `uv sync --frozen --group tests` → prod+tests `.venv` (inherits uv from `builder`) |
+| `python-apps` | `python-base` | Copies prod `.venv` from `builder`, runs FastAPI via uvicorn |
+| `db-migration` | `python-base` | Copies prod `.venv` from `builder`, runs Alembic migrations |
+| `test-runner` | `python-base` | Copies prod+tests `.venv` from `builder-tests`, runs pytest |
 
-The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/workspace/tests/`, and uses hardcoded `/workspace` paths in CMD (JSON exec form, no `ENV`/shell expansion needed). `APP_DIR` is a build-time `ARG` only (default `/workspace`), never used at runtime. At runtime, the hot-dev compose mounts `pyproject.toml` for config.
+`uv`/`uvx` and the `UV_COMPILE_BYTECODE`/`UV_LINK_MODE`/`UV_PYTHON` env vars exist **only in `builder`/`builder-tests`** — they are build-time tools. Runtime stages (`python-apps`, `db-migration`, `test-runner`) derive from `python-base` and must NOT contain uv (saves ~42 MB per runtime image).
+
+The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/workspace/tests/`, and uses hardcoded `/workspace` paths in CMD (JSON exec form, no `ENV`/shell expansion needed). `APP_DIR` is a build-time `ARG` only (default `/workspace`), never used at runtime.
 
 ### Redis Caching
 
@@ -282,6 +285,8 @@ Module prefixes:
 - Uses `async`/`await` throughout (FastAPI + SQLAlchemy async)
 - Type annotations required (`flake8` + `mypy` enforce this)
 - Imports sorted with `isort`
+    - pre-commit hook repo: `https://github.com/PyCQA/isort` (rev `9.0.2`) — **not** `pre-commit/mirrors-isort`, which is frozen at `v5.10.1`
+    - isort derives valid `py_version` targets from its `isort/stdlibs/py3XX.py` tables; 5.10.1 tops out at `310`, py314 support appeared in `7.0.0`. Bump the rev together with `py_version` in `Python/pyproject.toml` `[tool.isort]`
 - Max line length: 120 chars
 - Max McCabe complexity: 10
 - Existing flake8 plugins: `flake8-builtins`, `flake8-comprehensions`, `flake8-eradicate`, `flake8-expression-complexity`, `flake8-simplify`, `flake8-bugbear`, `flake8-pie`, `flake8-print`, `flake8-noqa`, `flake8-broken-line`
@@ -311,7 +316,7 @@ Module prefixes:
 - **FESCO API mocks**: use `unittest.mock.patch` on `module_data_fesco_api_adapter.api_client` directly
 - **Test data**: factory functions in `Python/tests/data/__init__.py` build ORM objects with sensible defaults
 - **Currency rates**: tests use RUB-relative rates `{"USD": 90.0, "RUB": 1.0}`; `_convert_currency` formula is `amount * rates[from] / rates[to]`
-- Run locally: `PYTHONPATH=Python/apps python -m pytest Python/tests/ -v`
+- Run locally: `cd Python && uv run --group tests pytest tests/ -v`
 - Run in Docker (profile `test`, won't start with `docker compose up`):
   `./scripts/run-test.sh`
 
@@ -465,7 +470,7 @@ module_shared ───┬── backend_auth
 
 ### CLI Tools (`Python/cli/`)
 
-**Entry point:** `PYTHONPATH=Python python -m cli <command>`.
+**Entry point:** `cd Python && uv run python -m cli <command>`.
 For sheets commands, also set `GSHEETS_URL` and `GOOGLE_SERVICE_ACCOUNT_PATH` env vars
 (or put them in `.env.cli` in the project root — see `.env.cli.example`).
 **Framework:** `click` (transitive dep via uvicorn; no explicit dependency needed)
@@ -540,7 +545,6 @@ All output is JSON by default (for AI/script parsing).
 | `make prod` | `docker compose up` — Ctrl+C runs `down` |
 | `make dev` | `./scripts/run-dev.sh` — Ctrl+C runs `./scripts/stop-dev.sh` |
 | `make update [args]` | `./scripts/prod-update.sh` — pass args directly |
-| `make export-deps` | `./scripts/export-python-dependencies.sh` |
 | `make alembic [args]` | `./scripts/alembic-proxy.sh` — pass alembic subcommand via args |
 | `make migrate [args]` | `./scripts/prod-db-migrate.sh` — pass alembic subcommand via args |
 

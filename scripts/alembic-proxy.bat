@@ -1,3 +1,3 @@
 cd .\Python
-alembic %*
+uv run --active --frozen alembic %*
 cd ..
