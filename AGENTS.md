@@ -131,27 +131,42 @@ scripts/                  # Dev workflow scripts (run, stop, rebuild, migrate)
 
 ### Build
 
-**Package Manager:** uv (`Python/pyproject.toml` + `Python/uv.lock`). Always use `uv add` CLI, don't edit dependencies manually.
+**Package Manager:** uv workspace (`Python/pyproject.toml` root + `Python/apps/*/pyproject.toml` members + `Python/uv.lock`). Always use `uv add --package <member>` CLI, don't edit dependencies manually.
 
-**Dependency groups** (PEP 735):
+**Workspace members** (`[tool.uv.workspace] members = ["apps/*"]`, each with `[build-system] hatchling` and `src/`-layout code in `apps/<member>/src/<module>/` so hatchling can build wheels):
+| Member | Depends on | Installed in image |
+|--------|-----------|--------------------|
+| `module-shared` | sqlalchemy[asyncio], pydantic(+settings), redis, fastapi, aiomysql | all |
+| `module-data-internal` | module-shared, sqlalchemy | user |
+| `module-data-fesco-api-adapter` | module-shared, aiohttp | user |
+| `backend-auth` | module-shared, bcrypt, uvicorn | auth (slim: no pandas/numpy) |
+| `backend-user` | all 3 modules, pycbrf, uvicorn | user |
+| `backend-admin` | module-shared, alembic, gspread(+dataframe), pandas, uvicorn | admin + db-migration |
+
+No `backend → backend` and no `module → backend` imports (verified by audit) — the direction above is enforced by declared workspace dependencies.
+
+**Dependency groups** (PEP 735, workspace root only):
 | Group | Contents |
 |-------|----------|
-| `[project] dependencies` | Runtime deps (installed in all images) |
 | `[dependency-groups] dev` | Linting/pre-commit tools (black, pre-commit, ipython) |
 | `[dependency-groups] tests` | Test frameworks (pytest, pytest-asyncio, httpx, aiosqlite) |
+| `[dependency-groups] cli` | Local CLI tools (click, gspread, pandas, requests) — run via `uv run --group cli` |
 
-`uv.lock` is the single source of truth — committed to git, consumed via `uv sync --frozen` in Docker. No exported `.txt` files.
+`uv.lock` is the single source of truth — committed to git, consumed via `uv sync --frozen --package <member>` in Docker. No exported `.txt` files. `uv run`/`uv sync` automatically rebuild changed workspace wheels.
 
 **Dockerfile stages** (`Python/Dockerfile`, multistage with `ghcr.io/astral-sh/uv`):
 | Stage | Base | Purpose |
 |-------|------|---------|
-| `builder` | `python-base` | `uv sync --frozen --no-dev` → prod `.venv` |
-| `builder-tests` | `builder` | `uv sync --frozen --group tests` → prod+tests `.venv` |
-| `python-apps` | `python-base` | Copies prod `.venv` from `builder`, runs FastAPI via uvicorn |
-| `db-migration` | `python-base` | Copies prod `.venv` from `builder`, runs Alembic migrations |
-| `test-runner` | `python-base` | Copies prod+tests `.venv` from `builder-tests`, runs pytest |
+| `builder-base` | `python-base` | Copies all 7 manifests (cacheable resolve layer) |
+| `builder-auth/user/admin` | `builder-base` | `uv sync --frozen --no-dev --package backend-* --no-editable` → per-image `.venv` with wheels (`--no-editable` is required: default editable installs would point into `/workspace/apps`, which is not copied to final images) |
+| `builder-tests` | `builder-base` | `... --group tests --package backend-user` → prod+tests `.venv` |
+| `python-apps` | `python-base` | Copies user `.venv` from `builder-user`, runs FastAPI via uvicorn (no code COPY) |
+| `db-migration` | `python-base` | Copies admin `.venv` from `builder-admin` + `alembic.ini`/`alembic/`, runs Alembic |
+| `test-runner` | `python-base` | Copies `.venv` from `builder-tests` + `tests/`, runs pytest (no code COPY) |
 
-The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/workspace/tests/`, and uses hardcoded `/workspace` paths in CMD (JSON exec form, no `ENV`/shell expansion needed). `APP_DIR` is a build-time `ARG` only (default `/workspace`), never used at runtime.
+Application code reaches images exclusively as installed workspace wheels. Non-code payloads stay outside wheels: `resources/` via volume mount (`RESOURCES_BASE_PATH=/workspace` in compose; auto-detect fallback otherwise), `alembic.ini`/`alembic/` via COPY in `db-migration`. Hot-dev bind-mounts `Python/apps/<pkg>` to `/workspace/<pkg>` plus `PYTHONPATH=/workspace` so mounts shadow installed wheels and `--reload` keeps working.
+
+The `test-runner` stage copies `tests/` to `/workspace/tests/` and uses hardcoded `/workspace` paths in CMD (JSON exec form, no `ENV`/shell expansion needed). `APP_DIR` is a build-time `ARG` only (default `/workspace`), never used at runtime.
 
 ### Redis Caching
 
@@ -318,8 +333,9 @@ Module prefixes:
 module_shared ───┬── backend_auth
                  ├── backend_user ───┬── module_data_internal
                  │                   └── module_data_fesco_api_adapter
-                 └── backend_admin ─── module_data_internal
+                 └── backend_admin
 ```
+No `backend → backend`, `module → backend`, or `internal ↔ fesco` imports (audit-verified). Declared in `apps/*/pyproject.toml` via `[tool.uv.sources] workspace = true`.
 
 ### TypeScript / Frontends
 - **User Frontend**: Vue 3 Composition API (`<script setup lang="ts">`), Pinia stores, Vue Router
@@ -463,7 +479,7 @@ module_shared ───┬── backend_auth
 
 ### CLI Tools (`Python/cli/`)
 
-**Entry point:** `cd Python && uv run python -m cli <command>`.
+**Entry point:** `cd Python && uv run --group cli python -m cli <command>`.
 For sheets commands, also set `GSHEETS_URL` and `GOOGLE_SERVICE_ACCOUNT_PATH` env vars
 (or put them in `.env.cli` in the project root — see `.env.cli.example`).
 **Framework:** `click` (transitive dep via uvicorn; no explicit dependency needed)
