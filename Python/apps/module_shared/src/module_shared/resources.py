@@ -36,6 +36,8 @@ import json
 from pathlib import Path
 from typing import IO, Any
 
+from module_shared.config import get_settings
+
 
 class FileOpenError(Exception):
     pass
@@ -358,9 +360,18 @@ class Resources:
         """
         Get the base path for resources directory.
 
+        Resolution order:
+        1. RESOURCES_BASE_PATH from shared Settings (required for wheel
+           installs, where auto-detection cannot find the apps/ layout).
+        2. Explicitly set path via set_base_path().
+        3. Auto-detection: go up from apps/module_shared to project root.
+
         Returns:
             Base path, defaults to the project root if not explicitly set.
         """
+        settings_base_path = get_settings().RESOURCES_BASE_PATH
+        if settings_base_path is not None:
+            return settings_base_path.resolve()
         if cls._base_path is None:
             # Auto-detect: go up from apps/module_shared to project root
             current = Path(__file__).resolve()

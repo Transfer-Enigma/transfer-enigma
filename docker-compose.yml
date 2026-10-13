@@ -107,6 +107,8 @@ services:
     image: danielgreen1806/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
     env_file:
       - ".env"
+    environment:
+      - "RESOURCES_BASE_PATH=/workspace"
     depends_on:
       database:
         condition: service_started
@@ -136,6 +138,8 @@ services:
     image: danielgreen1806/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
     env_file:
       - ".env"
+    environment:
+      - "RESOURCES_BASE_PATH=/workspace"
     restart: always
     cap_drop:
       - ALL
@@ -160,6 +164,8 @@ services:
     image: danielgreen1806/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
     env_file:
       - ".env"
+    environment:
+      - "RESOURCES_BASE_PATH=/workspace"
     restart: always
     cap_drop:
       - ALL

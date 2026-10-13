@@ -1,4 +1,5 @@
 from functools import cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings
 
@@ -46,6 +47,11 @@ class Settings(BaseSettings):
 
     # FESCO API
     FESCO_API_KEY: str
+
+    # RESOURCES
+    # Base path for the resources directory. Required for wheel installs,
+    # where auto-detection cannot find the apps/ layout.
+    RESOURCES_BASE_PATH: Path | None = None
 
 
 @cache
