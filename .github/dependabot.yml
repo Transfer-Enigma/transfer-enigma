@@ -10,7 +10,7 @@ updates:
     open-pull-requests-limit: 5
     labels: ["dependencies", "python"]
     commit-message:
-      prefix: "Python"
+      prefix: "Deps[Python]"
     cooldown:
       default-days: 3
       semver-major-days: 14
@@ -29,7 +29,7 @@ updates:
     open-pull-requests-limit: 5
     labels: ["dependencies", "frontend"]
     commit-message:
-      prefix: "User Frontend"
+      prefix: "Deps[User Frontend]"
     cooldown:
       default-days: 3
       semver-major-days: 14
@@ -52,7 +52,7 @@ updates:
     open-pull-requests-limit: 5
     labels: ["dependencies", "frontend"]
     commit-message:
-      prefix: "Admin Frontend"
+      prefix: "Deps[Admin Frontend]"
     cooldown:
       default-days: 3
       semver-major-days: 14
@@ -74,7 +74,7 @@ updates:
     open-pull-requests-limit: 5
     labels: ["dependencies", "infra"]
     commit-message:
-      prefix: "CI"
+      prefix: "Deps[CI]"
     cooldown:
       default-days: 3
 
@@ -88,6 +88,6 @@ updates:
     open-pull-requests-limit: 3
     labels: ["dependencies", "infra"]
     commit-message:
-      prefix: "CI"
+      prefix: "Deps[CI]"
     cooldown:
       default-days: 3
