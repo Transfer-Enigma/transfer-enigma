@@ -20,7 +20,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: dev
     concurrency:
       group: production-deploy
       cancel-in-progress: false

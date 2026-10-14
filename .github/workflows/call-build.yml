@@ -71,7 +71,6 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    environment: dev
     needs: tag
     steps:
       - name: Checkout code
