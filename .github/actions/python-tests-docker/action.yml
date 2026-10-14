@@ -1,0 +1,22 @@
+name: python-tests-docker
+description: "Build the test-runner image and run Python tests inside it (assumes the repo is already checked out)"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build test-runner image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./Python/
+        target: test-runner
+        load: true
+        tags: test-runner:latest
+        cache-from: type=gha,scope=test-runner
+        cache-to: type=gha,mode=max,scope=test-runner
+
+    - name: Run tests
+      shell: bash
+      run: docker run --rm test-runner:latest

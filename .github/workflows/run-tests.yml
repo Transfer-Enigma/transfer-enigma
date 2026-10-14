@@ -1,0 +1,17 @@
+name: run-tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: "Run Python tests"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and run Python tests
+        uses: ./.github/actions/python-tests-docker
