@@ -2,12 +2,6 @@
 
 GIT_REF="${1:-master}"
 DOCKER_TAG="${2:-}"
-GIT_TAG="${3:-}"
-TAG_MESSAGE="${4:-}"
-
-if [ -z "$GIT_TAG" ]; then
-    GIT_TAG="$DOCKER_TAG"
-fi
 
 if [ -z "$DOCKER_TAG" ]; then
     if [ -f .env ]; then
@@ -42,16 +36,19 @@ elif git show-ref --verify --quiet "refs/heads/$GIT_REF"; then
     git pull origin "$GIT_REF"
 fi
 
-if [ "$GIT_TAG" ]; then
-    if [ -n "$TAG_MESSAGE" ]; then
-        echo "=== Creating and pushing git tag '$GIT_TAG' with message '$TAG_MESSAGE' from '$GIT_REF' ==="
-        git tag -a "$GIT_TAG" -m "$TAG_MESSAGE"
-    else
-        echo "=== Creating and pushing git tag '$GIT_TAG' from '$GIT_REF' ==="
-        git tag "$GIT_TAG"
+# Tags are created in CI, never on the server.
+# When DOCKER_TAG looks like a versioned tag (not latest/latest-stable),
+# verify it exists and check it out so the server runs the tagged code.
+if [ -n "$DOCKER_TAG" ] && [ "$DOCKER_TAG" != "latest" ] && [ "$DOCKER_TAG" != "latest-stable" ]; then
+    if printf '%s' "$DOCKER_TAG" | grep -Eq '^[A-Za-z0-9._-]+$'; then
+        if git rev-parse --verify --quiet "refs/tags/$DOCKER_TAG" >/dev/null; then
+            echo "=== Switching to existing tag: $DOCKER_TAG ==="
+            git checkout "$DOCKER_TAG"
+        else
+            echo "ERROR: tag '$DOCKER_TAG' not found. Tags are created in CI before the build; refusing to create tags on the server." >&2
+            exit 1
+        fi
     fi
-
-    git push origin "$GIT_TAG"
 fi
 
 export DOCKER_PROD_IMAGES_TAG="$DOCKER_TAG"
