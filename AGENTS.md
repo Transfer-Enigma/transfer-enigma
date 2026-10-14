@@ -264,10 +264,32 @@ Module prefixes:
 - Fix any lint/type errors before committing
 
 ### CI Workflows
-- `project-lint.yml` — pre-commit + ESLint, runs on every PR
-- `project-tests.yml` — pytest (SQLite in-memory), runs on PR, push to main/master, and manual
-- `project-build.yml` — Docker Bake build + optional deploy, manual trigger only
-- `project-deploy.yml` — SSH deploy, reusable sub-workflow
+
+Workflow prefixes (`run-` / `call-` / `pipe-`):
+
+| Prefix | Triggers | May call other workflows? | Purpose |
+|--------|----------|---------------------------|---------|
+| `run-*` | `pull_request` / `push` + `workflow_dispatch` | Never (composite actions only) | Code-triggered checks: `run-lint`, `run-tests` |
+| `call-*` | `workflow_call` + `workflow_dispatch` | Never (composite actions only) | Reusable callable blocks that are also manually runnable: `call-checks`, `call-tag`, `call-build`, `call-deploy` |
+| `pipe-*` | `workflow_dispatch` only | Only `call-*` workflows | Orchestrators: `pipe-build-and-deploy`, `pipe-release` |
+
+Rules:
+- `run-*` and `call-*` must never contain `uses: ./.github/workflows/*` (verify with `grep -r "uses:.*github/workflows" .github/workflows/run-* .github/workflows/call-*` — must be empty).
+- Atomic operations live in `.github/actions/*` (composite actions): `python-pre-commit`, `lint-frontend`, `python-tests-docker`, `docker-login`, `docker-bake`, `docker-alias-tag`, `git-create-tag`, `deploy-validate`, `ssh-deploy`, `changes-filter`.
+- Git tags are created in CI (`git-create-tag`), never on the server. `scripts/prod-update.sh` takes 2 args (`GIT_REF DOCKER_TAG`) and refuses to deploy a versioned tag missing in git.
+- Invariant: no tag = no registry push and no deploy. `call-build` with an empty `docker_tag` builds locally (`push: false`).
+- Docker GHA cache uses per-target scopes (`python-apps`, `db-migration`, `reverseproxy`, `frontend-builder`, `frontadmin-builder`, `test-runner`).
+- `run-*` workflows skip jobs by changed paths (`changes-filter` + `dorny/paths-filter`); manual runs respect paths by default, `ignore_paths: true` forces all jobs.
+
+Workflows:
+- `run-lint.yml` — pre-commit + ESLint (both frontends), runs on every PR and manual
+- `run-tests.yml` — pytest (SQLite in-memory), runs on PR, push to main/master, and manual
+- `call-build.yml` — Docker Bake build (+ optional git/Docker tag + push), callable and manual
+- `call-deploy.yml` — SSH deploy of an existing tag, callable and manual
+- `call-tag.yml` — shared git-tag creation, callable and manual
+- `call-checks.yml` — shared lint + tests gates for pipes, callable only
+- `pipe-build-and-deploy.yml` — build then deploy (tag required), manual only
+- `pipe-release.yml` — checks, then build, then optional deploy (tag required), manual only
 
 ---
 
