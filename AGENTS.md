@@ -275,9 +275,13 @@ Workflow prefixes (`run-` / `call-` / `pipe-`):
 
 Rules:
 - `run-*` and `call-*` must never contain `uses: ./.github/workflows/*` (verify with `grep -r "uses:.*github/workflows" .github/workflows/run-* .github/workflows/call-*` — must be empty).
-- Atomic operations live in `.github/actions/*` (composite actions): `python-pre-commit`, `lint-frontend`, `python-tests-docker`, `docker-login`, `docker-bake`, `docker-alias-tag`, `git-create-tag`, `deploy-validate`, `ssh-deploy`, `changes-filter`.
+- Atomic operations live in `.github/actions/*` (composite actions): `python-pre-commit`, `lint-frontend`, `python-tests-docker`, `docker-login`, `docker-bake`, `docker-alias-tag`, `git-create-tag`, `deploy-validate`, `ssh-deploy`, `ssh-rollback`, `changes-filter`.
 - Git tags are created in CI (`git-create-tag`), never on the server. `scripts/prod-update.sh` takes 2 args (`GIT_REF DOCKER_TAG`) and refuses to deploy a versioned tag missing in git.
 - Invariant: no tag = no registry push and no deploy. `call-build` with an empty `docker_tag` builds locally (`push: false`).
+- Deploy is fail-safe: `prod-update.sh` runs under `set -euo pipefail`, verifies the tag and pulls images before `down`, rewrites `.env` only after a successful pull.
+- Migrations are bidirectional: deploy resolves the target revision from the target image (`alembic heads`, exactly one head required) and runs `upgrade <rev> || downgrade <rev>`, so both forward and backward moves work.
+- Rollback: `prod-update.sh` records the pre-deploy tag in `.deploy-state` before `down` (never rewritten by rollbacks, so repeated rollbacks are idempotent). `scripts/prod-rollback.sh` replays deploy with the recorded tag. `call-rollback.yml` (no inputs) wraps it; both `pipe-*` workflows auto-roll back unless deploy succeeded or was skipped. Concurrent deploys/rollbacks serialize on the `production-deploy` concurrency group. Arbitrary version moves go through `call-deploy` with an explicit tag. Rolling back across a destructive migration needs a dump restore (dumps are produced by the DB healthcheck in `docker-compose.migrate.yml`).
+- Limitation: rollback triggers only on script errors (non-zero SSH exit). Post-deploy crash-loops are not detected — no healthcheck yet.
 - Docker GHA cache uses per-target scopes (`python-apps`, `db-migration`, `reverseproxy`, `frontend-builder`, `frontadmin-builder`, `test-runner`).
 - `run-*` workflows skip jobs by changed paths (`changes-filter` + `dorny/paths-filter`); manual runs respect paths by default, `ignore_paths: true` forces all jobs.
 
@@ -286,6 +290,7 @@ Workflows:
 - `run-tests.yml` — pytest (SQLite in-memory), runs on PR, push to main/master, and manual
 - `call-build.yml` — Docker Bake build (+ optional git/Docker tag + push), callable and manual
 - `call-deploy.yml` — SSH deploy of an existing tag, callable and manual
+- `call-rollback.yml` — rollback to the pre-deploy state (no inputs), callable and manual
 - `call-tag.yml` — shared git-tag creation, callable and manual
 - `call-checks.yml` — shared lint + tests gates for pipes, callable only
 - `pipe-build-and-deploy.yml` — build then deploy (tag required), manual only
