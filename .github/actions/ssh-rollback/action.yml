@@ -1,0 +1,29 @@
+name: ssh-rollback
+description: "Roll back to the pre-deploy state recorded on the server via SSH"
+
+inputs:
+  host:
+    description: "Deploy server address"
+    required: true
+  username:
+    description: "Deploy server username"
+    required: true
+  key:
+    description: "Deploy server SSH private key"
+    required: true
+  project-dir:
+    description: "Project directory on the deploy server"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Roll back via SSH
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ inputs.host }}
+        username: ${{ inputs.username }}
+        key: ${{ inputs.key }}
+        script: |
+          cd "${{ inputs.project-dir }}" || exit 1
+          ./scripts/prod-rollback.sh

@@ -47,3 +47,9 @@ jobs:
     with:
       docker_tag: ${{ inputs.docker_tag }}
     secrets: inherit
+
+  rollback:
+    if: ${{ always() && needs.deploy.result != 'success' && needs.deploy.result != 'skipped' }}
+    needs: deploy
+    uses: ./.github/workflows/call-rollback.yml
+    secrets: inherit

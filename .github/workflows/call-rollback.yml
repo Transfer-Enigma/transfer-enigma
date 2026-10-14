@@ -1,0 +1,33 @@
+name: call-rollback
+
+# Roll back to the pre-deploy state recorded on the server by prod-update.sh.
+# Takes no inputs: the target tag is discovered from the server state file.
+# The state file is left untouched, so repeated rollbacks are idempotent.
+# Arbitrary version moves (forward or back) go through call-deploy with an explicit tag.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Validate deploy configuration
+        uses: ./.github/actions/deploy-validate
+        with:
+          server-addr: ${{ secrets.SERVER_ADDR }}
+          server-user: ${{ secrets.SERVER_USER }}
+          server-ssh-key: ${{ secrets.SERVER_SSH_KEY }}
+          project-dir: ${{ secrets.PROJECT_DIR }}
+
+      - name: Roll back to pre-deploy state
+        uses: ./.github/actions/ssh-rollback
+        with:
+          host: ${{ secrets.SERVER_ADDR }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          project-dir: ${{ secrets.PROJECT_DIR }}
