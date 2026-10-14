@@ -1,0 +1,19 @@
+name: python-pre-commit
+description: "Run pre-commit checks for the Python part (assumes the repo is already checked out)"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.14"
+        cache: pip
+        cache-dependency-path: |
+          pyproject.toml
+          Python/requirements.txt
+          Python/requirements-dev.txt
+          Python/requirements-tests.txt
+
+    - name: Run pre-commit
+      uses: pre-commit/action@v3.0.1

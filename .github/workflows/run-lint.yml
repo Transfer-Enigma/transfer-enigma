@@ -1,0 +1,37 @@
+name: run-lint
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    name: "Check Python part"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run pre-commit checks
+        uses: ./.github/actions/python-pre-commit
+
+  eslint-user:
+    runs-on: ubuntu-latest
+    name: "Check User Frontend part"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint user frontend
+        uses: ./.github/actions/lint-frontend
+        with:
+          project-dir: Node/apps/user-frontend
+
+  eslint-admin:
+    runs-on: ubuntu-latest
+    name: "Check Admin Frontend part"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint admin frontend
+        uses: ./.github/actions/lint-frontend
+        with:
+          project-dir: Node/apps/admin-frontend

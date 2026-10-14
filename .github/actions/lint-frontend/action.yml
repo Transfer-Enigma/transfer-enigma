@@ -1,0 +1,39 @@
+name: lint-frontend
+description: "Install dependencies and run lint for a Node frontend (assumes the repo is already checked out)"
+
+inputs:
+  project-dir:
+    description: "Frontend directory, e.g. Node/apps/user-frontend"
+    required: true
+  node-version:
+    description: "Node.js version for setup-node"
+    required: false
+    default: "22"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.project-dir }}/package-lock.json
+
+    - name: Restore ESLint cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ inputs.project-dir }}/.eslintcache
+        key: eslintcache-${{ inputs.project-dir }}-${{ hashFiles(format('{0}/package-lock.json', inputs.project-dir), format('{0}/eslint.config.*', inputs.project-dir), format('{0}/.eslintrc*', inputs.project-dir)) }}
+        restore-keys: |
+          eslintcache-${{ inputs.project-dir }}-
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.project-dir }}
+      run: npm ci
+
+    - name: Run lint
+      shell: bash
+      working-directory: ${{ inputs.project-dir }}
+      run: npm run lint
