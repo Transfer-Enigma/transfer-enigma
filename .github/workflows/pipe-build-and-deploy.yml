@@ -1,0 +1,38 @@
+name: pipe-build-and-deploy
+
+# Build images and deploy them to production. Only pipe workflows
+# may call other workflows; this workflow only uses call-* workflows.
+
+on:
+  workflow_dispatch:
+    inputs:
+      docker_tag:
+        description: "Docker image tag and git tag to create (required, e.g. v1.2.3)"
+        required: true
+        type: string
+      tag_message:
+        description: "Optional message for the git tag (annotated tag; empty = lightweight tag)"
+        required: false
+        type: string
+        default: ""
+      is_stable:
+        description: "Mark as stable (pushes as latest-stable instead of latest)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/call-build.yml
+    with:
+      docker_tag: ${{ inputs.docker_tag }}
+      tag_message: ${{ inputs.tag_message }}
+      is_stable: ${{ inputs.is_stable }}
+    secrets: inherit
+
+  deploy:
+    needs: build
+    uses: ./.github/workflows/call-deploy.yml
+    with:
+      docker_tag: ${{ inputs.docker_tag }}
+    secrets: inherit

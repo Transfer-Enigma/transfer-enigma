@@ -1,0 +1,49 @@
+name: pipe-release
+
+# Release pipeline: checks -> build (creates the git tag) -> (optional) deploy.
+# Git tags are created in CI, never on the server.
+# Only pipe workflows may call other workflows; this workflow only uses call-* workflows.
+
+on:
+  workflow_dispatch:
+    inputs:
+      docker_tag:
+        description: "Docker image tag and git tag to create (required, e.g. v1.2.3)"
+        required: true
+        type: string
+      tag_message:
+        description: "Optional message for the git tag (annotated tag; empty = lightweight tag)"
+        required: false
+        type: string
+        default: ""
+      is_stable:
+        description: "Mark as stable (pushes as latest-stable instead of latest)"
+        required: false
+        type: boolean
+        default: false
+      deploy:
+        description: "Deploy to production after build (requires secrets SERVER_ADDR, SERVER_USER, SERVER_SSH_KEY and PROJECT_DIR)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/call-checks.yml
+
+  build:
+    needs: checks
+    uses: ./.github/workflows/call-build.yml
+    with:
+      docker_tag: ${{ inputs.docker_tag }}
+      tag_message: ${{ inputs.tag_message }}
+      is_stable: ${{ inputs.is_stable }}
+    secrets: inherit
+
+  deploy:
+    if: ${{ inputs.deploy }}
+    needs: build
+    uses: ./.github/workflows/call-deploy.yml
+    with:
+      docker_tag: ${{ inputs.docker_tag }}
+    secrets: inherit
