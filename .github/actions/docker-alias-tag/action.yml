@@ -1,0 +1,35 @@
+name: docker-alias-tag
+description: "Alias already pushed images with an additional tag via imagetools"
+
+inputs:
+  primary-tag:
+    description: "Source tag that was pushed by the build (latest or latest-stable)"
+    required: true
+  alias-tag:
+    description: "Additional tag to create (e.g. v1.2.3)"
+    required: true
+  registry-org:
+    description: "Docker Hub organization or user owning the images"
+    required: false
+    default: danielgreen1806
+  images:
+    description: "Space-separated image names to alias"
+    required: false
+    default: "calculator-python-apps calculator-db-migration calculator-reverseproxy"
+
+runs:
+  using: composite
+  steps:
+    - name: Push additional docker tag
+      shell: bash
+      env:
+        PRIMARY_TAG: ${{ inputs.primary-tag }}
+        ALIAS_TAG: ${{ inputs.alias-tag }}
+        REGISTRY_ORG: ${{ inputs.registry-org }}
+        IMAGES: ${{ inputs.images }}
+      run: |
+        for img in $IMAGES; do
+          docker buildx imagetools create \
+            -t "$REGISTRY_ORG/$img:$ALIAS_TAG" \
+            "$REGISTRY_ORG/$img:$PRIMARY_TAG"
+        done

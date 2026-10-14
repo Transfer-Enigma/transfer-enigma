@@ -1,0 +1,109 @@
+name: call-build
+
+# Build images with Docker Bake. Tags are created here in CI via git-create-tag.
+# An empty docker_tag means a local build only: nothing is pushed to the registry.
+
+on:
+  workflow_call:
+    inputs:
+      docker_tag:
+        description: "Docker image tag and git tag to create (e.g. v1.2.3). Empty = local build without push."
+        required: false
+        type: string
+        default: ""
+      tag_message:
+        description: "Optional message for the git tag (annotated tag; empty = lightweight tag)"
+        required: false
+        type: string
+        default: ""
+      is_stable:
+        description: "Mark as stable (pushes as latest-stable instead of latest)"
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      tag:
+        description: "Created (or already existing) tag name, empty if docker_tag was empty"
+        value: ${{ jobs.tag.outputs.tag }}
+      sha:
+        description: "Commit SHA the tag points at"
+        value: ${{ jobs.tag.outputs.sha }}
+  workflow_dispatch:
+    inputs:
+      docker_tag:
+        description: "Docker image tag and git tag to create (e.g. v1.2.3). Empty = local build without push."
+        required: false
+        type: string
+        default: ""
+      tag_message:
+        description: "Optional message for the git tag (annotated tag; empty = lightweight tag)"
+        required: false
+        type: string
+        default: ""
+      is_stable:
+        description: "Mark as stable (pushes as latest-stable instead of latest)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-tag-${{ inputs.docker_tag || github.run_id }}
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      sha: ${{ steps.tag.outputs.sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create git tag
+        id: tag
+        uses: ./.github/actions/git-create-tag
+        with:
+          tag: ${{ inputs.docker_tag }}
+          tag-message: ${{ inputs.tag_message }}
+
+  build:
+    runs-on: ubuntu-latest
+    environment: dev
+    needs: tag
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Login to Docker Hub
+        if: ${{ inputs.docker_tag != '' }}
+        uses: ./.github/actions/docker-login
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set primary tag
+        id: set-tag
+        run: |
+          if [ "${{ inputs.is_stable }}" = "true" ]; then
+            echo "TAG=latest-stable" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build images
+        uses: ./.github/actions/docker-bake
+        with:
+          primary-tag: ${{ steps.set-tag.outputs.TAG }}
+          push: ${{ inputs.docker_tag != '' }}
+
+      - name: Push additional docker tag
+        if: ${{ inputs.docker_tag != '' }}
+        uses: ./.github/actions/docker-alias-tag
+        with:
+          primary-tag: ${{ steps.set-tag.outputs.TAG }}
+          alias-tag: ${{ inputs.docker_tag }}
