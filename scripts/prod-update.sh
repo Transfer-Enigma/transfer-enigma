@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 GIT_REF="${1:-master}"
 DOCKER_TAG="${2:-}"
 
