@@ -5,22 +5,13 @@ set -euo pipefail
 GIT_REF="${1:-master}"
 DOCKER_TAG="${2:-}"
 
+REQUESTED_TAG="$DOCKER_TAG"
+
 if [ -z "$DOCKER_TAG" ]; then
     if [ -f .env ]; then
         DOCKER_TAG=$(grep -oP '^DOCKER_PROD_IMAGES_TAG="?\K[^"]+' .env || echo "latest")
     else
         DOCKER_TAG="latest"
-    fi
-else
-    echo "=== Updating .env DOCKER_PROD_IMAGES_TAG to $DOCKER_TAG ==="
-    if [ -f .env ]; then
-        if grep -qP '^DOCKER_PROD_IMAGES_TAG=' .env; then
-            sed -i 's/^DOCKER_PROD_IMAGES_TAG=.*/DOCKER_PROD_IMAGES_TAG="'"$DOCKER_TAG"'"/' .env
-        else
-            echo 'DOCKER_PROD_IMAGES_TAG="'"$DOCKER_TAG"'"' >> .env
-        fi
-    else
-        echo 'DOCKER_PROD_IMAGES_TAG="'"$DOCKER_TAG"'"' > .env
     fi
 fi
 
@@ -56,8 +47,24 @@ fi
 export DOCKER_PROD_IMAGES_TAG="$DOCKER_TAG"
 
 mkdir -p logs
-docker compose down
+
+echo "=== Pulling images ==="
 docker compose pull
 docker compose -f docker-compose.migrate.yml pull
+
+if [ -n "$REQUESTED_TAG" ]; then
+    echo "=== Updating .env DOCKER_PROD_IMAGES_TAG to $DOCKER_TAG ==="
+    if [ -f .env ]; then
+        if grep -qP '^DOCKER_PROD_IMAGES_TAG=' .env; then
+            sed -i 's/^DOCKER_PROD_IMAGES_TAG=.*/DOCKER_PROD_IMAGES_TAG="'"$DOCKER_TAG"'"/' .env
+        else
+            echo 'DOCKER_PROD_IMAGES_TAG="'"$DOCKER_TAG"'"' >> .env
+        fi
+    else
+        echo 'DOCKER_PROD_IMAGES_TAG="'"$DOCKER_TAG"'"' > .env
+    fi
+fi
+
+docker compose down
 ./scripts/prod-db-migrate.sh upgrade head
 docker compose up -d
