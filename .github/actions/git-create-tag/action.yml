@@ -1,0 +1,61 @@
+name: git-create-tag
+description: "Create and push a git tag (idempotent, no-op for an empty tag). Requires a full checkout with push access."
+
+inputs:
+  tag:
+    description: "Tag name to create (e.g. v1.2.3). Empty = no-op."
+    required: false
+    default: ""
+  tag-message:
+    description: "Optional message for an annotated tag (empty = lightweight tag)"
+    required: false
+    default: ""
+
+outputs:
+  tag:
+    description: "Created (or already existing) tag name, empty if the tag input was empty"
+    value: ${{ steps.create-tag.outputs.tag }}
+  sha:
+    description: "Commit SHA the tag points at"
+    value: ${{ steps.create-tag.outputs.sha }}
+
+runs:
+  using: composite
+  steps:
+    - name: Create and push git tag
+      id: create-tag
+      shell: bash
+      env:
+        TAG: ${{ inputs.tag }}
+        TAG_MESSAGE: ${{ inputs.tag-message }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        SHA="$(git rev-parse HEAD)"
+        echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+        if [ -z "$TAG" ]; then
+          echo "No tag set, skipping git tag creation."
+          echo "tag=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        if ! printf '%s' "$TAG" | grep -Eq '^[A-Za-z0-9._-]+$'; then
+          echo "::error::Invalid tag '$TAG'. Must match ^[A-Za-z0-9._-]+$"
+          exit 1
+        fi
+        if git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
+          EXISTING_SHA="$(git rev-list -n 1 "refs/tags/$TAG")"
+          if [ "$EXISTING_SHA" = "$SHA" ]; then
+            echo "Tag '$TAG' already points at current SHA $SHA, nothing to do."
+          else
+            echo "::error::Tag '$TAG' already exists pointing at $EXISTING_SHA, current SHA is $SHA. Refusing to move tag."
+            exit 1
+          fi
+        else
+          if [ -n "$TAG_MESSAGE" ]; then
+            git tag -a "$TAG" -m "$TAG_MESSAGE"
+          else
+            git tag "$TAG"
+          fi
+          git push origin "refs/tags/$TAG"
+        fi

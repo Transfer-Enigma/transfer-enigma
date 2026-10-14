@@ -1,0 +1,60 @@
+name: call-tag
+
+# Shared git-tag creation. Tags are created here in CI, never on the server.
+# An empty docker_tag is a no-op (outputs an empty tag) so callers can depend
+# on this workflow unconditionally.
+
+on:
+  workflow_call:
+    inputs:
+      docker_tag:
+        description: "Docker image tag and git tag to create (e.g. v1.2.3). Empty = no-op."
+        required: false
+        type: string
+        default: ""
+      tag_message:
+        description: "Optional message for the git tag (annotated tag; empty = lightweight tag)"
+        required: false
+        type: string
+        default: ""
+    outputs:
+      tag:
+        description: "Created (or already existing) tag name, empty if docker_tag was empty"
+        value: ${{ jobs.create.outputs.tag }}
+      sha:
+        description: "Commit SHA the tag points at"
+        value: ${{ jobs.create.outputs.sha }}
+  workflow_dispatch:
+    inputs:
+      docker_tag:
+        description: "Git tag to create (e.g. v1.2.3)"
+        required: true
+        type: string
+      tag_message:
+        description: "Optional message for the git tag (annotated tag; empty = lightweight tag)"
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-tag-${{ inputs.docker_tag || github.run_id }}
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      sha: ${{ steps.tag.outputs.sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create git tag
+        id: tag
+        uses: ./.github/actions/git-create-tag
+        with:
+          tag: ${{ inputs.docker_tag }}
+          tag-message: ${{ inputs.tag_message }}
