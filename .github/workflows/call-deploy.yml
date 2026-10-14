@@ -1,0 +1,44 @@
+name: call-deploy
+
+# Deploy a tagged release to production. The tag must already exist
+# both in git (created in CI) and in the container registry.
+
+on:
+  workflow_call:
+    inputs:
+      docker_tag:
+        description: "Docker image and git tag to deploy (required)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      docker_tag:
+        description: "Docker image and git tag to deploy (required)"
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Validate deploy configuration
+        uses: ./.github/actions/deploy-validate
+        with:
+          server-addr: ${{ secrets.SERVER_ADDR }}
+          server-user: ${{ secrets.SERVER_USER }}
+          server-ssh-key: ${{ secrets.SERVER_SSH_KEY }}
+          project-dir: ${{ secrets.PROJECT_DIR }}
+          docker-tag: ${{ inputs.docker_tag }}
+
+      - name: Deploy to production
+        uses: ./.github/actions/ssh-deploy
+        with:
+          host: ${{ secrets.SERVER_ADDR }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          project-dir: ${{ secrets.PROJECT_DIR }}
+          docker-tag: ${{ inputs.docker_tag }}

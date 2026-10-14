@@ -1,0 +1,52 @@
+name: deploy-validate
+description: "Fail fast when required deploy configuration is missing"
+
+inputs:
+  server-addr:
+    description: "Deploy server address"
+    required: true
+  server-user:
+    description: "Deploy server username"
+    required: true
+  server-ssh-key:
+    description: "Deploy server SSH private key"
+    required: true
+  project-dir:
+    description: "Project directory on the deploy server"
+    required: true
+  docker-tag:
+    description: "Docker image tag to deploy (required, must match ^[A-Za-z0-9._-]+$)"
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Validate required secrets and variables
+      shell: bash
+      env:
+        SERVER_ADDR: ${{ inputs.server-addr }}
+        SERVER_USER: ${{ inputs.server-user }}
+        SERVER_SSH_KEY: ${{ inputs.server-ssh-key }}
+        PROJECT_DIR: ${{ inputs.project-dir }}
+      run: |
+        errors=()
+        if [ -z "$SERVER_ADDR" ]; then errors+=("SERVER_ADDR"); fi
+        if [ -z "$SERVER_USER" ]; then errors+=("SERVER_USER"); fi
+        if [ -z "$SERVER_SSH_KEY" ]; then errors+=("SERVER_SSH_KEY"); fi
+        if [ -z "$PROJECT_DIR" ]; then errors+=("PROJECT_DIR"); fi
+        if [ ${#errors[@]} -gt 0 ]; then
+          echo "::error::Missing required configuration: ${errors[*]}"
+          exit 1
+        fi
+
+    - name: Validate docker tag
+      if: ${{ inputs.docker-tag != '' }}
+      shell: bash
+      env:
+        DOCKER_TAG: ${{ inputs.docker-tag }}
+      run: |
+        if ! printf '%s' "$DOCKER_TAG" | grep -Eq '^[A-Za-z0-9._-]+$'; then
+          echo "::error::Invalid docker_tag '$DOCKER_TAG'. Must match ^[A-Za-z0-9._-]+$"
+          exit 1
+        fi

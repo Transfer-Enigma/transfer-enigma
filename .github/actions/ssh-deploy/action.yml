@@ -1,0 +1,36 @@
+name: ssh-deploy
+description: "Deploy a tagged release to production via SSH"
+
+inputs:
+  host:
+    description: "Deploy server address"
+    required: true
+  username:
+    description: "Deploy server username"
+    required: true
+  key:
+    description: "Deploy server SSH private key"
+    required: true
+  project-dir:
+    description: "Project directory on the deploy server"
+    required: true
+  docker-tag:
+    description: "Docker image tag to deploy (must exist as a git tag and in the registry)"
+    required: true
+  git-ref:
+    description: "Git ref to sync before switching to the tag"
+    required: false
+    default: master
+
+runs:
+  using: composite
+  steps:
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ inputs.host }}
+        username: ${{ inputs.username }}
+        key: ${{ inputs.key }}
+        script: |
+          cd "${{ inputs.project-dir }}" || exit 1
+          ./scripts/prod-update.sh "${{ inputs.git-ref }}" "${{ inputs.docker-tag }}"
