@@ -5,11 +5,34 @@ on:
   push:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      ignore_paths:
+        description: "Ignore the paths filter (run all jobs)"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      infra-docker: ${{ steps.filter.outputs.infra-docker }}
+      ci-self: ${{ steps.filter.outputs.ci-self }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed areas
+        id: filter
+        uses: ./.github/actions/changes-filter
+
   test:
     runs-on: ubuntu-latest
     name: "Run Python tests"
+    needs: changes
+    if: ${{ inputs.ignore_paths == true || needs.changes.outputs.python == 'true' || needs.changes.outputs.infra-docker == 'true' || needs.changes.outputs.ci-self == 'true' }}
     steps:
       - uses: actions/checkout@v4
 

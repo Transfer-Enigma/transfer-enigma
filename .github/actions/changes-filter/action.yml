@@ -1,0 +1,47 @@
+name: changes-filter
+description: "Detect which project areas changed (single source of truth for path filters)"
+
+outputs:
+  python:
+    description: "True when Python code or dependencies changed"
+    value: ${{ steps.paths.outputs.python }}
+  user-frontend:
+    description: "True when the user frontend changed"
+    value: ${{ steps.paths.outputs.user-frontend }}
+  admin-frontend:
+    description: "True when the admin frontend changed"
+    value: ${{ steps.paths.outputs.admin-frontend }}
+  infra-docker:
+    description: "True when Docker or infrastructure files changed"
+    value: ${{ steps.paths.outputs.infra-docker }}
+  ci-self:
+    description: "True when CI configuration itself changed"
+    value: ${{ steps.paths.outputs.ci-self }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect changed areas
+      id: paths
+      uses: dorny/paths-filter@v3
+      with:
+        filters: |
+          python:
+            - 'Python/**/*.py'
+            - 'Python/requirements*.txt'
+            - 'pyproject.toml'
+            - 'poetry.lock'
+            - '.pre-commit-config.yaml'
+          user-frontend:
+            - 'Node/apps/user-frontend/**'
+          admin-frontend:
+            - 'Node/apps/admin-frontend/**'
+          infra-docker:
+            - 'Dockerfile'
+            - 'Node/Dockerfile'
+            - 'Python/Dockerfile'
+            - 'docker-bake.hcl'
+            - 'docker-compose*.yml'
+            - 'config/nginx/**'
+          ci-self:
+            - '.github/**'

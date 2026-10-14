@@ -3,11 +3,35 @@ name: run-lint
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      ignore_paths:
+        description: "Ignore the paths filter (run all jobs)"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      user-frontend: ${{ steps.filter.outputs.user-frontend }}
+      admin-frontend: ${{ steps.filter.outputs.admin-frontend }}
+      ci-self: ${{ steps.filter.outputs.ci-self }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed areas
+        id: filter
+        uses: ./.github/actions/changes-filter
+
   pre-commit:
     runs-on: ubuntu-latest
     name: "Check Python part"
+    needs: changes
+    if: ${{ inputs.ignore_paths == true || needs.changes.outputs.python == 'true' || needs.changes.outputs.ci-self == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -17,6 +41,8 @@ jobs:
   eslint-user:
     runs-on: ubuntu-latest
     name: "Check User Frontend part"
+    needs: changes
+    if: ${{ inputs.ignore_paths == true || needs.changes.outputs.user-frontend == 'true' || needs.changes.outputs.ci-self == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +54,8 @@ jobs:
   eslint-admin:
     runs-on: ubuntu-latest
     name: "Check Admin Frontend part"
+    needs: changes
+    if: ${{ inputs.ignore_paths == true || needs.changes.outputs.admin-frontend == 'true' || needs.changes.outputs.ci-self == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
