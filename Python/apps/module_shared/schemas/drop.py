@@ -19,9 +19,18 @@ class DropModel(Base):
     )
 
     __tablename__ = "drop"
-    __table_args__ = (UniqueConstraint(*uid, name="uk__fingerprint"),)
+    __table_args__ = (  # type: ignore[assignment]
+        UniqueConstraint(*uid, name="uk__fingerprint"),
+        UniqueConstraint("payload_hash", name="uq__drop_payload_hash"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)  # noqa: A003
+    payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+    sync_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sync_documents.id", name="fk__drop_sync_document", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+    )
 
     container_id: Mapped[int] = mapped_column(ForeignKey("containers.id", name="fk__drop_container"))
     # SEA COMPANY

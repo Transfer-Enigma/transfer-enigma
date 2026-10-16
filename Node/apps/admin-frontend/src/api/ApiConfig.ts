@@ -7,7 +7,13 @@ export const API_ENDPOINTS = {
     },
     DATA: {
         UPDATE_FROM_GSHEETS: "/admin/api/data/update-from-gsheets",
+        VALIDATE_FROM_GSHEETS: "/admin/api/data/validate-from-gsheets",
         DB: "/admin/api/db/data",
+    },
+    SYNC_DOCUMENTS: {
+        ROOT: "/admin/api/db/sync-documents",
+        byId: (id: number) => `/admin/api/db/sync-documents/${id}`,
+        SHEETS_PREVIEW: "/admin/api/db/sync-documents/sheets-preview",
     },
     DEMO_GUESTS: {
         ROOT: "/admin/api/demo-guests",

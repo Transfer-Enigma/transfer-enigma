@@ -44,10 +44,15 @@ Python/
 │   │   ├── main.py
 │   │   ├── autodiscover.py
 │   │   ├── api/
-│   │   │   ├── routes_loading.py  # Import routes from Google Sheets
+│   │   │   ├── routes_loading.py  # Import routes from Google Sheets (thin; error reporting lives in service/routes_loading/error_reporting.py)
 │   │   │   ├── data_manager.py    # DB dump/erase/load
 │   │   │   ├── demo_guests.py     # CRUD demo guests
 │   │   │   └── data_browser.py    # Thin CRUD routes (delegates to service/)
+│   │   ├── locales/
+│   │   │   └── ru.json            # SyncError message templates (loaded via Path(__file__); external resources/ dir is unversioned, don't use it)
+│   │   ├── service/
+│   │   │   ├── routes_loading/        # Gsheets sync pipeline: processor.py (sanitize helpers; load_data removed in favor of validate+sync), uploader.py (pure create_* builders; load_* writers take UnitOfWork and upsert strictly by row UID with payload hash as change detector, prune missing UIDs from DB in mode=all, dates normalized via to_date/to_iso_date), error_reporting.py (parse_* + to_sync_error — import here, not from api, to avoid gspread/pandas at import time), sync_errors.py (SyncErrorCode incl. DUPLICATE_ROW/UID_NOT_IN_DB, SyncError + optional details, get_message, HTTPException helpers), errors.py (loading exceptions), rules.py (ValidationRule registry + run_row_rules over RowContext incl. uid_known_in_db; ReferenceSnapshot incl. existing_row_uids), validation.py (load_reference_snapshot [SELECTs only], pure validate_frames -> ValidatedData, in-doc dedupe by payload UID via dedupe.py, POST /data/validate-from-gsheets returns {errors, warnings, checked_rows}), loading.py (synchronize [+gate] -> SyncOutcome, sync_validated via UnitOfWork; COMPANY/POINT_NOT_FOUND/UID_NOT_IN_DB are creatable, other codes skip rows; mode=all upserts, mode=new inserts only), unit_of_work.py (UnitOfWork: sole commit() choke point; helpers.py: to_date/to_iso_date), documents.py (SyncDocument resolve/record-status + suggest_mapping heuristic; CRUD in service/crud_sync_documents.py, API in api/sync_documents.py incl. GET sheets-preview), uid.py (identity_uid over natural-key fields for DB matching, payload_uid incl. prices for in-doc dedupe, fingerprints for change detection; no uid column in DB — UIDs computed on the fly), uid_sheet.py (GsheetsUidGateway read/append/fill/hide/highlight/write-back + ensure_sheet_uids; validate ?ensure_uids backfills missing UIDs), inputs.py (read_upload xlsx/csv + select_upload_frames + preview_upload; BAD_INPUT_FORMAT), fixes.py (safe whitespace/case/date autofixes on frame copies + FixReport; validate/update ?fix flag), artifacts.py (build_report_workbook xlsx with red/green fills; validate ?highlight flag + ?artifact=file download), report.py (build_affected_rows snapshots with values/uid/errors/fixes; both endpoints return affected_rows)
+│   │   │   │   # Dry-run rule: validate() must not receive a writable session (pure fn of frames + read-only snapshot); sync() owns writes via UnitOfWork. Prune deletes only UIDs missing from non-empty per-scope presence (empty presence or mode=new never deletes). Tests assert COUNT(*) on SQLite — never mock session.commit().
 │   │   ├── schemas/
 │   │   │   └── data_browser.py    # Pydantic request/response models
 │   │   └── service/
@@ -69,11 +74,12 @@ Python/
 │   │   │   ├── company.py        # CompanyModel ORM model
 │   │   │   ├── container.py      # ContainerModel + ContainerType ORM model
 │   │   │   ├── demo_guest.py     # DemoGuestModel ORM model
-│   │   │   ├── drop.py           # DropModel ORM model
+│   │   │   ├── drop.py           # DropModel ORM model + payload_hash/sync_document_id
 │   │   │   ├── point.py          # PointModel ORM model
-│   │   │   ├── route.py          # PriceModel, RouteModel, ServicePriceModel + RouteType, ContainerTransferTerms, ContainerShipmentTerms, ContainerOwner enums
+│   │   │   ├── route.py          # PriceModel, RouteModel, ServicePriceModel + RouteType, ContainerTransferTerms, ContainerShipmentTerms, ContainerOwner enums; RouteModel fingerprint includes type + payload_hash/sync_document_id
 │   │   │   ├── service.py        # ServiceModel ORM model
-│   │   │   └── setting.py        # SettingModel ORM model + SettingType enum
+│   │   │   ├── setting.py        # SettingModel ORM model + SettingType enum
+│   │   │   ├── sync_document.py  # SyncDocumentModel ORM model
 │   │   ├── cache.py              # Shared CacheController (Redis GET/SET + Pydantic validation + locker-guarded async writes)
 │   │   ├── cache_settings.py     # Settings Redis cache (cache-aside, TTL 12h) + ensure_settings
 │   │   ├── settings.py           # Thin wrappers: get_setting, list_settings (open session → repository)
@@ -307,6 +313,7 @@ Module prefixes:
     - `test_query_domain_segment.py` — Segment construction, column access, repr
     - `test_query_domain_drop_off.py` — DropOff column access, exists(), repr
     - `test_query_domain_builder.py` — RouteBuilder API tests + DB-backed build tests
+- **Feature tests** live in `Python/tests/admin/<feature>/` — one test file per micro-feature, all end-cases of the micro-feature inside its own file. Shared fixtures go into `<feature>/fixtures/`. First feature: `data_sync/` (gsheets validate/sync pipeline: `test_sync_errors.py`, `test_validate.py`, `test_validate_sync_split.py`, `test_sync_documents.py`, `test_payload_uid.py`, `test_uid_column.py`, `test_inputs.py`, `test_autofix.py`, `test_highlight_artifacts.py`, `test_report_rows.py`, ...).
 - **Test DB**: SQLite in-memory (`sqlite+aiosqlite`). Tables created via `Base.metadata.create_all()`, **not** via Alembic migrations (migrations have MySQL-specific code).
 - **Auth mocks**: patch `get_demo_guest_by_uid`, `get_database`, and `request_auth` directly
 - **FESCO API mocks**: use `unittest.mock.patch` on `module_data_fesco_api_adapter.api_client` directly

@@ -1,0 +1,18 @@
+{
+  "GSHEETS_UNAVAILABLE": "Не удалось подключиться к Google Sheets: {detail}",
+  "WS_NOT_FOUND": "Не удалось загрузить лист '{sheet}': {detail}",
+  "DOCUMENT_NOT_FOUND": "Документ синхронизации не найден: {document}",
+  "BAD_INPUT_FORMAT": "Не удалось прочитать загруженный файл: {detail}",
+  "REQUIRED_CELL_EMPTY": "Ошибка в листе {sheet}: не заполнены обязательные столбцы в следующих строках ({count}):",
+  "BAD_ENUM_VALUE": "Неверное значение '{value}' в поле '{field}' (лист {sheet}, строка {row})",
+  "POINT_NOT_FOUND": "Не найден город или порт: '{key}' (лист {sheet}, строка {row})",
+  "COMPANY_NOT_FOUND": "Не найдена компания: '{key}' (лист {sheet}, строка {row})",
+  "NO_PRICE": "Отсутствуют цены в маршруте (лист {sheet}, строка {row})",
+  "BAD_DATE_FORMAT": "Ошибка в листе {sheet}: неподдерживаемый формат столбцов {col_from}/{col_to}:",
+  "BAD_NUMBER_FORMAT": "Неверный числовой формат '{value}' в поле '{field}' (лист {sheet}, строка {row})",
+  "POINTS_SHEET_NAN": "Ошибка в листе '{sheet}': не заполнены ячейки на следующих строках:",
+  "DROPP_ROW_INVALID": "Неверный формат данных в листе {sheet} на строке {row}",
+  "DUPLICATE_ROW": "Дублирующаяся строка: такое содержимое уже встречалось выше (лист {sheet}, строка {row})",
+  "UID_NOT_IN_DB": "Строка с UID '{uid}' отсутствует в БД (лист {sheet}, строка {row})",
+  "UNKNOWN": "Неизвестная ошибка {type}: '{detail}' (лист {sheet}, строка {row})"
+}

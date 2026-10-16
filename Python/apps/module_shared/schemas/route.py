@@ -58,6 +58,7 @@ class PriceModel(Base):
 
 class RouteModel(Base):
     uid = (
+        "type",
         "company_id",
         "start_point_id",
         "end_point_id",
@@ -71,9 +72,18 @@ class RouteModel(Base):
     )
 
     __tablename__ = "routes"
-    __table_args__ = (UniqueConstraint(*uid, name="uk__fingerprint"),)
+    __table_args__ = (  # type: ignore[assignment]
+        UniqueConstraint(*uid, name="uk__fingerprint"),
+        UniqueConstraint("payload_hash", name="uq__routes_payload_hash"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)  # noqa: A003
+    payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+    sync_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sync_documents.id", name="fk__route_sync_document", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+    )
 
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", name="fk__route_company"))
     start_point_id: Mapped[int] = mapped_column(ForeignKey("points.id", name="fk__route_point__start"))

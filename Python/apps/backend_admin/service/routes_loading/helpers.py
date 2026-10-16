@@ -24,6 +24,22 @@ def nan_to_none_mapper(x):
     return None if pd.isna(x) else x
 
 
+def to_date(value):
+    if isinstance(value, str):
+        return datetime.date.fromisoformat(value)
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    return value
+
+
+def to_iso_date(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, datetime.datetime):
+        return value.date().isoformat()
+    return value.isoformat()
+
+
 def format_date(date_str, try_another_variants=True):  # noqa: C901
     if pd.isna(date_str):
         return date_str
