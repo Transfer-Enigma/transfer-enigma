@@ -266,6 +266,7 @@ Module prefixes:
 ### CI Workflows
 - `project-lint.yml` — pre-commit + ESLint, runs on every PR
 - `project-tests.yml` — pytest (SQLite in-memory), runs on PR, push to main/master, and manual
+- `project-e2e.yml` — full-stack Playwright E2E in headless Chromium on synthetic seed (`e2e/seed.sql`), screenshots + HTML report as artifacts, runs on PR paths + manual
 - `project-build.yml` — Docker Bake build + optional deploy, manual trigger only
 - `project-deploy.yml` — SSH deploy, reusable sub-workflow
 

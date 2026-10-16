@@ -1,0 +1,14 @@
+{
+  "name": "transfer-enigma-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Headless Playwright E2E for Transfer Enigma (workflow #1, synthetic data only)",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1"
+  }
+}
