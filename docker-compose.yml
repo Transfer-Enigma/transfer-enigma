@@ -104,7 +104,7 @@ services:
 
   ### BACK
   calculator:
-    image: danielgreen1806/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
+    image: ${DOCKER_REGISTRY:-ghcr.io/transfer-enigma}/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
     env_file:
       - ".env"
     depends_on:
@@ -133,7 +133,7 @@ services:
       - "--port"
       - "8080"
   auth:
-    image: danielgreen1806/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
+    image: ${DOCKER_REGISTRY:-ghcr.io/transfer-enigma}/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
     env_file:
       - ".env"
     restart: always
@@ -157,7 +157,7 @@ services:
       - "--port"
       - "8081"
   backadmin:
-    image: danielgreen1806/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
+    image: ${DOCKER_REGISTRY:-ghcr.io/transfer-enigma}/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
     env_file:
       - ".env"
     restart: always
@@ -183,7 +183,7 @@ services:
 
   ### PROXY
   reverseproxy:
-    image: danielgreen1806/calculator-reverseproxy:${DOCKER_PROD_IMAGES_TAG}
+    image: ${DOCKER_REGISTRY:-ghcr.io/transfer-enigma}/calculator-reverseproxy:${DOCKER_PROD_IMAGES_TAG}
     env_file:
       - ".env"
     depends_on:

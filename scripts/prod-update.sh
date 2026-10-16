@@ -28,7 +28,23 @@ else
     fi
 fi
 
+if [ -f .env ]; then
+    DOCKER_REGISTRY=$(grep -oP '^DOCKER_REGISTRY="?\K[^"]+' .env || echo "ghcr.io/transfer-enigma")
+else
+    DOCKER_REGISTRY="ghcr.io/transfer-enigma"
+fi
+if [ -f .env ]; then
+    if grep -qP '^DOCKER_REGISTRY=' .env; then
+        sed -i 's|^DOCKER_REGISTRY=.*|DOCKER_REGISTRY="'"$DOCKER_REGISTRY"'"|' .env
+    else
+        echo 'DOCKER_REGISTRY="'"$DOCKER_REGISTRY"'"' >> .env
+    fi
+else
+    echo 'DOCKER_REGISTRY="'"$DOCKER_REGISTRY"'"' > .env
+fi
+
 echo "=== Git ref: $GIT_REF ==="
+echo "=== Docker registry: $DOCKER_REGISTRY ==="
 echo "=== Docker tag: $DOCKER_TAG ==="
 
 git fetch -p --tags
@@ -55,6 +71,7 @@ if [ "$GIT_TAG" ]; then
 fi
 
 export DOCKER_PROD_IMAGES_TAG="$DOCKER_TAG"
+export DOCKER_REGISTRY="$DOCKER_REGISTRY"
 
 mkdir -p logs
 docker compose down

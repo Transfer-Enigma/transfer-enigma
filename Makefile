@@ -1,5 +1,12 @@
 ARGS = $(filter-out $@,$(MAKECMDGOALS))
 
+# Local .env provides DOCKER_REGISTRY for bake.
+# bake only reads OS environment, so re-export it explicitly.
+# ?= keeps .env value when set; empty value must be avoided (it would
+# override the docker-bake.hcl default with an empty string).
+-include .env
+export DOCKER_REGISTRY ?= ghcr.io/transfer-enigma
+
 .PHONY: build prod dev stop-prod stop-dev test lint lint-frontend lint-backend update export-deps alembic migrate
 
 build:

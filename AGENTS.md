@@ -545,6 +545,14 @@ All output is JSON by default (for AI/script parsing).
 | `make alembic [args]` | `./scripts/alembic-proxy.sh` — pass alembic subcommand via args |
 | `make migrate [args]` | `./scripts/prod-db-migrate.sh` — pass alembic subcommand via args |
 
+### Container Registry
+
+Images live in GHCR (`ghcr.io/transfer-enigma`), parametrized via `DOCKER_REGISTRY`:
+- Local/dev/prod runtime: `.env` (`DOCKER_REGISTRY`, default `ghcr.io/transfer-enigma` via `:-` fallback in compose files and `?=` in `Makefile`, which re-exports it for bake — bake reads OS env only, never `.env` directly; never set it to an empty string, it would override defaults with empty).
+- CI (`project-build.yml`): repo variable `vars.DOCKER_REGISTRY` resolved with bash fallback (empty env would override the HCL default); push via `GITHUB_TOKEN` (`permissions: packages: write`).
+- No GitHub environments are used — all secrets/vars are repo-level.
+- For fully local builds without registry: `make build` never pushes; set `DOCKER_PROD_IMAGES_TAG=latest` in local `.env` so compose picks up locally baked tags.
+
 ---
 
 ### Cache Pitfalls

@@ -42,7 +42,7 @@ services:
       retries: 3
       start_period: 1m
   dbmigrator:
-    image: danielgreen1806/calculator-db-migration:${DOCKER_PROD_IMAGES_TAG}
+    image: ${DOCKER_REGISTRY:-ghcr.io/transfer-enigma}/calculator-db-migration:${DOCKER_PROD_IMAGES_TAG}
     env_file:
       - ".env"
     depends_on:
