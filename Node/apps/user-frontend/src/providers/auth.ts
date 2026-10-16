@@ -37,7 +37,7 @@ export function mountAuthProvider() {
 }
 
 async function provideUser(newUser: IUser | null, newRouteName?: RouteRecordNameGeneric) {
-    if (!newRouteName || newRouteName === "demo")
+    if (!newRouteName || newRouteName === "demo" || newRouteName === "demo-route")
         return;
 
     useDemoAuth().clearDemo();
