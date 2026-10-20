@@ -48,13 +48,10 @@ repos:
           --py314-plus,
         ]
   # isort
-  - repo: https://github.com/pre-commit/mirrors-isort
-    rev: v5.10.1
+  - repo: https://github.com/PyCQA/isort
+    rev: 9.0.2
     hooks:
       - id: isort
-        additional_dependencies: [
-          toml,
-        ]
   # flake8
   - repo: https://github.com/pycqa/flake8
     rev: 7.3.0
