@@ -40,5 +40,8 @@ lint-backend:
 alembic:
 	uv run --frozen --directory Python --package backend-admin alembic $(ARGS);
 
+cli:
+	uv run --frozen --directory Python --group cli python -m cli $(ARGS);
+
 %:
 	@true

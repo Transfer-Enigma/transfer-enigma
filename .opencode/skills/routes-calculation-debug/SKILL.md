@@ -14,7 +14,7 @@ data consistency between Google Sheets → DB → API.
 ## CLI Reference
 
 ```bash
-cd Python && uv run python -m cli <command>
+make cli ARGS="<command>"
 ```
 
 Config from `.env.cli` (see `.env.cli.example`): URLs, GSHEETS_URL,

@@ -150,6 +150,7 @@ No `backend → backend` and no `module → backend` imports (verified by audit)
 |-------|----------|
 | `[dependency-groups] dev` | Linting/pre-commit tools (black, pre-commit, ipython) |
 | `[dependency-groups] tests` | Test frameworks (pytest, pytest-asyncio, httpx, aiosqlite) |
+| `[dependency-groups] cli` | Local CLI tools (click, gspread, pandas, requests) — run via `make cli` |
 
 `uv.lock` is the single source of truth — committed to git, consumed via `uv sync --frozen --package <member>` in Docker. No exported `.txt` files. `uv run`/`uv sync` automatically rebuild changed workspace wheels.
 
@@ -484,32 +485,32 @@ No `backend → backend`, `module → backend`, or `internal ↔ fesco` imports 
 
 ### CLI Tools (`Python/cli/`)
 
-**Entry point:** `cd Python && uv run python -m cli <command>`.
-For sheets commands, also set `GSHEETS_URL` and `GOOGLE_SERVICE_ACCOUNT_PATH` env vars
-(or put them in `.env.cli` in the project root — see `.env.cli.example`).
-**Framework:** `click` (transitive dep via uvicorn; no explicit dependency needed)
+**Entry point:** `make cli <command>` — e.g. `make cli ARGS="login"`, `make cli ARGS="sheets worksheets"`.
+Commands with flags must go through `make cli ARGS="<command> <flags>"` — make itself
+intercepts args starting with `-` (e.g. `make cli ARGS="db create companies --data ..."` breaks).
+For sheets commands, also set `GSHEETS_URL` and `GOOGLE_SERVICE_ACCOUNT_PATH` env vars.
+**Framework:** `click` (declared in the `cli` dependency group)
 **Auth:** `cli login` reads credentials from `.env.cli` (`ADMIN_USER`, `ADMIN_PASSWORD`),
-or accepts `--username`/`--password` (higher priority). No interactive prompt.
 Token stored in `~/.opencode-token`; sent as `Cookie: access_token_cookie=<token>`.
 
 **Commands:**
 
 ```
-python -m cli login                         # Authenticate from .env.cli or --args
-python -m cli logout                        # Clear saved JWT
-python -m cli route-query                   # Query route calculator API
-python -m cli db list <resource>            # List resources via Admin API
-python -m cli db get <resource>/<id>        # Get single resource
-python -m cli db create <resource>          # Create resource (--data JSON)
-python -m cli db update <resource>/<id>     # Full update PUT (--data JSON)
-python -m cli db patch <resource>/<id>      # Partial update PATCH (--data JSON)
-python -m cli db delete <resource>/<id>     # Delete resource
-python -m cli db stats route-segments       # Bulk segment stats (type, through, owner, top companies)
-python -m cli sheets worksheets             # List worksheets
-python -m cli sheets columns <ws>           # List column names + 0-based indices
-python -m cli sheets show <ws>              # Show data (--filter, --search, --columns, --csv, --output, --count)
-python -m cli sheets search <ws>            # Search (--column optional, --columns, --limit)
-python -m cli sheets find <company>         # Cross-worksheet company search (--columns, --csv, --output, --count)
+login                                  # Authenticate from .env.cli or --args
+logout                                 # Clear saved JWT
+route-query                            # Query route calculator API
+db list <resource>                     # List resources via Admin API
+db get <resource>/<id>                 # Get single resource
+db create <resource>                   # Create resource (--data JSON)
+db update <resource>/<id>              # Full update PUT (--data JSON)
+db patch <resource>/<id>               # Partial update PATCH (--data JSON)
+db delete <resource>/<id>              # Delete resource
+db stats route-segments                # Bulk segment stats (type, through, owner, top companies)
+sheets worksheets                      # List worksheets
+sheets columns <ws>                    # List column names + 0-based indices
+sheets show <ws>                       # Show data (--filter, --search, --columns, --csv, --output, --count)
+sheets search <ws>                     # Search (--column optional, --columns, --limit)
+sheets find <company>                  # Cross-worksheet company search (--columns, --csv, --output, --count)
 ```
 
 All output is JSON by default (for AI/script parsing).
@@ -563,6 +564,7 @@ All output is JSON by default (for AI/script parsing).
 | `make lint-backend` | pre-commit (black, isort, flake8, mypy) via uv |
 | `make lint-frontend` | ESLint + build (user-frontend), ESLint (admin-frontend) |
 | `make alembic [args]` | `./scripts/alembic-proxy.sh` — pass alembic subcommand via args |
+| `make cli [args]` | Run CLI tool (`python -m cli`) — use `ARGS="..."` for flags |
 
 ---
 
