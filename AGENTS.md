@@ -258,9 +258,8 @@ Module prefixes:
 - `CI:` — CI/CD workflow changes
 
 ### Pre-Commit Checks
-- Before each Python commit: `pre-commit run --all-files` — this catches lint/type errors early, avoiding fix commits on top
-- On slow devices, use `pre-commit run --files <changed_file>` to speed up
-- Before each Node commit: run the project's lint script (if available)
+- Before each Python commit: `make lint-backend` — this catches lint/type errors early, avoiding fix commits on top
+- Before each Node commit: `make lint-frontend`
 - Fix any lint/type errors before committing
 
 ### CI Workflows
