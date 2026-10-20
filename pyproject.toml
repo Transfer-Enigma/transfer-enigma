@@ -22,7 +22,7 @@ bcrypt = "*"
 pandas = "*"
 python = "^3.14"
 aiomysql = "*"
-sqlalchemy = "*"
+sqlalchemy = { extras = ["asyncio"], version = "*" }
 pydantic = "*"
 aiohttp = "*"
 python-dotenv = "*"
