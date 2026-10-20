@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.13.3 AS uv
 
-FROM python:3.14-slim AS python-base
+FROM python:3.15-slim AS python-base
 
 ARG USERNAME="appuser"
 ARG USER_UID=1000
