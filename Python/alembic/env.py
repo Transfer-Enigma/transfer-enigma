@@ -21,7 +21,11 @@ if project_root not in sys.path:
 
 
 from shared.config import get_settings
+<<<<<<< HEAD
 from shared.orm import Base
+=======
+from shared.schemas import Base
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 
 # this is the Alembic Config object, which provides

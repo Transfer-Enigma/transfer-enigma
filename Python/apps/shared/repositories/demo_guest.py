@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 from shared.orm.demo_guest import DemoGuestModel
+=======
+from shared.schemas.demo_guest import DemoGuestModel
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

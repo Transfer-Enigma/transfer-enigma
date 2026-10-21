@@ -4,8 +4,13 @@ from unittest.mock import patch
 import pytest
 from data.internal.aggregators.routes import find_all_paths
 from shared.database import Database
+<<<<<<< HEAD
 from shared.orm.container import ContainerType
 from shared.orm.route import ContainerOwner, RouteType
+=======
+from shared.schemas.container import ContainerType
+from shared.schemas.route import ContainerOwner, RouteType
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 from .factories import CompanyFactory, ContainerFactory, PointFactory, PriceFactory, RouteFactory
 

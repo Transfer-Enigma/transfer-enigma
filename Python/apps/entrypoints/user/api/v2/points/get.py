@@ -7,7 +7,10 @@ from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends, Query
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
+<<<<<<< HEAD
 from data.cache.settings import get_setting_cached
+=======
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 from data.fesco import api_client
 from data.fesco.api_client.transformers.points import transform_points as map_fesco
 from data.internal import aggregators
@@ -20,8 +23,14 @@ from entrypoints.user.utils.group_points import (
     group_transfers,
     raw_point_from_dict,
 )
+<<<<<<< HEAD
 from shared.orm.company import CompanyModel
 from shared.orm.point import PointModel
+=======
+from shared.cache_settings import get_setting_cached
+from shared.schemas.company import CompanyModel
+from shared.schemas.point import PointModel
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 router = APIRouter(prefix="/v2/points", tags=["v2", "points"])
 

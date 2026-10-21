@@ -2,7 +2,11 @@ import logging
 
 from entrypoints.user.schemas.routes import NormalizedRoutes
 from services.get_rates import get_rates
+<<<<<<< HEAD
 from shared.dto.route import RouteResult, RouteSegment
+=======
+from shared.models.route import RouteResult, RouteSegment
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 logger = logging.getLogger(__name__)
 

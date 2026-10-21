@@ -3,7 +3,11 @@ from typing import Any
 
 from entrypoints.admin.schemas.data_browser import DropOffCreate, DropOffPatch, DropOffResponse
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
+<<<<<<< HEAD
 from shared.orm import DropModel
+=======
+from shared.schemas import DropModel
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 
 def _parse_date(value: str) -> datetime.date:

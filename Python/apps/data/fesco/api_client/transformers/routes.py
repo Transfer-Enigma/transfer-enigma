@@ -1,7 +1,11 @@
 import logging
 from collections.abc import Iterable
 
+<<<<<<< HEAD
 from shared.dto.route import PriceItem, RouteResult, RouteSegment, ServiceItem
+=======
+from shared.models.route import PriceItem, RouteResult, RouteSegment, ServiceItem
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 from .containers import transform_container
 

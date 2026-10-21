@@ -2,13 +2,21 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+<<<<<<< HEAD
 from data.cache.settings import get_setting_cached
+=======
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from entrypoints.user.schemas.routes import NormalizedRoutes, RoutesDataResponse
 from services.profit import apply_demo_profit_to_routes
 from services.route_calculation import _strip_demo_fields, calculate_routes
+<<<<<<< HEAD
 from shared.dto.route import RouteResult
+=======
+from shared.cache_settings import get_setting_cached
+from shared.models.route import RouteResult
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 router = APIRouter(prefix="/v2/routes", tags=["v2", "routes"])
 

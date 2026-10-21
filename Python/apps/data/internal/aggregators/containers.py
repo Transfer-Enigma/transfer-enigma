@@ -1,7 +1,11 @@
 import datetime
 
 from shared.database import get_database
+<<<<<<< HEAD
 from shared.orm.container import ContainerModel
+=======
+from shared.schemas.container import ContainerModel
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 from sqlalchemy import select
 
 from .transformers.containers import transform_containers

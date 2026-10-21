@@ -1,5 +1,9 @@
 from shared.database import Base
+<<<<<<< HEAD
 from shared.dto.route import (
+=======
+from shared.models.route import (
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
     ContainerItem,
     DropItem,
     PriceItem,
@@ -7,8 +11,13 @@ from shared.dto.route import (
     RouteSegment,
     ServiceItem,
 )
+<<<<<<< HEAD
 from shared.orm.drop import DropModel
 from shared.orm.route import PriceModel, RouteModel
+=======
+from shared.schemas.drop import DropModel
+from shared.schemas.route import PriceModel, RouteModel
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 
 def _transform_container_from_orm(price: PriceModel) -> ContainerItem:

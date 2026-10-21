@@ -8,7 +8,11 @@ from data.internal import aggregators
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from entrypoints.user.schemas.routes import NormalizedRoutes
+<<<<<<< HEAD
 from shared.dto.route import RouteResult
+=======
+from shared.models.route import RouteResult
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 logger = logging.getLogger(__name__)
 

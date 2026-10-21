@@ -1,6 +1,10 @@
 import re
 
+<<<<<<< HEAD
 from shared.dto.route import ContainerItem
+=======
+from shared.models.route import ContainerItem
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 
 def transform_container(container):

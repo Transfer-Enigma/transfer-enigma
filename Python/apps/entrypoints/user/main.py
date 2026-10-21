@@ -8,6 +8,10 @@ from data.cache.registry import get_cache_registry
 from data.cache.seed import ensure_all
 from fastapi_another_jwt_auth import AuthJWT
 from fastapi_another_jwt_auth.exceptions import AuthJWTException
+<<<<<<< HEAD
+=======
+from shared.cache_settings import ensure_settings
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 from shared.config import get_settings
 from shared.database import get_database
 from shared.jwt_error_handler import authjwt_exception_handler

@@ -2,9 +2,14 @@ import asyncio
 import datetime
 import logging
 
+<<<<<<< HEAD
 from data.cache.registry import get_cache_registry
 from pycbrf.toolbox import ExchangeRates
 from shared.cache import CacheEntity
+=======
+from pycbrf.toolbox import ExchangeRates
+from shared.redis_client import get_redis
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 logger = logging.getLogger(__name__)
 

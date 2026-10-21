@@ -3,11 +3,19 @@ from collections.abc import Iterable
 import pandas as pd
 from entrypoints.admin.models.upoader_fields_config import UploaderFieldsConfig
 from pandas import DataFrame
+<<<<<<< HEAD
 from shared.orm.company import CompanyModel
 from shared.orm.container import ContainerModel, ContainerType
 from shared.orm.drop import DropModel
 from shared.orm.point import PointModel
 from shared.orm.route import (
+=======
+from shared.schemas.company import CompanyModel
+from shared.schemas.container import ContainerModel, ContainerType
+from shared.schemas.drop import DropModel
+from shared.schemas.point import PointModel
+from shared.schemas.route import (
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
     ContainerOwner,
     ContainerShipmentTerms,
     ContainerTransferTerms,
@@ -16,7 +24,11 @@ from shared.orm.route import (
     RouteType,
     ServicePriceModel,
 )
+<<<<<<< HEAD
 from shared.orm.service import ServiceModel
+=======
+from shared.schemas.service import ServiceModel
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 

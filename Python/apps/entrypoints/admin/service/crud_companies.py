@@ -1,6 +1,10 @@
 from entrypoints.admin.schemas.data_browser import CompanyCreate, CompanyPatch, CompanyResponse
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
+<<<<<<< HEAD
 from shared.orm.company import CompanyModel
+=======
+from shared.schemas.company import CompanyModel
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 
 class CRUDCompany(CRUDBase):

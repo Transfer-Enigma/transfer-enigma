@@ -2,9 +2,15 @@ import datetime
 from functools import partial
 
 from shared.database import get_database
+<<<<<<< HEAD
 from shared.orm.company import CompanyModel
 from shared.orm.point import PointModel
 from shared.orm.route import RouteModel, RouteType
+=======
+from shared.schemas.company import CompanyModel
+from shared.schemas.point import PointModel
+from shared.schemas.route import RouteModel, RouteType
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 from sqlalchemy import and_, select
 
 

@@ -3,6 +3,7 @@ import datetime
 import logging
 from collections.abc import Iterable
 
+<<<<<<< HEAD
 from data.cache.settings import get_setting_cached
 from data.internal.query_domain import DropOff, RouteBuilder, Segment
 from data.internal.query_domain.expr import Condition
@@ -10,6 +11,15 @@ from shared.database import Base, get_database
 from shared.dto.route import RouteResult
 from shared.orm.drop import DropModel
 from shared.orm.route import ContainerOwner, RouteModel, RouteType
+=======
+from data.internal.query_domain import DropOff, RouteBuilder, Segment
+from data.internal.query_domain.expr import Condition
+from shared.cache_settings import get_setting_cached
+from shared.database import Base, get_database
+from shared.models.route import RouteResult
+from shared.schemas.drop import DropModel
+from shared.schemas.route import ContainerOwner, RouteModel, RouteType
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 from shared.setting_definitions import get_setting_definition
 
 from .transformers.routes import transform_routes

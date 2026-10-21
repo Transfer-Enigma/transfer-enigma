@@ -2,8 +2,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+<<<<<<< HEAD
 from data.cache.settings import get_setting_cached
 from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
+=======
+from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
+from shared.cache_settings import get_setting_cached
+>>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 router = APIRouter(prefix="/v2/demo", tags=["v2", "demo"])
 
