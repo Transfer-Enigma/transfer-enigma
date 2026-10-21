@@ -1,15 +1,15 @@
 import datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from fastapi.sse import ServerSentEvent
 
 import pytest
 from entrypoints.user.api.v3.routes.post import _sse_generator
+from entrypoints.user.dependencies.auth_context import AuthContext
+from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from services.route_calculation import calculate_routes_stream
-from shared.context import CallerContext, ContextKind
-from shared.dto.errors import RouteError
-from shared.dto.route import ContainerItem, PriceItem, RouteResult, RouteSegment
+from shared.models.route import ContainerItem, PriceItem, RouteResult, RouteSegment
 
 
 def _make_segment(company: str = "CompanyA", **overrides) -> RouteSegment:
@@ -74,7 +74,7 @@ def _make_request(
 
 class TestSSEGenerator:
     @pytest.mark.asyncio
-    async def test_sse_streams_routes(self, caller_context):
+    async def test_sse_streams_routes(self):
         route1 = _make_full_route(company="CompanyA")
         route2 = _make_full_route(company="CompanyB")
 
@@ -85,12 +85,11 @@ class TestSSEGenerator:
 
             mock_stream.side_effect = mock_gen
 
-            auth = CallerContext(kind=ContextKind.ADMIN)
-            caller_context(auth)
+            auth = AuthContext(is_demo=False)
             request = _make_request()
 
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request):
+            async for event in _sse_generator(request, auth):
                 events.append(event)
 
             assert len(events) == 2
@@ -102,7 +101,7 @@ class TestSSEGenerator:
             assert events[1].id == "1"
 
     @pytest.mark.asyncio
-    async def test_sse_streams_errors(self, caller_context):
+    async def test_sse_streams_errors(self):
         error = RouteError(error_type="ValueError", error_text="Invalid data", source="internal")
 
         with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
@@ -111,12 +110,11 @@ class TestSSEGenerator:
 
             mock_stream.side_effect = mock_gen
 
-            auth = CallerContext(kind=ContextKind.ADMIN)
-            caller_context(auth)
+            auth = AuthContext(is_demo=False)
             request = _make_request()
 
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request):
+            async for event in _sse_generator(request, auth):
                 events.append(event)
 
             assert len(events) == 1
@@ -124,7 +122,7 @@ class TestSSEGenerator:
             assert events[0].data is error
 
     @pytest.mark.asyncio
-    async def test_sse_mixed_routes_and_errors(self, caller_context):
+    async def test_sse_mixed_routes_and_errors(self):
         route = _make_full_route(company="CompanyA")
         error = RouteError(error_type="TimeoutError", error_text="FESCO timeout", source="external")
 
@@ -135,12 +133,11 @@ class TestSSEGenerator:
 
             mock_stream.side_effect = mock_gen
 
-            auth = CallerContext(kind=ContextKind.ADMIN)
-            caller_context(auth)
+            auth = AuthContext(is_demo=False)
             request = _make_request()
 
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request):
+            async for event in _sse_generator(request, auth):
                 events.append(event)
 
             assert len(events) == 2
@@ -152,7 +149,7 @@ class TestSSEGenerator:
             assert events[1].id == "1"
 
     @pytest.mark.asyncio
-    async def test_sse_last_event_id(self, caller_context):
+    async def test_sse_last_event_id(self):
         route = _make_full_route(company="CompanyA")
 
         with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
@@ -161,22 +158,22 @@ class TestSSEGenerator:
 
             mock_stream.side_effect = mock_gen
 
-            auth = CallerContext(kind=ContextKind.ADMIN)
-            caller_context(auth)
+            auth = AuthContext(is_demo=False)
             request = _make_request()
 
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request, last_event_id=5):
+            async for event in _sse_generator(request, auth, last_event_id=5):
                 events.append(event)
 
             assert len(events) == 1
             assert events[0].id == "6"
 
     @pytest.mark.asyncio
-    async def test_sse_demo_transforms_strips_company(self, caller_context):
+    @patch("entrypoints.user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
+    async def test_sse_demo_transforms_strips_company(self, mock_get_setting):
+        mock_get_setting.return_value = Mock(value=["company"])
         route = _make_full_route(company="CompanyA")
-        auth = CallerContext(kind=ContextKind.DEMO, excluded_fields=["company"])
-        caller_context(auth)
+        auth = AuthContext(is_demo=True)
 
         with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
@@ -186,16 +183,15 @@ class TestSSEGenerator:
 
             request = _make_request()
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request):
+            async for event in _sse_generator(request, auth):
                 events.append(event)
 
             assert events[0].data.segments[0].company is None
 
     @pytest.mark.asyncio
-    async def test_sse_demo_transforms_does_not_strip_for_non_demo(self, caller_context):
+    async def test_sse_demo_transforms_does_not_strip_for_non_demo(self):
         route = _make_full_route(company="CompanyA")
-        auth = CallerContext(kind=ContextKind.ADMIN)
-        caller_context(auth)
+        auth = AuthContext(is_demo=False)
 
         with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
@@ -205,23 +201,19 @@ class TestSSEGenerator:
 
             request = _make_request()
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request):
+            async for event in _sse_generator(request, auth):
                 events.append(event)
 
             assert events[0].data.segments[0].company == "CompanyA"
 
     @pytest.mark.asyncio
+    @patch("entrypoints.user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
     @patch("services.profit.get_rates", new_callable=AsyncMock)
-    async def test_sse_demo_transforms_with_profit(self, mock_rates, caller_context):
+    async def test_sse_demo_transforms_with_profit(self, mock_rates, mock_get_setting):
+        mock_get_setting.return_value = Mock(value=["company"])
         mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
         route = _make_full_route(company="CompanyA", type="sea")
-        auth = CallerContext(
-            kind=ContextKind.DEMO,
-            excluded_fields=["company"],
-            sea_profit=100.0,
-            sea_profit_currency="USD",
-        )
-        caller_context(auth)
+        auth = AuthContext(is_demo=True, sea_profit=100.0, sea_profit_currency="USD")
 
         with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
@@ -231,7 +223,7 @@ class TestSSEGenerator:
 
             request = _make_request()
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request):
+            async for event in _sse_generator(request, auth):
                 events.append(event)
 
         assert events[0].data.segments[0].company is None
@@ -239,7 +231,7 @@ class TestSSEGenerator:
         assert price.value == 1100.0
 
     @pytest.mark.asyncio
-    async def test_sse_empty_results(self, caller_context):
+    async def test_sse_empty_results(self):
         with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
                 return
@@ -247,12 +239,11 @@ class TestSSEGenerator:
 
             mock_stream.side_effect = mock_gen
 
-            auth = CallerContext(kind=ContextKind.ADMIN)
-            caller_context(auth)
+            auth = AuthContext(is_demo=False)
             request = _make_request()
 
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request):
+            async for event in _sse_generator(request, auth):
                 events.append(event)
 
             assert len(events) == 0
@@ -260,25 +251,27 @@ class TestSSEGenerator:
 
 class TestCalculateRoutesStream:
     @pytest.mark.asyncio
-    async def test_stream_yields_routes_from_internal(self, caller_context):
-        route1 = _make_full_route(company="CompanyA", id=1)
-        route2 = _make_full_route(company="CompanyB", id=2)
+    async def test_stream_yields_routes_from_internal(self):
+        route1 = _make_full_route(company="CompanyA")
+        route2 = _make_full_route(company="CompanyB")
 
         with (
-            patch("services.route_calculation.internal_source") as mock_internal,
-            patch("services.route_calculation.fesco_source") as mock_fesco,
+            patch("services.route_calculation.aggregators") as mock_agg,
+            patch("services.route_calculation.api_client") as mock_fesco,
         ):
-            mock_internal.get_containers = AsyncMock(
+            mock_agg.get_containers = AsyncMock(
                 return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
             )
-            mock_internal.find_paths = AsyncMock(return_value=[route1, route2])
+            mock_agg.search_container_ids = lambda containers, weight, size: [1]
+            mock_agg.find_all_paths = AsyncMock(return_value=[route1, route2])
             mock_fesco.get_containers = AsyncMock(return_value=[])
-            mock_fesco.find_paths = AsyncMock(return_value=[])
+            mock_fesco.search_container_ids = lambda containers, weight, size: []
+            mock_fesco.find_all_paths = AsyncMock(return_value=[])
 
             request = _make_request(dep_internal=[1, 3], dest_internal=[2, 4])
 
             results = []
-            async for item in calculate_routes_stream(request.to_calculation_request()):
+            async for item in calculate_routes_stream(request):
                 results.append(item)
 
             assert len(results) == 8
@@ -288,22 +281,24 @@ class TestCalculateRoutesStream:
             assert "CompanyB" in companies
 
     @pytest.mark.asyncio
-    async def test_stream_yields_errors(self, caller_context):
+    async def test_stream_yields_errors(self):
         with (
-            patch("services.route_calculation.internal_source") as mock_internal,
-            patch("services.route_calculation.fesco_source") as mock_fesco,
+            patch("services.route_calculation.aggregators") as mock_agg,
+            patch("services.route_calculation.api_client") as mock_fesco,
         ):
-            mock_internal.get_containers = AsyncMock(
+            mock_agg.get_containers = AsyncMock(
                 return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
             )
-            mock_internal.find_paths = AsyncMock(side_effect=Exception("DB timeout"))
+            mock_agg.search_container_ids = lambda containers, weight, size: [1]
+            mock_agg.find_all_paths = AsyncMock(side_effect=Exception("DB timeout"))
             mock_fesco.get_containers = AsyncMock(return_value=[])
-            mock_fesco.find_paths = AsyncMock(return_value=[])
+            mock_fesco.search_container_ids = lambda containers, weight, size: []
+            mock_fesco.find_all_paths = AsyncMock(return_value=[])
 
             request = _make_request()
 
             results = []
-            async for item in calculate_routes_stream(request.to_calculation_request()):
+            async for item in calculate_routes_stream(request):
                 results.append(item)
 
             assert len(results) == 1
@@ -312,27 +307,29 @@ class TestCalculateRoutesStream:
             assert results[0].source == "internal"
 
     @pytest.mark.asyncio
-    async def test_stream_mixed_internal_and_external(self, caller_context):
+    async def test_stream_mixed_internal_and_external(self):
         route_int = _make_full_route(company="CompanyA")
         route_ext = _make_full_route(company="FESCO")
 
         with (
-            patch("services.route_calculation.internal_source") as mock_internal,
-            patch("services.route_calculation.fesco_source") as mock_fesco,
+            patch("services.route_calculation.aggregators") as mock_agg,
+            patch("services.route_calculation.api_client") as mock_fesco,
         ):
-            mock_internal.get_containers = AsyncMock(
+            mock_agg.get_containers = AsyncMock(
                 return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
             )
-            mock_internal.find_paths = AsyncMock(return_value=[route_int])
+            mock_agg.search_container_ids = lambda containers, weight, size: [1]
+            mock_agg.find_all_paths = AsyncMock(return_value=[route_int])
             mock_fesco.get_containers = AsyncMock(
                 return_value=[ContainerItem(id="f1", size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
             )
-            mock_fesco.find_paths = AsyncMock(return_value=[route_ext])
+            mock_fesco.search_container_ids = lambda containers, weight, size: ["f1"]
+            mock_fesco.find_all_paths = AsyncMock(return_value=[route_ext])
 
             request = _make_request(dep_internal=[1], dest_internal=[2], dep_external=["EXT1"], dest_external=["EXT2"])
 
             results = []
-            async for item in calculate_routes_stream(request.to_calculation_request()):
+            async for item in calculate_routes_stream(request):
                 results.append(item)
 
             assert len(results) == 2
@@ -341,20 +338,22 @@ class TestCalculateRoutesStream:
             assert "FESCO" in companies
 
     @pytest.mark.asyncio
-    async def test_stream_empty_ids(self, caller_context):
+    async def test_stream_empty_ids(self):
         with (
-            patch("services.route_calculation.internal_source") as mock_internal,
-            patch("services.route_calculation.fesco_source") as mock_fesco,
+            patch("services.route_calculation.aggregators") as mock_agg,
+            patch("services.route_calculation.api_client") as mock_fesco,
         ):
-            mock_internal.get_containers = AsyncMock(return_value=[])
-            mock_internal.find_paths = AsyncMock(return_value=[])
+            mock_agg.get_containers = AsyncMock(return_value=[])
+            mock_agg.search_container_ids = lambda containers, weight, size: []
+            mock_agg.find_all_paths = AsyncMock(return_value=[])
             mock_fesco.get_containers = AsyncMock(return_value=[])
-            mock_fesco.find_paths = AsyncMock(return_value=[])
+            mock_fesco.search_container_ids = lambda containers, weight, size: []
+            mock_fesco.find_all_paths = AsyncMock(return_value=[])
 
             request = _make_request(dep_internal=[], dest_internal=[], dep_external=[], dest_external=[])
 
             results = []
-            async for item in calculate_routes_stream(request.to_calculation_request()):
+            async for item in calculate_routes_stream(request):
                 results.append(item)
 
             assert len(results) == 0

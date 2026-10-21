@@ -1,7 +1,10 @@
 import datetime
 
 from pydantic import BaseModel
+<<<<<<< HEAD
 from shared.dto.calculation import CalculationRequest
+=======
+>>>>>>> 27ce1f08 (Python: Rename packages by architecture layer)
 
 
 class CalculateFormRequest(BaseModel):
@@ -17,6 +20,7 @@ class CalculateFormRequest(BaseModel):
 
     headTruck: bool = False
     tailTruck: bool = False
+<<<<<<< HEAD
 
     def to_calculation_request(self) -> CalculationRequest:
         """The request of the calculation service."""
@@ -31,3 +35,5 @@ class CalculateFormRequest(BaseModel):
             head_truck=self.headTruck,
             tail_truck=self.tailTruck,
         )
+=======
+>>>>>>> 27ce1f08 (Python: Rename packages by architecture layer)
