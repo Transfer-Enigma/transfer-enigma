@@ -3,8 +3,7 @@ from typing import Annotated
 from fastapi import Depends
 
 from fastapi_another_jwt_auth import AuthJWT
-
-from ..config import Settings, get_settings
+from module_shared.config import Settings, get_settings
 
 
 def request_auth(authorization: Annotated[AuthJWT, Depends()], settings: Annotated[Settings, Depends(get_settings)]):

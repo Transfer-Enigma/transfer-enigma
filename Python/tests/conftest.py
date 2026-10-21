@@ -19,6 +19,13 @@ os.environ["AUTHJWT_SECRET_KEY"] = "test-secret-key"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
 os.environ["REFRESH_TOKEN_EXPIRE_MINUTES"] = "4320"
 os.environ["FESCO_API_KEY"] = "test-key"
+os.environ["DEFAULT_GSHEETS_URL"] = "https://sheets.example.com"
+os.environ["DEFAULT_SEA_ROUTES_WS"] = "sea"
+os.environ["DEFAULT_RAIL_ROUTES_WS"] = "rail"
+os.environ["DEFAULT_TRUCK_ROUTES_WS"] = "truck"
+os.environ["DEFAULT_DROPP_ROUTES_WS"] = "dropp"
+os.environ["DEFAULT_POINTS_WS"] = "points"
+os.environ["DEFAULT_SERVICES_WS"] = "services"
 
 from module_shared.database import Base, Database  # noqa: E402
 

@@ -11,7 +11,6 @@ from starlette.status import (
 
 import gspread
 import pandas
-from backend_admin.config import get_settings
 from backend_admin.dependencies.auth import request_auth
 from backend_admin.models.upoader_fields_config import UploaderFieldsConfig
 from backend_admin.service.routes_loading.errors import (
@@ -25,6 +24,7 @@ from backend_admin.service.routes_loading.errors import (
 )
 from backend_admin.service.routes_loading.processor import load_data
 from gspread_dataframe import get_as_dataframe
+from module_shared.config import get_settings
 from module_shared.database import get_database
 from module_shared.resources import Resources
 from module_shared.schemas.route import RouteType
