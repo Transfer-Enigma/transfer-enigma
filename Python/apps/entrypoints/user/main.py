@@ -3,6 +3,7 @@ from importlib.util import find_spec
 
 from fastapi import FastAPI
 
+from data.cache.registry import get_cache_registry
 from fastapi_another_jwt_auth import AuthJWT
 from fastapi_another_jwt_auth.exceptions import AuthJWTException
 from shared.cache_settings import ensure_settings
@@ -34,6 +35,7 @@ openapi_url = "/openapi.json" if settings.ENVIRONMENT != "prod" else None
 async def lifespan(_: FastAPI):
     await get_database().init()
     await get_redis_client().init()
+    await get_cache_registry().load()
     await ensure_settings()
     yield
     await get_database().close()
