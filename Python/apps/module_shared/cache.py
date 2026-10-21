@@ -4,9 +4,9 @@ from collections.abc import Iterable
 from contextlib import suppress
 from logging import Logger
 
+from module_shared.concurrency import TaskAlreadyRunningError
+from module_shared.concurrency.local_locker import LocalLocker
 from module_shared.redis_client import get_redis
-from module_shared.repositories.locker import TaskAlreadyRunningError
-from module_shared.repositories.locker.local_locker import LocalLocker
 from pydantic import BaseModel
 
 
