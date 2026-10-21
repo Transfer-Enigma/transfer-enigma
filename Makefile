@@ -35,14 +35,8 @@ lint-frontend:
 lint-backend:
 	uv run --active --group dev pre-commit run --all-files $(ARGS);
 
-update:
-	./scripts/prod-update.sh $(ARGS);
-
 alembic:
 	./scripts/alembic-proxy.sh $(ARGS);
-
-migrate:
-	./scripts/prod-db-migrate.sh $(ARGS);
 
 %:
 	@true

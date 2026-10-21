@@ -547,9 +547,7 @@ All output is JSON by default (for AI/script parsing).
 | `make lint` | Backend + frontend lint |
 | `make lint-backend` | pre-commit (black, isort, flake8, mypy) via uv |
 | `make lint-frontend` | ESLint + build (user-frontend), ESLint (admin-frontend) |
-| `make update [args]` | `./scripts/prod-update.sh` — pass args directly |
 | `make alembic [args]` | `./scripts/alembic-proxy.sh` — pass alembic subcommand via args |
-| `make migrate [args]` | `./scripts/prod-db-migrate.sh` — pass alembic subcommand via args |
 
 ---
 
