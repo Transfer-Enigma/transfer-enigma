@@ -40,18 +40,6 @@ export async function getRouteDetail(segments: string, includedServices?: string
     return toRouteDescriptor(result as RouteDetailResponse);
 }
 
-export async function getRouteDetailWithoutMarkup(
-    segments: string,
-    includedServices?: string,
-): Promise<RouteDescriptor> {
-    const url = buildRouteDetailURL(segments, includedServices);
-    const res = await fetch(url, { method: "GET" });
-    if (!res.ok)
-        throw new Error(`Got an error while executing GET ${url} [${res.status}]\n${await res.text()}`);
-
-    return toRouteDescriptor(await res.json() as RouteDetailResponse);
-}
-
 export async function* getRoutesSSE(
     payload: ICalculatorReadyToSendPayload,
 ): AsyncGenerator<{ type: "route"; route: RouteDescriptor } | { type: "error"; error: IError }> {

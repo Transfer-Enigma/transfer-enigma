@@ -17,7 +17,7 @@ const props = defineProps<{
     routes: RouteExtendedDescriptor[],
 }>();
 
-const editMode: Ref<boolean> = inject("editable") || ref(false);
+const editMode: Ref<boolean> = inject("editable", ref(false));
 
 const buildErrorMessage = (
     val: number,
