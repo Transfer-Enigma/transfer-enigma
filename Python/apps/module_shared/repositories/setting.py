@@ -13,11 +13,3 @@ async def get_setting(session: AsyncSession, group: str, name: str) -> SettingIt
     )
     model = result.scalar_one_or_none()
     return SettingItem.from_model(model) if model else None
-
-
-async def list_settings(session: AsyncSession, group: str | None = None) -> list[SettingItem]:
-    stmt = select(SettingModel).order_by(SettingModel.group, SettingModel.name)
-    if group is not None:
-        stmt = stmt.where(SettingModel.group == group)
-    result = await session.execute(stmt)
-    return [SettingItem.from_model(m) for m in result.scalars().all()]
