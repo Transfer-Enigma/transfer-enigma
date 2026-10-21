@@ -1,9 +1,9 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from module_shared.cache_settings import get_setting_cached
-from module_shared.models.setting import SettingItem
-from module_shared.schemas.setting import SettingModel, SettingType
+from shared.cache_settings import get_setting_cached
+from shared.models.setting import SettingItem
+from shared.schemas.setting import SettingModel, SettingType
 
 
 def _mock_cache_controller(get_return=None):
@@ -28,7 +28,7 @@ async def test_get_setting_cached_cache_hit(sqlite_session):
     setting = _mock_setting()
     mock_cc = _mock_cache_controller(get_return=setting)
 
-    with patch("module_shared.cache_settings.get_cache_controller", return_value=mock_cc):
+    with patch("shared.cache_settings.get_cache_controller", return_value=mock_cc):
         result = await get_setting_cached("test_group", "test_key", session=sqlite_session)
 
     assert result is not None
@@ -45,7 +45,7 @@ async def test_get_setting_cached_cache_miss_db_found(sqlite_session):
 
     mock_cc = _mock_cache_controller()
 
-    with patch("module_shared.cache_settings.get_cache_controller", return_value=mock_cc):
+    with patch("shared.cache_settings.get_cache_controller", return_value=mock_cc):
         result = await get_setting_cached("test_group", "test_key", session=sqlite_session)
 
     assert result is not None
@@ -58,7 +58,7 @@ async def test_get_setting_cached_cache_miss_db_found(sqlite_session):
 async def test_get_setting_cached_not_found(sqlite_session):
     mock_cc = _mock_cache_controller()
 
-    with patch("module_shared.cache_settings.get_cache_controller", return_value=mock_cc):
+    with patch("shared.cache_settings.get_cache_controller", return_value=mock_cc):
         result = await get_setting_cached("nonexistent", "key", session=sqlite_session)
 
     assert result is None

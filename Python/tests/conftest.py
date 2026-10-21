@@ -27,7 +27,7 @@ os.environ["DEFAULT_DROPP_ROUTES_WS"] = "dropp"
 os.environ["DEFAULT_POINTS_WS"] = "points"
 os.environ["DEFAULT_SERVICES_WS"] = "services"
 
-from module_shared.database import Base, Database  # noqa: E402
+from shared.database import Base, Database  # noqa: E402
 
 
 @pytest_asyncio.fixture

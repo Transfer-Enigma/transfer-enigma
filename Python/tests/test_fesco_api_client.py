@@ -3,26 +3,26 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from module_data_fesco_api_adapter.api_client.containers import get_containers, search_container_ids
-from module_data_fesco_api_adapter.api_client.points import (
+from data.fesco.api_client.containers import get_containers, search_container_ids
+from data.fesco.api_client.points import (
     get_departure_points_by_date,
     get_destination_points_by_date,
 )
-from module_data_fesco_api_adapter.api_client.routes import find_all_paths
-from module_data_fesco_api_adapter.api_client.transformers.containers import (
+from data.fesco.api_client.routes import find_all_paths
+from data.fesco.api_client.transformers.containers import (
     transform_container,
     transform_containers,
 )
-from module_data_fesco_api_adapter.api_client.transformers.points import (
+from data.fesco.api_client.transformers.points import (
     _transform_point,
     transform_points,
 )
-from module_data_fesco_api_adapter.api_client.transformers.routes import (
+from data.fesco.api_client.transformers.routes import (
     transform_route,
     transform_routes,
     transform_service,
 )
-from module_shared.models.route import ContainerItem
+from shared.models.route import ContainerItem
 
 
 def _mock_redis(get_return=None):
@@ -561,10 +561,10 @@ class TestGetContainers:
 
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.containers.aiohttp.ClientSession",
+                "data.fesco.api_client.containers.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await get_containers(
                 datetime.date(2024, 6, 15), "dep1", "dest1"
@@ -581,10 +581,10 @@ class TestGetContainers:
 
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.containers.aiohttp.ClientSession",
+                "data.fesco.api_client.containers.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await get_containers(
                 datetime.date(2024, 6, 15), "dep1", "dest1"
@@ -599,10 +599,10 @@ class TestGetContainers:
 
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.containers.aiohttp.ClientSession",
+                "data.fesco.api_client.containers.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
             pytest.raises(Exception, match="HTTP 500"),
         ):
             await get_containers(datetime.date(2024, 6, 15), "dep1", "dest1")
@@ -616,7 +616,7 @@ class TestGetContainers:
         mock_redis = _mock_redis(get_return=cached_data)
 
         with patch(
-            "module_data_fesco_api_adapter.cache.get_redis",
+            "data.fesco.cache.get_redis",
             return_value=mock_redis,
         ):
             result = await get_containers(datetime.date(2024, 6, 15), "dep1", "dest1")
@@ -633,11 +633,11 @@ class TestGetContainers:
         mock_session = _mock_aiohttp_session({"data": []})
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.containers.aiohttp.ClientSession",
+                "data.fesco.api_client.containers.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
             patch(
-                "module_data_fesco_api_adapter.cache.get_redis",
+                "data.fesco.cache.get_redis",
                 return_value=mock_redis,
             ),
         ):
@@ -687,10 +687,10 @@ class TestGetDeparturePoints:
 
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.points.aiohttp.ClientSession",
+                "data.fesco.api_client.points.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await get_departure_points_by_date(datetime.date(2024, 6, 15))
 
@@ -704,10 +704,10 @@ class TestGetDeparturePoints:
 
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.points.aiohttp.ClientSession",
+                "data.fesco.api_client.points.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
             pytest.raises(Exception, match="HTTP 500"),
         ):
             await get_departure_points_by_date(datetime.date(2024, 6, 15))
@@ -724,10 +724,10 @@ class TestGetDestinationPoints:
 
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.points.aiohttp.ClientSession",
+                "data.fesco.api_client.points.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await get_destination_points_by_date(
                 datetime.date(2024, 6, 15), "F1"
@@ -743,10 +743,10 @@ class TestGetDestinationPoints:
 
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.points.aiohttp.ClientSession",
+                "data.fesco.api_client.points.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
             pytest.raises(Exception, match="HTTP 500"),
         ):
             await get_destination_points_by_date(
@@ -783,10 +783,10 @@ class TestFindAllPaths:
         mock_redis = _mock_redis()
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.routes.aiohttp.ClientSession",
+                "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15),
@@ -827,10 +827,10 @@ class TestFindAllPaths:
         mock_redis = _mock_redis()
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.routes.aiohttp.ClientSession",
+                "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15),
@@ -880,10 +880,10 @@ class TestFindAllPaths:
         mock_redis = _mock_redis()
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.routes.aiohttp.ClientSession",
+                "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15),
@@ -902,10 +902,10 @@ class TestFindAllPaths:
         mock_redis = _mock_redis()
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.routes.aiohttp.ClientSession",
+                "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15),
@@ -930,10 +930,10 @@ class TestFindAllPaths:
         mock_redis = _mock_redis()
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.routes.aiohttp.ClientSession",
+                "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15),
@@ -978,7 +978,7 @@ class TestFindAllPaths:
         }
         mock_redis = _mock_redis(get_return=json.dumps([cached_route]))
 
-        with patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis):
+        with patch("data.fesco.cache.get_redis", return_value=mock_redis):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15), "dep1", "dest1", ["wte1"]
             )
@@ -995,10 +995,10 @@ class TestFindAllPaths:
         mock_session = _mock_aiohttp_session({"data": []})
         with (
             patch(
-                "module_data_fesco_api_adapter.api_client.routes.aiohttp.ClientSession",
+                "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("module_data_fesco_api_adapter.cache.get_redis", return_value=mock_redis),
+            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15), "dep1", "dest1", ["wte1"]

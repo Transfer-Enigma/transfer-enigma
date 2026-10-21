@@ -129,7 +129,7 @@ services:
       - "./resources/:/workspace/resources/:rw"
       - "./logs/:/var/log/app/:rw"
     command:
-      - "backend_user.main:app"
+      - "entrypoints.user.main:app"
       - "--host"
       - "0.0.0.0"
       - "--port"
@@ -155,7 +155,7 @@ services:
       - "./resources/:/workspace/resources/:rw"
       - "./logs/:/workspace/logs/:rw"
     command:
-      - "backend_auth.main:app"
+      - "entrypoints.auth.main:app"
       - "--host"
       - "0.0.0.0"
       - "--port"
@@ -181,7 +181,7 @@ services:
       - "./resources/:/workspace/resources/:rw"
       - "./logs/:/workspace/logs/:rw"
     command:
-      - "backend_admin.main:app"
+      - "entrypoints.admin.main:app"
       - "--host"
       - "0.0.0.0"
       - "--port"
