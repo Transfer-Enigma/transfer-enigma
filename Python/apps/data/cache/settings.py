@@ -15,10 +15,10 @@ from .registry import get_cache_registry
 ========
 from .cache_controller import CacheController
 from .database import get_database
-from .models.setting import SettingItem, parse_setting_value
+from .dto.setting import SettingItem, parse_setting_value
+from .orm.setting import SettingModel
 from .redis_client import get_redis
 from .repositories import setting as rsettings
-from .schemas.setting import SettingModel
 from .setting_definitions import get_setting_definitions
 from .settings import get_setting as _get_setting
 >>>>>>>> a90e866f (Python: Rename packages by architecture layer):Python/apps/shared/cache_settings.py

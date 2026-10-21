@@ -1,11 +1,15 @@
 import json
 
 from pydantic import BaseModel, field_validator
+<<<<<<< HEAD
 <<<<<<<< HEAD:Python/apps/shared/dto/setting.py
 from shared.orm.setting import SettingModel, SettingType
 ========
 from shared.schemas.setting import SettingModel, SettingType
 >>>>>>>> a90e866f (Python: Rename packages by architecture layer):Python/apps/shared/models/setting.py
+=======
+from shared.orm.setting import SettingModel, SettingType
+>>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 
 
 def parse_setting_value(  # noqa: C901

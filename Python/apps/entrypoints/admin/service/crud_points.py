@@ -1,12 +1,6 @@
-<<<<<<<< HEAD:Python/apps/data/repositories/admin/crud_points.py
-from data.repositories.admin.crud_base import CRUDBase, FilterDef
-from data.repositories.admin.schemas import PointCreate, PointPatch, PointResponse
-from shared.orm.point import PointModel
-========
 from entrypoints.admin.schemas.data_browser import PointCreate, PointPatch, PointResponse
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-from shared.schemas.point import PointModel
->>>>>>>> 27ce1f08 (Python: Rename packages by architecture layer):Python/apps/entrypoints/admin/service/crud_points.py
+from shared.orm.point import PointModel
 
 
 class CRUDPoint(CRUDBase):

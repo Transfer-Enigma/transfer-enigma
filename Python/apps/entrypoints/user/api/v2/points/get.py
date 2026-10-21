@@ -28,9 +28,14 @@ from shared.orm.company import CompanyModel
 from shared.orm.point import PointModel
 =======
 from shared.cache_settings import get_setting_cached
+<<<<<<< HEAD
 from shared.schemas.company import CompanyModel
 from shared.schemas.point import PointModel
 >>>>>>> a90e866f (Python: Rename packages by architecture layer)
+=======
+from shared.orm.company import CompanyModel
+from shared.orm.point import PointModel
+>>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 
 router = APIRouter(prefix="/v2/points", tags=["v2", "points"])
 

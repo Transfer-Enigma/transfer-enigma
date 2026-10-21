@@ -3,6 +3,7 @@ from collections import defaultdict
 from typing import Any
 
 import pandas as pd
+<<<<<<< HEAD
 from data.routes_loading.fields_config import UploaderFieldsConfig
 from pandas import DataFrame
 <<<<<<< HEAD
@@ -10,6 +11,11 @@ from shared.orm.route import (
 =======
 from shared.schemas.route import (
 >>>>>>> a90e866f (Python: Rename packages by architecture layer)
+=======
+from entrypoints.admin.models.upoader_fields_config import UploaderFieldsConfig
+from pandas import DataFrame
+from shared.orm.route import (
+>>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
     ContainerOwner,
     ContainerShipmentTerms,
     ContainerTransferTerms,

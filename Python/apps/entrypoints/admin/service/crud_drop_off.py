@@ -1,15 +1,9 @@
 import datetime
 from typing import Any
 
-<<<<<<<< HEAD:Python/apps/data/repositories/admin/crud_drop_off.py
-from data.repositories.admin.crud_base import CRUDBase, FilterDef
-from data.repositories.admin.schemas import DropOffCreate, DropOffPatch, DropOffResponse
-from shared.orm import DropModel
-========
 from entrypoints.admin.schemas.data_browser import DropOffCreate, DropOffPatch, DropOffResponse
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-from shared.schemas import DropModel
->>>>>>>> 27ce1f08 (Python: Rename packages by architecture layer):Python/apps/entrypoints/admin/service/crud_drop_off.py
+from shared.orm import DropModel
 
 
 def _parse_date(value: str) -> datetime.date:

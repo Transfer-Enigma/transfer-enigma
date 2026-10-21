@@ -3,9 +3,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 from data.cache.settings import get_setting_cached
 =======
 >>>>>>> a90e866f (Python: Rename packages by architecture layer)
+=======
+>>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from entrypoints.user.schemas.routes import NormalizedRoutes, RoutesDataResponse
@@ -15,8 +18,12 @@ from services.route_calculation import _strip_demo_fields, calculate_routes
 from shared.dto.route import RouteResult
 =======
 from shared.cache_settings import get_setting_cached
+<<<<<<< HEAD
 from shared.models.route import RouteResult
 >>>>>>> a90e866f (Python: Rename packages by architecture layer)
+=======
+from shared.dto.route import RouteResult
+>>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 
 router = APIRouter(prefix="/v2/routes", tags=["v2", "routes"])
 

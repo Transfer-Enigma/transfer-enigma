@@ -2,17 +2,23 @@ import datetime
 import enum
 
 from shared.database import Base
+<<<<<<< HEAD
 <<<<<<<< HEAD:Python/apps/shared/orm/route.py
+=======
+>>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 from shared.orm.company import CompanyModel
 from shared.orm.container import ContainerModel
 from shared.orm.point import PointModel
 from shared.orm.service import ServiceModel
+<<<<<<< HEAD
 ========
 from shared.schemas.company import CompanyModel
 from shared.schemas.container import ContainerModel
 from shared.schemas.point import PointModel
 from shared.schemas.service import ServiceModel
 >>>>>>>> a90e866f (Python: Rename packages by architecture layer):Python/apps/shared/schemas/route.py
+=======
+>>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

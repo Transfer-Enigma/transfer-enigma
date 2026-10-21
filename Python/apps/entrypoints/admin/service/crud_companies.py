@@ -1,12 +1,6 @@
-<<<<<<<< HEAD:Python/apps/data/repositories/admin/crud_companies.py
-from data.repositories.admin.crud_base import CRUDBase, FilterDef
-from data.repositories.admin.schemas import CompanyCreate, CompanyPatch, CompanyResponse
-from shared.orm.company import CompanyModel
-========
 from entrypoints.admin.schemas.data_browser import CompanyCreate, CompanyPatch, CompanyResponse
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-from shared.schemas.company import CompanyModel
->>>>>>>> 27ce1f08 (Python: Rename packages by architecture layer):Python/apps/entrypoints/admin/service/crud_companies.py
+from shared.orm.company import CompanyModel
 
 
 class CRUDCompany(CRUDBase):

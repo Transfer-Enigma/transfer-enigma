@@ -9,10 +9,14 @@ from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from entrypoints.user.schemas.routes import NormalizedRoutes
 <<<<<<< HEAD
+<<<<<<< HEAD
 from shared.dto.route import RouteResult
 =======
 from shared.models.route import RouteResult
 >>>>>>> a90e866f (Python: Rename packages by architecture layer)
+=======
+from shared.dto.route import RouteResult
+>>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 
 logger = logging.getLogger(__name__)
 

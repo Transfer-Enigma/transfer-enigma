@@ -1,21 +1,12 @@
 from typing import Any
 
-<<<<<<<< HEAD:Python/apps/data/repositories/admin/crud_containers.py
-from data.repositories.admin.crud_base import CRUDBase, FilterDef
-from data.repositories.admin.schemas import (
-========
 from entrypoints.admin.schemas.data_browser import (
->>>>>>>> 27ce1f08 (Python: Rename packages by architecture layer):Python/apps/entrypoints/admin/service/crud_containers.py
     ContainerCreate,
     ContainerPatch,
     ContainerResponse,
 )
-<<<<<<<< HEAD:Python/apps/data/repositories/admin/crud_containers.py
-from shared.orm.container import ContainerModel, ContainerType
-========
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-from shared.schemas.container import ContainerModel, ContainerType
->>>>>>>> 27ce1f08 (Python: Rename packages by architecture layer):Python/apps/entrypoints/admin/service/crud_containers.py
+from shared.orm.container import ContainerModel, ContainerType
 
 
 class CRUDContainer(CRUDBase):
