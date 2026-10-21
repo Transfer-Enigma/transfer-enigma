@@ -3,11 +3,11 @@ from typing import Annotated
 from fastapi import Depends, Request
 
 from fastapi_another_jwt_auth import AuthJWT
+from module_shared.config import Settings, get_settings
 from module_shared.database import Database, get_database
 from module_shared.repositories.demo_guest import get_demo_guest_by_uid
 from pydantic import BaseModel
 
-from ..config import Settings, get_settings
 from .auth import request_auth
 
 
