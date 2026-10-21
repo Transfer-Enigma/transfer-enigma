@@ -159,7 +159,7 @@ export function revalidateRoutes(resort: boolean = true) {
 
 export const clearRoutes = () => useRoutes().setRoutes();
 
-function processRoutes(routes: (RouteDescriptor | RouteExtendedDescriptor)[], sort: boolean): RouteExtendedDescriptor[] {
+export function processRoutes(routes: (RouteDescriptor | RouteExtendedDescriptor)[], sort: boolean): RouteExtendedDescriptor[] {
     const result: RouteExtendedDescriptor[] = Array.from({ length: routes.length });
 
     for (const key in routes) {
@@ -271,8 +271,8 @@ function processRoutes(routes: (RouteDescriptor | RouteExtendedDescriptor)[], so
 
     if (sort)
         result.sort((a: RouteExtendedDescriptor, b: RouteExtendedDescriptor) =>
-            (Number.isNaN(a[1][1]) ? (a[1][1] as PriceRange)[0] : a[1][1] as number)
-            - (Number.isNaN(b[1][1]) ? (b[1][1] as PriceRange)[0] : b[1][1] as number));
+            (Array.isArray(a[1][1]) ? (a[1][1] as PriceRange)[0] : a[1][1] as number)
+            - (Array.isArray(b[1][1]) ? (b[1][1] as PriceRange)[0] : b[1][1] as number));
 
     return result;
 }
