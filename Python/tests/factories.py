@@ -1,10 +1,10 @@
 import datetime
 
-from shared.schemas.company import CompanyModel
-from shared.schemas.container import ContainerModel, ContainerType
-from shared.schemas.drop import DropModel
-from shared.schemas.point import PointModel
-from shared.schemas.route import (
+from shared.orm.company import CompanyModel
+from shared.orm.container import ContainerModel, ContainerType
+from shared.orm.drop import DropModel
+from shared.orm.point import PointModel
+from shared.orm.route import (
     ContainerOwner,
     ContainerShipmentTerms,
     ContainerTransferTerms,
@@ -13,7 +13,7 @@ from shared.schemas.route import (
     RouteType,
     ServicePriceModel,
 )
-from shared.schemas.service import ServiceModel
+from shared.orm.service import ServiceModel
 
 __all__ = (
     "CompanyFactory",

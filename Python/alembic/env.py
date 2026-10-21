@@ -21,7 +21,7 @@ if project_root not in sys.path:
 
 
 from shared.config import get_settings
-from shared.schemas import Base
+from shared.orm import Base
 
 
 # this is the Alembic Config object, which provides

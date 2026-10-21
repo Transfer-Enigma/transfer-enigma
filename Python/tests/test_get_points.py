@@ -9,7 +9,7 @@ from data.internal.aggregators.points import (
     get_truck_destination_points,
 )
 from shared.database import Database
-from shared.schemas.route import RouteType
+from shared.orm.route import RouteType
 
 from .factories import CompanyFactory, PointFactory, RouteFactory
 

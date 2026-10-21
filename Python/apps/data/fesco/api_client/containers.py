@@ -3,7 +3,7 @@ import logging
 
 import aiohttp
 from shared.config import get_settings
-from shared.models.route import ContainerItem
+from shared.dto.route import ContainerItem
 
 from ..cache import FESCO_CONTAINERS_TTL, CacheKeys, get_cached, silent_set_cache_async
 from .transformers.containers import transform_containers

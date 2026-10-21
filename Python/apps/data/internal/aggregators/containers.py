@@ -1,7 +1,7 @@
 import datetime
 
 from shared.database import get_database
-from shared.schemas.container import ContainerModel
+from shared.orm.container import ContainerModel
 from sqlalchemy import select
 
 from .transformers.containers import transform_containers

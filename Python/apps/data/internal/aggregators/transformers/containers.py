@@ -1,5 +1,5 @@
-from shared.models.route import ContainerItem
-from shared.schemas.container import ContainerModel
+from shared.dto.route import ContainerItem
+from shared.orm.container import ContainerModel
 
 
 def transform_container(container: ContainerModel) -> ContainerItem:

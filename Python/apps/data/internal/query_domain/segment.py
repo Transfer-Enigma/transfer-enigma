@@ -1,7 +1,7 @@
 from typing import Any
 
 from data.internal.query_domain.expr import ColumnRef
-from shared.schemas.route import RouteType
+from shared.orm.route import RouteType
 
 
 class Segment:

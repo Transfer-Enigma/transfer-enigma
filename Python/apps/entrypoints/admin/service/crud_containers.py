@@ -6,7 +6,7 @@ from entrypoints.admin.schemas.data_browser import (
     ContainerResponse,
 )
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-from shared.schemas.container import ContainerModel, ContainerType
+from shared.orm.container import ContainerModel, ContainerType
 
 
 class CRUDContainer(CRUDBase):

@@ -1,6 +1,6 @@
 from entrypoints.admin.schemas.data_browser import CompanyCreate, CompanyPatch, CompanyResponse
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-from shared.schemas.company import CompanyModel
+from shared.orm.company import CompanyModel
 
 
 class CRUDCompany(CRUDBase):

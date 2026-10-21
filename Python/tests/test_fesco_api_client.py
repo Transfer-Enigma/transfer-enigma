@@ -22,7 +22,7 @@ from data.fesco.api_client.transformers.routes import (
     transform_routes,
     transform_service,
 )
-from shared.models.route import ContainerItem
+from shared.dto.route import ContainerItem
 
 
 def _mock_redis(get_return=None):

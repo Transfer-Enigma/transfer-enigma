@@ -20,8 +20,8 @@ from entrypoints.user.utils.group_points import (
     raw_point_from_dict,
 )
 from shared.cache_settings import get_setting_cached
-from shared.schemas.company import CompanyModel
-from shared.schemas.point import PointModel
+from shared.orm.company import CompanyModel
+from shared.orm.point import PointModel
 
 router = APIRouter(prefix="/v2/points", tags=["v2", "points"])
 

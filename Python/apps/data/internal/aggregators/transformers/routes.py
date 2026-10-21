@@ -1,5 +1,5 @@
 from shared.database import Base
-from shared.models.route import (
+from shared.dto.route import (
     ContainerItem,
     DropItem,
     PriceItem,
@@ -7,8 +7,8 @@ from shared.models.route import (
     RouteSegment,
     ServiceItem,
 )
-from shared.schemas.drop import DropModel
-from shared.schemas.route import PriceModel, RouteModel
+from shared.orm.drop import DropModel
+from shared.orm.route import PriceModel, RouteModel
 
 
 def _transform_container_from_orm(price: PriceModel) -> ContainerItem:

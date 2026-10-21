@@ -3,7 +3,7 @@ from typing import Any
 
 from entrypoints.admin.schemas.data_browser import DropOffCreate, DropOffPatch, DropOffResponse
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-from shared.schemas import DropModel
+from shared.orm import DropModel
 
 
 def _parse_date(value: str) -> datetime.date:

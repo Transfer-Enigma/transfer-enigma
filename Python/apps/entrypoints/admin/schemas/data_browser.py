@@ -1,12 +1,12 @@
 from pydantic import BaseModel
-from shared.schemas import SettingType
-from shared.schemas.company import CompanyModel
-from shared.schemas.container import ContainerModel
-from shared.schemas.drop import DropModel
-from shared.schemas.point import PointModel
-from shared.schemas.route import PriceModel, RouteModel, ServicePriceModel
-from shared.schemas.service import ServiceModel
-from shared.schemas.setting import SettingModel
+from shared.orm import SettingType
+from shared.orm.company import CompanyModel
+from shared.orm.container import ContainerModel
+from shared.orm.drop import DropModel
+from shared.orm.point import PointModel
+from shared.orm.route import PriceModel, RouteModel, ServicePriceModel
+from shared.orm.service import ServiceModel
+from shared.orm.setting import SettingModel
 
 # ─── Companies ────────────────────────────────────────────────────────────────
 
