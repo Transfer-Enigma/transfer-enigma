@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterable
 from functools import cache
 
 from shared.cache import CacheBackend, CacheEntity, CachePolicy, CacheStorage, RedisStorage
@@ -52,6 +53,12 @@ class CacheRegistry:
             backend = CacheBackend(self._storage, source, self._policies.get(source, {}))
             self._backends[source] = backend
         return backend
+
+    def add_policies(self, policies: Iterable[CachePolicy]) -> None:
+        """Add policies to the registry, replacing the ones of the same entity."""
+        for policy in policies:
+            self._policies.setdefault(policy.source, {})[policy.entity] = policy
+            self._backends.pop(policy.source, None)
 
     def policies(self, source: str) -> dict[CacheEntity, CachePolicy]:
         """The policies of a source."""

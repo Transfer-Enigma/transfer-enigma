@@ -1,19 +1,22 @@
 import datetime
 
 import aiohttp
+from shared.cache import CacheEntity
 from shared.config import get_settings
 
-from ..cache import CacheKeys, get_cached, get_points_ttl, silent_set_cache_async
+from ..cache import departures_parts, destinations_parts, get_backend, get_points_ttl
 
 
 async def get_departure_points_by_date(date: datetime.date):
-    cache_key = CacheKeys.get_departures_cache_key(date)
-    cached_data = await get_cached(cache_key)
+    backend = get_backend()
+    parts = departures_parts(date)
+
+    cached_data = await backend.get(CacheEntity.DEPARTURES, *parts)
     if cached_data:
         return cached_data
 
     data = await _fetch_departure_points_by_date(date)
-    silent_set_cache_async(cache_key, data, get_points_ttl(date))
+    backend.silent_set_async(CacheEntity.DEPARTURES, *parts, data=data, ttl=get_points_ttl(date))
     return data
 
 
@@ -32,13 +35,15 @@ async def _fetch_departure_points_by_date(date: datetime.date):
 
 
 async def get_destination_points_by_date(date: datetime.date, departure_point_id: str):
-    cache_key = CacheKeys.get_destinations_cache_key(date, departure_point_id)
-    cached_data = await get_cached(cache_key)
+    backend = get_backend()
+    parts = destinations_parts(date, departure_point_id)
+
+    cached_data = await backend.get(CacheEntity.DESTINATIONS, *parts)
     if cached_data:
         return cached_data
 
     data = await _fetch_departure_points_by_date(date)
-    silent_set_cache_async(cache_key, data, get_points_ttl(date))
+    backend.silent_set_async(CacheEntity.DESTINATIONS, *parts, data=data, ttl=get_points_ttl(date))
     return data
 
 
