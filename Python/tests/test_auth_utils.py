@@ -1,8 +1,8 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from backend_user.services.route_calculation import _strip_demo_fields
-from module_shared.models.route import RouteSegment
+from services.route_calculation import _strip_demo_fields
+from shared.models.route import RouteSegment
 
 
 class TestStripDemoFields:
@@ -50,7 +50,7 @@ def _make_segment(company: str = "CompanyA", **kwargs) -> RouteSegment:
 
 @pytest.mark.asyncio
 async def test_get_auth_context_with_demo_header(sqlite_db):
-    from backend_user.dependencies.auth_context import get_auth_context
+    from entrypoints.user.dependencies.auth_context import get_auth_context
 
     demo_guest = AsyncMock()
     demo_guest.sea_profit = 50.0
@@ -59,8 +59,8 @@ async def test_get_auth_context_with_demo_header(sqlite_db):
     demo_guest.rail_profit_currency = "USD"
 
     with (
-        patch("backend_user.dependencies.auth_context.get_demo_guest_by_uid", return_value=demo_guest),
-        patch("backend_user.dependencies.auth_context.get_database", return_value=sqlite_db),
+        patch("entrypoints.user.dependencies.auth_context.get_demo_guest_by_uid", return_value=demo_guest),
+        patch("entrypoints.user.dependencies.auth_context.get_database", return_value=sqlite_db),
     ):
         mock_request = AsyncMock()
         mock_request.headers.get = lambda key, default=None: "demo-uid-123" if key == "X-Demo-User-UID" else default
@@ -84,10 +84,10 @@ async def test_get_auth_context_with_demo_header(sqlite_db):
 
 @pytest.mark.asyncio
 async def test_get_auth_context_without_demo_header(sqlite_db):
-    from backend_user.dependencies.auth_context import get_auth_context
+    from entrypoints.user.dependencies.auth_context import get_auth_context
 
     with (
-        patch("backend_user.dependencies.auth_context.request_auth", return_value=None),
+        patch("entrypoints.user.dependencies.auth_context.request_auth", return_value=None),
     ):
         mock_request = AsyncMock()
         mock_request.headers.get = lambda key, default=None: None
@@ -111,11 +111,11 @@ async def test_get_auth_context_without_demo_header(sqlite_db):
 
 @pytest.mark.asyncio
 async def test_get_auth_context_invalid_demo_uid(sqlite_db):
-    from backend_user.dependencies.auth_context import get_auth_context
+    from entrypoints.user.dependencies.auth_context import get_auth_context
 
     with (
-        patch("backend_user.dependencies.auth_context.get_demo_guest_by_uid", return_value=None),
-        patch("backend_user.dependencies.auth_context.get_database", return_value=sqlite_db),
+        patch("entrypoints.user.dependencies.auth_context.get_demo_guest_by_uid", return_value=None),
+        patch("entrypoints.user.dependencies.auth_context.get_database", return_value=sqlite_db),
     ):
         mock_request = AsyncMock()
         mock_request.headers.get = lambda key, default=None: "invalid-uid" if key == "X-Demo-User-UID" else default
@@ -137,7 +137,7 @@ async def test_get_auth_context_invalid_demo_uid(sqlite_db):
 
 @pytest.mark.asyncio
 async def test_strip_demo_fields_no_routes():
-    from backend_user.services.route_calculation import _strip_demo_fields
+    from services.route_calculation import _strip_demo_fields
 
     routes = []
     _strip_demo_fields(routes)
@@ -146,7 +146,7 @@ async def test_strip_demo_fields_no_routes():
 
 @pytest.mark.asyncio
 async def test_strip_demo_fields_empty_segments_list():
-    from backend_user.services.route_calculation import _strip_demo_fields
+    from services.route_calculation import _strip_demo_fields
 
     routes = [([], None, False, [])]
     _strip_demo_fields(routes)

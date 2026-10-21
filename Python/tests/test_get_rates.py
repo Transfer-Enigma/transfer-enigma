@@ -3,7 +3,7 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from backend_user.services.get_rates import get_rates
+from services.get_rates import get_rates
 
 
 class MockCurrency:
@@ -32,8 +32,8 @@ def _mock_redis(get_return=None):
 async def test_get_rates_returns_tuple():
     redis = _mock_redis()
     with (
-        patch("backend_user.services.get_rates.ExchangeRates", return_value=MockExchangeRates(None)),
-        patch("backend_user.services.get_rates.get_redis", return_value=redis),
+        patch("services.get_rates.ExchangeRates", return_value=MockExchangeRates(None)),
+        patch("services.get_rates.get_redis", return_value=redis),
     ):
         rates, dt = await get_rates()
 
@@ -50,8 +50,8 @@ async def test_get_rates_with_passed_datetime():
     dt = datetime.datetime(2024, 6, 15, 12, 0, 0)
     redis = _mock_redis()
     with (
-        patch("backend_user.services.get_rates.ExchangeRates", return_value=MockExchangeRates(None)),
-        patch("backend_user.services.get_rates.get_redis", return_value=redis),
+        patch("services.get_rates.ExchangeRates", return_value=MockExchangeRates(None)),
+        patch("services.get_rates.get_redis", return_value=redis),
     ):
         rates, updated_at = await get_rates(dt)
 
@@ -64,8 +64,8 @@ async def test_get_rates_api_failure_fallback_to_redis():
     cached = json.dumps({"rates": {"USD": 85.0}, "date": "2024-06-14"})
     redis = _mock_redis(get_return=cached)
     with (
-        patch("backend_user.services.get_rates.ExchangeRates", side_effect=ConnectionError("API unavailable")),
-        patch("backend_user.services.get_rates.get_redis", return_value=redis),
+        patch("services.get_rates.ExchangeRates", side_effect=ConnectionError("API unavailable")),
+        patch("services.get_rates.get_redis", return_value=redis),
     ):
         rates, cached_date = await get_rates(datetime.datetime(2020, 1, 1))
 
@@ -77,8 +77,8 @@ async def test_get_rates_api_failure_fallback_to_redis():
 async def test_get_rates_api_failure_no_cache_raises():
     redis = _mock_redis()
     with (
-        patch("backend_user.services.get_rates.ExchangeRates", side_effect=ConnectionError("API unavailable")),
-        patch("backend_user.services.get_rates.get_redis", return_value=redis),
+        patch("services.get_rates.ExchangeRates", side_effect=ConnectionError("API unavailable")),
+        patch("services.get_rates.get_redis", return_value=redis),
         pytest.raises(RuntimeError, match="No rates available"),
     ):
         await get_rates(datetime.datetime(2020, 1, 1))

@@ -20,8 +20,8 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 
-from module_shared.config import get_settings
-from module_shared.schemas import Base
+from shared.config import get_settings
+from shared.schemas import Base
 
 
 # this is the Alembic Config object, which provides

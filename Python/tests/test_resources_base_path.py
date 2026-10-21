@@ -2,8 +2,8 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from backend_admin.resources import Resources
-from module_shared.config import get_settings
+from entrypoints.admin.resources import Resources
+from shared.config import get_settings
 
 
 @pytest.fixture

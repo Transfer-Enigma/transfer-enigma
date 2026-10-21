@@ -4,12 +4,12 @@ from unittest.mock import AsyncMock, Mock, patch
 from fastapi.sse import ServerSentEvent
 
 import pytest
-from backend_user.api.v3.routes.post import _sse_generator
-from backend_user.dependencies.auth_context import AuthContext
-from backend_user.schemas.errors import RouteError
-from backend_user.schemas.form_requests import CalculateFormRequest
-from backend_user.services.route_calculation import calculate_routes_stream
-from module_shared.models.route import ContainerItem, PriceItem, RouteResult, RouteSegment
+from entrypoints.user.api.v3.routes.post import _sse_generator
+from entrypoints.user.dependencies.auth_context import AuthContext
+from entrypoints.user.schemas.errors import RouteError
+from entrypoints.user.schemas.form_requests import CalculateFormRequest
+from services.route_calculation import calculate_routes_stream
+from shared.models.route import ContainerItem, PriceItem, RouteResult, RouteSegment
 
 
 def _make_segment(company: str = "CompanyA", **overrides) -> RouteSegment:
@@ -78,7 +78,7 @@ class TestSSEGenerator:
         route1 = _make_full_route(company="CompanyA")
         route2 = _make_full_route(company="CompanyB")
 
-        with patch("backend_user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
+        with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
                 yield route1
                 yield route2
@@ -104,7 +104,7 @@ class TestSSEGenerator:
     async def test_sse_streams_errors(self):
         error = RouteError(error_type="ValueError", error_text="Invalid data", source="internal")
 
-        with patch("backend_user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
+        with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
                 yield error
 
@@ -126,7 +126,7 @@ class TestSSEGenerator:
         route = _make_full_route(company="CompanyA")
         error = RouteError(error_type="TimeoutError", error_text="FESCO timeout", source="external")
 
-        with patch("backend_user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
+        with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
                 yield route
                 yield error
@@ -152,7 +152,7 @@ class TestSSEGenerator:
     async def test_sse_last_event_id(self):
         route = _make_full_route(company="CompanyA")
 
-        with patch("backend_user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
+        with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
                 yield route
 
@@ -169,13 +169,13 @@ class TestSSEGenerator:
             assert events[0].id == "6"
 
     @pytest.mark.asyncio
-    @patch("backend_user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
+    @patch("entrypoints.user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
     async def test_sse_demo_transforms_strips_company(self, mock_get_setting):
         mock_get_setting.return_value = Mock(value=["company"])
         route = _make_full_route(company="CompanyA")
         auth = AuthContext(is_demo=True)
 
-        with patch("backend_user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
+        with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
                 yield route
 
@@ -193,7 +193,7 @@ class TestSSEGenerator:
         route = _make_full_route(company="CompanyA")
         auth = AuthContext(is_demo=False)
 
-        with patch("backend_user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
+        with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
                 yield route
 
@@ -207,15 +207,15 @@ class TestSSEGenerator:
             assert events[0].data.segments[0].company == "CompanyA"
 
     @pytest.mark.asyncio
-    @patch("backend_user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
-    @patch("backend_user.services.profit.get_rates", new_callable=AsyncMock)
+    @patch("entrypoints.user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
+    @patch("services.profit.get_rates", new_callable=AsyncMock)
     async def test_sse_demo_transforms_with_profit(self, mock_rates, mock_get_setting):
         mock_get_setting.return_value = Mock(value=["company"])
         mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
         route = _make_full_route(company="CompanyA", type="sea")
         auth = AuthContext(is_demo=True, sea_profit=100.0, sea_profit_currency="USD")
 
-        with patch("backend_user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
+        with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
                 yield route
 
@@ -232,7 +232,7 @@ class TestSSEGenerator:
 
     @pytest.mark.asyncio
     async def test_sse_empty_results(self):
-        with patch("backend_user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
+        with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
                 return
                 yield
@@ -256,8 +256,8 @@ class TestCalculateRoutesStream:
         route2 = _make_full_route(company="CompanyB")
 
         with (
-            patch("backend_user.services.route_calculation.aggregators") as mock_agg,
-            patch("backend_user.services.route_calculation.api_client") as mock_fesco,
+            patch("services.route_calculation.aggregators") as mock_agg,
+            patch("services.route_calculation.api_client") as mock_fesco,
         ):
             mock_agg.get_containers = AsyncMock(
                 return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -283,8 +283,8 @@ class TestCalculateRoutesStream:
     @pytest.mark.asyncio
     async def test_stream_yields_errors(self):
         with (
-            patch("backend_user.services.route_calculation.aggregators") as mock_agg,
-            patch("backend_user.services.route_calculation.api_client") as mock_fesco,
+            patch("services.route_calculation.aggregators") as mock_agg,
+            patch("services.route_calculation.api_client") as mock_fesco,
         ):
             mock_agg.get_containers = AsyncMock(
                 return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -312,8 +312,8 @@ class TestCalculateRoutesStream:
         route_ext = _make_full_route(company="FESCO")
 
         with (
-            patch("backend_user.services.route_calculation.aggregators") as mock_agg,
-            patch("backend_user.services.route_calculation.api_client") as mock_fesco,
+            patch("services.route_calculation.aggregators") as mock_agg,
+            patch("services.route_calculation.api_client") as mock_fesco,
         ):
             mock_agg.get_containers = AsyncMock(
                 return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -340,8 +340,8 @@ class TestCalculateRoutesStream:
     @pytest.mark.asyncio
     async def test_stream_empty_ids(self):
         with (
-            patch("backend_user.services.route_calculation.aggregators") as mock_agg,
-            patch("backend_user.services.route_calculation.api_client") as mock_fesco,
+            patch("services.route_calculation.aggregators") as mock_agg,
+            patch("services.route_calculation.api_client") as mock_fesco,
         ):
             mock_agg.get_containers = AsyncMock(return_value=[])
             mock_agg.search_container_ids = lambda containers, weight, size: []
