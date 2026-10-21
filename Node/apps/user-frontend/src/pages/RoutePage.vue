@@ -2,14 +2,12 @@
 import LoadingSpinner from "@/components/LoadingSpinner.vue";
 import ResultsWidget from "@/widgets/ResultsWidget.vue";
 
-import { getRouteDetail, getRouteDetailWithoutMarkup } from "@/api_helpers/routes";
-import { useToast } from "@/composables/useToast";
+import { getRouteDetail } from "@/api_helpers/routes";
 import { processRoutes } from "@/services/calculator";
-import { updateUser } from "@/services/auth";
 import { loadCachedRates, updateRates } from "@/services/rates";
 import { useDemoAuth } from "@/stores/demoAuth";
 
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, provide, ref } from "vue";
 
 import type { RouteDescriptor, RouteExtendedDescriptor } from "@/interfaces/Routes";
 
@@ -24,16 +22,9 @@ const loading = ref<boolean>(true);
 const notFound = ref<boolean>(false);
 const unauthorized = ref<boolean>(false);
 const errorMessage = ref<string | undefined>();
-const markupRoutes = ref<RouteExtendedDescriptor[] | undefined>();
-const baseRoutes = ref<RouteExtendedDescriptor[] | undefined>();
-const baseLoaded = ref<boolean>(false);
-const baseFailed = ref<boolean>(false);
-const showWithoutMarkup = ref<boolean>(false);
-const isLoggedIn = ref<boolean>(false);
+const displayedRoutes = ref<RouteExtendedDescriptor[] | undefined>();
 
-const isDemo = computed(() => useDemoAuth().isDemo);
-const canToggleMarkup = computed(() => isDemo.value && isLoggedIn.value);
-const displayedRoutes = computed(() => showWithoutMarkup.value ? baseRoutes.value : markupRoutes.value);
+provide("isDemoModeActive", computed(() => useDemoAuth().isDemo));
 
 function statusOf(e: unknown): number | null {
     const match = /\[(\d{3})\]/.exec((e as Error)?.message ?? "");
@@ -51,7 +42,7 @@ async function load() {
         }
 
         const descriptor: RouteDescriptor = await getRouteDetail(props.segments, props.includedServices);
-        markupRoutes.value = processRoutes([descriptor], false);
+        displayedRoutes.value = processRoutes([descriptor], false);
     } catch (e) {
         const status = statusOf(e);
         if (status === 404 || !props.segments)
@@ -62,30 +53,6 @@ async function load() {
             errorMessage.value = (e as Error)?.message ?? "Неизвестная ошибка";
     } finally {
         loading.value = false;
-    }
-
-    try {
-        await updateUser();
-        isLoggedIn.value = true;
-    } catch {
-        isLoggedIn.value = false;
-    }
-}
-
-async function toggleMarkup() {
-    showWithoutMarkup.value = !showWithoutMarkup.value;
-
-    if (showWithoutMarkup.value && !baseLoaded.value) {
-        try {
-            const descriptor = await getRouteDetailWithoutMarkup(props.segments!, props.includedServices);
-            baseRoutes.value = processRoutes([descriptor], false);
-            baseLoaded.value = true;
-        } catch (e) {
-            console.log(e);
-            baseFailed.value = true;
-            showWithoutMarkup.value = false;
-            useToast().show("Не удалось загрузить цену без надбавки", "error");
-        }
     }
 }
 
@@ -111,21 +78,6 @@ onMounted(load);
 
         <div v-else-if="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
-        <div v-else-if="displayedRoutes">
-            <div v-if="canToggleMarkup" class="mb-3">
-                <button class="btn btn-secondary" @click="toggleMarkup">
-                    <template v-if="showWithoutMarkup">
-                        Показать цену с надбавкой
-                    </template>
-                    <template v-else>
-                        Показать цену без надбавки
-                    </template>
-                </button>
-            </div>
-
-            <div v-if="baseFailed" class="alert alert-warning">Не удалось загрузить цену без надбавки</div>
-
-            <ResultsWidget :routes="displayedRoutes" />
-        </div>
+        <ResultsWidget v-else-if="displayedRoutes" :routes="displayedRoutes" />
     </div>
 </template>

@@ -33,10 +33,10 @@ const drop = computed(
     () => props.route[0][1]
 );
 
-const editMode: Ref<boolean> = inject("editable") || ref(false);
-const allRoutesSelected: Ref<boolean> = inject("allRoutesSelected") || ref(false);
-const allRoutesSelectedSignalRef: Ref<boolean> = inject("allRoutesSelectedSignal") || ref(false);
-const isDemoModeActive: Ref<boolean> = inject("isDemoModeActive") || ref(false);
+const editMode: Ref<boolean> = inject("editable", ref(false));
+const allRoutesSelected: Ref<boolean> = inject("allRoutesSelected", ref(false));
+const allRoutesSelectedSignalRef: Ref<boolean> = inject("allRoutesSelectedSignal", ref(false));
+const isDemoModeActive: Ref<boolean> = inject("isDemoModeActive", ref(false));
 const routeSelected = ref<boolean>(props.route[1][2]);
 
 let quiteSelect: boolean = false;
@@ -163,7 +163,7 @@ async function copyShareLink() {
                 Суммарная стоимость в валюте запроса:
             </div>
             <div class="col-md-5">
-                <b v-if="Number.isNaN(route[1][0])">
+                <b v-if="Array.isArray(route[1][0])">
                     <PriceWithCurrency :price="(route[1][0] as PriceRange)[0]" :currency="currentRate" />
                     &nbsp;&ndash;&nbsp;
                     <PriceWithCurrency :price="(route[1][0] as PriceRange)[1]" :currency="currentRate" />
@@ -177,7 +177,7 @@ async function copyShareLink() {
                 В рублях по курсу ЦБ на дату выставления счёта с учётом конвертации:
             </div>
             <div class="col-md-5">
-                <b v-if="Number.isNaN(route[1][1])">
+                <b v-if="Array.isArray(route[1][1])">
                     <PriceWithCurrency :price="(route[1][1] as PriceRange)[0]" :currency="currentRate" />
                     -
                     <PriceWithCurrency :price="(route[1][1] as PriceRange)[1]" :currency="currentRate" />

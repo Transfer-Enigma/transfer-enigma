@@ -271,8 +271,8 @@ export function processRoutes(routes: (RouteDescriptor | RouteExtendedDescriptor
 
     if (sort)
         result.sort((a: RouteExtendedDescriptor, b: RouteExtendedDescriptor) =>
-            (Number.isNaN(a[1][1]) ? (a[1][1] as PriceRange)[0] : a[1][1] as number)
-            - (Number.isNaN(b[1][1]) ? (b[1][1] as PriceRange)[0] : b[1][1] as number));
+            (Array.isArray(a[1][1]) ? (a[1][1] as PriceRange)[0] : a[1][1] as number)
+            - (Array.isArray(b[1][1]) ? (b[1][1] as PriceRange)[0] : b[1][1] as number));
 
     return result;
 }
