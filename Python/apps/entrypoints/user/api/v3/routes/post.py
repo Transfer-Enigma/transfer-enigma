@@ -10,7 +10,7 @@ from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from services.profit import apply_demo_profit_to_route
 from services.route_calculation import calculate_routes_stream
 from shared.cache_settings import get_setting_cached
-from shared.models.route import RouteResult
+from shared.dto.route import RouteResult
 
 router = APIRouter(prefix="/v3/routes", tags=["v3", "routes"])
 

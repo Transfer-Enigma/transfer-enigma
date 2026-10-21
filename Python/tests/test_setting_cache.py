@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from shared.cache_settings import get_setting_cached
-from shared.models.setting import SettingItem
-from shared.schemas.setting import SettingModel, SettingType
+from shared.dto.setting import SettingItem
+from shared.orm.setting import SettingModel, SettingType
 
 
 def _mock_cache_controller(get_return=None):

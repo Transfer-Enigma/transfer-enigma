@@ -2,7 +2,7 @@ from typing import Any
 
 from entrypoints.admin.schemas.data_browser import ServiceCreate, ServicePatch, ServiceResponse
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-from shared.schemas.service import ServiceModel
+from shared.orm.service import ServiceModel
 
 
 class CRUDService(CRUDBase):

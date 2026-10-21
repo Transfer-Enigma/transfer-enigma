@@ -1,4 +1,4 @@
-from shared.schemas.demo_guest import DemoGuestModel
+from shared.orm.demo_guest import DemoGuestModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

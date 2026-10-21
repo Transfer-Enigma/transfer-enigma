@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from services.route_calculation import _strip_demo_fields
-from shared.models.route import RouteSegment
+from shared.dto.route import RouteSegment
 
 
 class TestStripDemoFields:

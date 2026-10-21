@@ -1,6 +1,6 @@
 from entrypoints.admin.schemas.data_browser import PointCreate, PointPatch, PointResponse
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-from shared.schemas.point import PointModel
+from shared.orm.point import PointModel
 
 
 class CRUDPoint(CRUDBase):

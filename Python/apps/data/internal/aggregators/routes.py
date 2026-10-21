@@ -7,9 +7,9 @@ from data.internal.query_domain import DropOff, RouteBuilder, Segment
 from data.internal.query_domain.expr import Condition
 from shared.cache_settings import get_setting_cached
 from shared.database import Base, get_database
-from shared.models.route import RouteResult
-from shared.schemas.drop import DropModel
-from shared.schemas.route import ContainerOwner, RouteModel, RouteType
+from shared.dto.route import RouteResult
+from shared.orm.drop import DropModel
+from shared.orm.route import ContainerOwner, RouteModel, RouteType
 from shared.setting_definitions import get_setting_definition
 
 from .transformers.routes import transform_routes

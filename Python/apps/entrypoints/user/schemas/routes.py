@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from shared.models.route import DropItem, RouteSegment, ServiceItem
+from shared.dto.route import DropItem, RouteSegment, ServiceItem
 
 from .errors import RouteError
 

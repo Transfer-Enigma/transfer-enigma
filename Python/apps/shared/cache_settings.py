@@ -6,10 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .cache_controller import CacheController
 from .database import get_database
-from .models.setting import SettingItem, parse_setting_value
+from .dto.setting import SettingItem, parse_setting_value
+from .orm.setting import SettingModel
 from .redis_client import get_redis
 from .repositories import setting as rsettings
-from .schemas.setting import SettingModel
 from .setting_definitions import get_setting_definitions
 from .settings import get_setting as _get_setting
 

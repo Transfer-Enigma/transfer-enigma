@@ -5,7 +5,7 @@ from typing import Any
 import pandas as pd
 from entrypoints.admin.models.upoader_fields_config import UploaderFieldsConfig
 from pandas import DataFrame
-from shared.schemas.route import (
+from shared.orm.route import (
     ContainerOwner,
     ContainerShipmentTerms,
     ContainerTransferTerms,

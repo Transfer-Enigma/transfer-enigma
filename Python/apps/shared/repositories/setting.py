@@ -1,5 +1,5 @@
-from shared.models.setting import SettingItem
-from shared.schemas.setting import SettingModel
+from shared.dto.setting import SettingItem
+from shared.orm.setting import SettingModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

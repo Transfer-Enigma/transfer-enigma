@@ -38,7 +38,7 @@ from entrypoints.admin.service.crud_services import crud_services
 from entrypoints.admin.service.crud_settings import crud_settings
 from shared.cache_settings import delete_settings_cache, set_settings_cache
 from shared.database import Database, get_database
-from shared.models.setting import SettingItem
+from shared.dto.setting import SettingItem
 
 router = APIRouter(prefix="/db", tags=["data-browser"])
 

@@ -1,7 +1,7 @@
 import json
 
 from pydantic import BaseModel, field_validator
-from shared.schemas.setting import SettingModel, SettingType
+from shared.orm.setting import SettingModel, SettingType
 
 
 def parse_setting_value(  # noqa: C901

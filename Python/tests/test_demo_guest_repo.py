@@ -1,8 +1,8 @@
 from decimal import Decimal
 
 import pytest
+from shared.orm.demo_guest import DemoGuestModel
 from shared.repositories.demo_guest import get_demo_guest_by_uid, list_demo_guests
-from shared.schemas.demo_guest import DemoGuestModel
 
 
 @pytest.mark.asyncio
