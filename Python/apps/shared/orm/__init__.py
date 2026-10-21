@@ -1,5 +1,6 @@
 from shared.database import Base
 
+from .cache_policy import CachePolicyModel
 from .company import CompanyModel
 from .container import ContainerModel, ContainerType
 from .demo_guest import DemoGuestModel
@@ -19,6 +20,7 @@ from .setting import SettingModel, SettingType
 
 __all__ = [
     "Base",
+    "CachePolicyModel",
     "CompanyModel",
     "ContainerModel",
     "ContainerType",
