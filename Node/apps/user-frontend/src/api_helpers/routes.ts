@@ -18,10 +18,12 @@ interface RouteDetailResponse {
     services: IService[];
 }
 
-function buildRouteDetailURL(segments: string, includedServices?: string): string {
+function buildRouteDetailURL(segments: string, includedServices?: string, container?: string): string {
     const params = new URLSearchParams({ segments });
     if (includedServices)
         params.set("included-services", includedServices);
+    if (container)
+        params.set("container", container);
 
     return `/api/v2/routes/detail?${params.toString()}`;
 }
@@ -35,8 +37,12 @@ function toRouteDescriptor(result: RouteDetailResponse): RouteDescriptor {
     ];
 }
 
-export async function getRouteDetail(segments: string, includedServices?: string): Promise<RouteDescriptor> {
-    const result = await fetchAsJSON(buildRouteDetailURL(segments, includedServices), { method: "GET" });
+export async function getRouteDetail(
+    segments: string,
+    includedServices?: string,
+    container?: string,
+): Promise<RouteDescriptor> {
+    const result = await fetchAsJSON(buildRouteDetailURL(segments, includedServices, container), { method: "GET" });
     return toRouteDescriptor(result as RouteDetailResponse);
 }
 

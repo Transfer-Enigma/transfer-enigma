@@ -21,6 +21,7 @@ async def route_detail(
     auth: Annotated[AuthContext, Depends(get_auth_context)],
     segments: Annotated[str, Query()],
     included_services: Annotated[str | None, Query(alias="included-services")] = None,
+    container: Annotated[str | None, Query()] = None,
 ):
     # get_auth_context falls through to a non-demo context for unknown UIDs
     # without raising, so an invalid demo link must explicitly become a 404.
@@ -30,11 +31,12 @@ async def route_detail(
     try:
         segment_ids = parse_link_ids(segments)
         service_ids = parse_link_ids(included_services)
+        container_ids = parse_link_ids(container)
     except RouteLinkNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
     try:
-        route = await get_route_by_link(segment_ids, service_ids)
+        route = await get_route_by_link(segment_ids, service_ids, container_ids)
     except RouteLinkNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 

@@ -68,11 +68,22 @@ const shareLink = computed((): string | null => {
         .map((service) => String(service.id))
         .join(",");
 
+    const containerIds = [...new Set(
+        routeSegments.flatMap((segment) =>
+            ("prices" in segment && segment.prices
+                ? segment.prices.map((price) => price.container?.id)
+                : []
+            ).filter((id): id is number => typeof id === "number")
+        )
+    )];
+
     const demoUid = useDemoAuth().demoUid;
     const base = demoUid ? `/demo/${encodeURIComponent(demoUid)}/route` : "/route";
     const params = new URLSearchParams({ segments: segmentIds });
     if (serviceIds)
         params.set("included-services", serviceIds);
+    if (containerIds.length)
+        params.set("container", containerIds.join(","));
 
     return `${base}?${params.toString()}`;
 });

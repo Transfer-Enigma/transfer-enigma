@@ -14,6 +14,7 @@ import type { RouteDescriptor, RouteExtendedDescriptor } from "@/interfaces/Rout
 interface Props {
     segments?: string;
     includedServices?: string;
+    container?: string;
 }
 
 const props = defineProps<Props>();
@@ -41,7 +42,7 @@ async function load() {
             return;
         }
 
-        const descriptor: RouteDescriptor = await getRouteDetail(props.segments, props.includedServices);
+        const descriptor: RouteDescriptor = await getRouteDetail(props.segments, props.includedServices, props.container);
         displayedRoutes.value = processRoutes([descriptor], false);
     } catch (e) {
         const status = statusOf(e);

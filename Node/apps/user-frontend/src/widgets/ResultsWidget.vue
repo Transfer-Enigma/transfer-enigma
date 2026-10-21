@@ -8,7 +8,8 @@ import type {
 import ResultRouteView from "@/components/ResultRouteView.vue";
 import RoutesSVG from "@/components/RoutesSVG.vue";
 
-import { revalidateRoutes } from "@/services/calculator";
+import { processRoutes, revalidateRoutes } from "@/services/calculator";
+import { useRoutes } from "@/stores/routes";
 import { inject, provide, ref, watch } from "vue";
 
 import type { Ref } from "vue";
@@ -44,6 +45,27 @@ provide("allRoutesSelected", areAllRoutesSelected);
 provide("allRoutesSelectedSignal", areAllRoutesSelectedSignalRef);
 let quietAllRoutesSelectedChange: boolean = false;
 
+// Recompute totals after in-place edits (prices, service toggles). On the
+// calculator page props.routes IS the store array, so revalidateRoutes is
+// enough. On the single-route page routes are a local prop — totals are
+// recomputed in place instead.
+function recalcTotals() {
+    if (props.routes === useRoutes().routes) {
+        revalidateRoutes(false);
+        return;
+    }
+
+    const processed = processRoutes(props.routes, false);
+    processed.forEach((route, index) => {
+        const target = props.routes[index];
+        if (!target)
+            return;
+
+        target[1][0] = route[1][0];
+        target[1][1] = route[1][1];
+    });
+}
+
 function updateSinglePrice(
     val: number,
     segmentIndex: number,
@@ -58,7 +80,7 @@ function updateSinglePrice(
         throw new Error(buildErrorMessage(val, routeIndex, segmentIndex));
 
     segment.price = val;
-    revalidateRoutes(false);
+    recalcTotals();
 }
 
 function updateMultiPrice(
@@ -76,7 +98,7 @@ function updateMultiPrice(
         throw new Error(buildErrorMessage(val, routeIndex, segmentIndex, priceIndex));
 
     priceVariant.value = val;
-    revalidateRoutes(false);
+    recalcTotals();
 }
 
 function setIsRouteSelected(val: boolean, routeIndex: number) {
@@ -104,7 +126,7 @@ function updateServiceChecked(val: boolean, serviceIndex: number, routeIndex: nu
         throw new Error(`Service [${serviceIndex}] not found in route [${routeIndex}]`);
 
     service.checked = val;
-    revalidateRoutes(false);
+    recalcTotals();
 }
 
 // Stable key from immutable route identity (excludes mutable UI state:
