@@ -316,9 +316,7 @@ Module prefixes:
 - **FESCO API mocks**: use `unittest.mock.patch` on `module_data_fesco_api_adapter.api_client` directly
 - **Test data**: factory functions in `Python/tests/data/__init__.py` build ORM objects with sensible defaults
 - **Currency rates**: tests use RUB-relative rates `{"USD": 90.0, "RUB": 1.0}`; `_convert_currency` formula is `amount * rates[from] / rates[to]`
-- Run locally: `cd Python && uv run --group tests pytest tests/ -v`
-- Run in Docker (profile `test`, won't start with `docker compose up`):
-  `./scripts/run-test.sh`
+- Run: `make test` (Docker, profile `test` — won't start with plain `docker compose up`)
 
 ### Python Module Dependencies Graph
 ```
@@ -347,8 +345,9 @@ module_shared ───┬── backend_auth
 - Keep branches up to date with the target branch via rebase, not merge.
 
 ### Always run linting before committing
-- Python: `pre-commit run --all-files`
-- Frontends: check `package.json` for lint scripts
+- Python: `make lint-backend`
+- Frontends: `make lint-frontend`
+- Both: `make lint`
 
 ---
 
@@ -544,9 +543,11 @@ All output is JSON by default (for AI/script parsing).
 | `make build` | Docker buildx bake (all targets) |
 | `make prod` | `docker compose up` — Ctrl+C runs `down` |
 | `make dev` | `./scripts/run-dev.sh` — Ctrl+C runs `./scripts/stop-dev.sh` |
-| `make update [args]` | `./scripts/prod-update.sh` — pass args directly |
+| `make test` | `./scripts/run-test.sh` — pytest in Docker (profile `test`) |
+| `make lint` | Backend + frontend lint |
+| `make lint-backend` | pre-commit (black, isort, flake8, mypy) via uv |
+| `make lint-frontend` | ESLint + build (user-frontend), ESLint (admin-frontend) |
 | `make alembic [args]` | `./scripts/alembic-proxy.sh` — pass alembic subcommand via args |
-| `make migrate [args]` | `./scripts/prod-db-migrate.sh` — pass alembic subcommand via args |
 
 ---
 
