@@ -66,6 +66,7 @@ const router = createRouter({
             props: (route: { query: Record<string, string> }) => ({
                 segments: route.query.segments,
                 includedServices: route.query["included-services"],
+                container: route.query.container,
             }),
             beforeEnter: checkDemoUid,
         },
@@ -76,6 +77,7 @@ const router = createRouter({
             props: (route: { query: Record<string, string> }) => ({
                 segments: route.query.segments,
                 includedServices: route.query["included-services"],
+                container: route.query.container,
             }),
             beforeEnter: checkLoggedIn,
         },

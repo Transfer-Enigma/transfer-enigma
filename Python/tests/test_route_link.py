@@ -279,3 +279,143 @@ async def test_get_route_by_link_expired(sqlite_db: Database):
         route = await get_route_by_link([seg1.id], [])
 
     assert route.may_be_invalid is True
+
+
+@pytest.mark.asyncio
+async def test_get_route_by_link_filters_prices_by_container(sqlite_db: Database):
+    async with sqlite_db.session_context() as session:
+        company = CompanyFactory(name="TwoContCo")
+        point_a = PointFactory(city="TA", RU_city="ТА")
+        point_b = PointFactory(city="TB", RU_city="ТБ")
+        cont_20 = ContainerFactory(size=20, weight_from=0, weight_to=24, name="20DC", type=ContainerType.DC)
+        cont_40 = ContainerFactory(size=40, weight_from=0, weight_to=28, name="40HC", type=ContainerType.HC)
+        session.add_all([company, point_a, point_b, cont_20, cont_40])
+        await session.flush()
+
+        seg = RouteFactory(
+            company_id=company.id,
+            start_point_id=point_a.id,
+            end_point_id=point_b.id,
+            type=RouteType.RAIL,
+            effective_to=datetime.datetime(2030, 1, 1),
+        )
+        session.add(seg)
+        await session.flush()
+        session.add_all([
+            PriceFactory(route_id=seg.id, container_id=cont_20.id, value=1000.0),
+            PriceFactory(route_id=seg.id, container_id=cont_40.id, value=2000.0),
+        ])
+        await session.commit()
+        seg_id, cont_20_id, cont_40_id = seg.id, cont_20.id, cont_40.id
+
+    with patch("backend_user.services.route_link.get_database", return_value=sqlite_db):
+        both = await get_route_by_link([seg_id], [], [cont_20_id, cont_40_id])
+        only_20 = await get_route_by_link([seg_id], [], [cont_20_id])
+        no_filter = await get_route_by_link([seg_id], [])
+
+    assert [p.value for p in both.segments[0].prices] == [1000.0, 2000.0]
+    assert [p.value for p in only_20.segments[0].prices] == [1000.0]
+    assert only_20.segments[0].prices[0].container is not None
+    assert only_20.segments[0].prices[0].container.id == cont_20_id
+    assert len(no_filter.segments[0].prices) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_route_by_link_filters_services_by_container(sqlite_db: Database):
+    async with sqlite_db.session_context() as session:
+        company = CompanyFactory(name="SvcContCo")
+        point_a = PointFactory(city="SA", RU_city="СА")
+        point_b = PointFactory(city="SB", RU_city="СБ")
+        cont_20 = ContainerFactory(size=20, weight_from=0, weight_to=24, name="20DC", type=ContainerType.DC)
+        cont_40 = ContainerFactory(size=40, weight_from=0, weight_to=28, name="40HC", type=ContainerType.HC)
+        session.add_all([company, point_a, point_b, cont_20, cont_40])
+        await session.flush()
+
+        seg = RouteFactory(
+            company_id=company.id,
+            start_point_id=point_a.id,
+            end_point_id=point_b.id,
+            type=RouteType.RAIL,
+            effective_to=datetime.datetime(2030, 1, 1),
+        )
+        session.add(seg)
+        await session.flush()
+        svc = ServiceFactory(name="Washing", internal_name="washing", mandatory=False, default=False)
+        session.add(svc)
+        await session.flush()
+        session.add_all([
+            ServicePriceFactory(route_id=seg.id, service_id=svc.id, container_id=cont_20.id, price=10.0),
+            ServicePriceFactory(route_id=seg.id, service_id=svc.id, container_id=cont_40.id, price=20.0),
+        ])
+        await session.commit()
+        seg_id, cont_20_id = seg.id, cont_20.id
+
+    with patch("backend_user.services.route_link.get_database", return_value=sqlite_db):
+        filtered = await get_route_by_link([seg_id], [], [cont_20_id])
+        no_filter = await get_route_by_link([seg_id], [])
+
+    assert len(filtered.services) == 1
+    assert filtered.services[0].price == 10.0
+    assert len(no_filter.services) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_route_by_link_filters_drop_by_container(sqlite_db: Database):
+    async with sqlite_db.session_context() as session:
+        company = CompanyFactory(name="DropContCo")
+        point_a = PointFactory(city="DA", RU_city="ДА")
+        point_drop = PointFactory(city="DD", RU_city="ДД")
+        point_b = PointFactory(city="DB", RU_city="ДБ")
+        cont_20 = ContainerFactory(size=20, weight_from=0, weight_to=24, name="20DC", type=ContainerType.DC)
+        cont_40 = ContainerFactory(size=40, weight_from=0, weight_to=28, name="40HC", type=ContainerType.HC)
+        session.add_all([company, point_a, point_drop, point_b, cont_20, cont_40])
+        await session.flush()
+
+        sea = RouteFactory(
+            company_id=company.id,
+            start_point_id=point_a.id,
+            end_point_id=point_drop.id,
+            type=RouteType.SEA,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+            effective_to=datetime.datetime(2030, 1, 1),
+        )
+        rail = RouteFactory(
+            company_id=company.id,
+            start_point_id=point_drop.id,
+            end_point_id=point_b.id,
+            type=RouteType.RAIL,
+            container_owner=ContainerOwner.COC,
+            is_through=False,
+            effective_to=datetime.datetime(2030, 1, 1),
+        )
+        session.add_all([sea, rail])
+        await session.flush()
+        session.add_all([
+            PriceFactory(route_id=sea.id, container_id=cont_20.id),
+            PriceFactory(route_id=rail.id, container_id=cont_20.id),
+        ])
+        session.add_all([
+            DropFactory(
+                company_id=company.id,
+                container_id=cont_20.id,
+                start_point_id=point_drop.id,
+                end_point_id=point_b.id,
+                price=100.0,
+            ),
+            DropFactory(
+                company_id=company.id,
+                container_id=cont_40.id,
+                start_point_id=point_drop.id,
+                end_point_id=point_b.id,
+                price=200.0,
+            ),
+        ])
+        await session.commit()
+        sea_id, rail_id, cont_20_id = sea.id, rail.id, cont_20.id
+
+    with patch("backend_user.services.route_link.get_database", return_value=sqlite_db):
+        route = await get_route_by_link([sea_id, rail_id], [], [cont_20_id])
+
+    assert route.drop is not None
+    assert route.drop.price == 100.0

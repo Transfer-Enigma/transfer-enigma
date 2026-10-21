@@ -64,6 +64,7 @@ export interface IPrice {
 }
 
 export interface IContainer {
+    id?: number | string;
     name: string;
     size: number;
     type: "HC" | "DC";

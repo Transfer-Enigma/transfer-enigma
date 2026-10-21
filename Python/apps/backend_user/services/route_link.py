@@ -44,15 +44,19 @@ def _check_chain(models: list[RouteModel]) -> None:
             )
 
 
-async def _resolve_drop(sea: RouteModel, rail: RouteModel):
+async def _resolve_drop(sea: RouteModel, rail: RouteModel, container_ids: list[int] | None = None):
+    conditions = [
+        DropModel.company_id == sea.company_id,
+        DropModel.start_point_id == rail.start_point_id,
+        DropModel.end_point_id == rail.end_point_id,
+    ]
+    if container_ids:
+        conditions.append(DropModel.container_id.in_(container_ids))
+
     async with get_database().session_context() as session:
         result = await session.execute(
             select(DropModel)
-            .where(
-                DropModel.company_id == sea.company_id,
-                DropModel.start_point_id == rail.start_point_id,
-                DropModel.end_point_id == rail.end_point_id,
-            )
+            .where(*conditions)
             .limit(1)
         )
         return result.scalars().first()
@@ -117,12 +121,20 @@ def _is_expired(model: RouteModel, today: datetime.date) -> bool:
     return effective_date < today
 
 
-async def get_route_by_link(segment_ids: list[int], service_ids: list[int]) -> RouteResult:
+async def get_route_by_link(
+    segment_ids: list[int],
+    service_ids: list[int],
+    container_ids: list[int] | None = None,
+) -> RouteResult:
     """Build a RouteResult from explicit segment/service ids.
 
     Raises RouteLinkNotFoundError if a segment is missing, segments do not
     chain via end_point == start_point, a service is missing, or a service
     does not belong to one of the selected segments.
+
+    When container_ids is given, prices, container-specific services and
+    drop-off rows are filtered to those containers (parity with the
+    calculator, which filters prices by the selected containers).
     """
     if not segment_ids:
         raise RouteLinkNotFoundError("No segments specified")
@@ -136,9 +148,17 @@ async def get_route_by_link(segment_ids: list[int], service_ids: list[int]) -> R
 
     segments = [_segment_from_orm(m) for m in ordered]
 
+    if container_ids:
+        container_id_set = set(container_ids)
+        for segment in segments:
+            segment.prices = [
+                p for p in segment.prices
+                if p.container is not None and p.container.id in container_id_set
+            ]
+
     services = []
     for model, segment in zip(ordered, segments):
-        for item in _services_from_segment(model, segment.id):
+        for item in _services_from_segment(model, segment.id, container_ids):
             item.checked = item.mandatory or (item.id in included_services)
             services.append(item)
 
@@ -147,7 +167,7 @@ async def get_route_by_link(segment_ids: list[int], service_ids: list[int]) -> R
 
     drop: DropItem | None = None
     if len(ordered) == 2 and ordered[0].type == RouteType.SEA and ordered[1].type == RouteType.RAIL:
-        drop_model = await _resolve_drop(ordered[0], ordered[1])
+        drop_model = await _resolve_drop(ordered[0], ordered[1], container_ids)
         if drop_model is not None:
             drop = DropItem(
                 price=drop_model.price,
@@ -156,8 +176,8 @@ async def get_route_by_link(segment_ids: list[int], service_ids: list[int]) -> R
             )
 
     logger.info(
-        "Route link resolved: segments=%s services=%s drop=%s",
-        segment_ids, sorted(included_services), drop is not None,
+        "Route link resolved: segments=%s services=%s containers=%s drop=%s",
+        segment_ids, sorted(included_services), container_ids, drop is not None,
     )
     return RouteResult(
         segments=segments,
