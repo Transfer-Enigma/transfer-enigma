@@ -1,50 +1,64 @@
-"""Internal database as a data source."""
+import datetime
 
-from data.internal import aggregators
-from data.protocols import ContainerQuery, ContainerSource, PointSource, RouteQuery, RouteSource
-from shared.dto.point import PointItem
-from shared.dto.route import ContainerItem
+from data.internal.aggregators import containers as internal_containers
+from data.internal.aggregators import points as internal_points
+from data.internal.aggregators import routes as internal_routes
+from data.internal.aggregators.transformers.points import transform_points
+from data.protocols import ContainerQuery, PointItem, RouteQuery
+from shared.dto.route import ContainerItem, RouteResult
 from shared.identifiers import InternalId, RouteIdentifier, SourceKind
 
 
 def _internal_id(identifier: RouteIdentifier) -> int:
+    """The value of an identifier of our own database."""
     if not isinstance(identifier, InternalId):
-        raise TypeError(f"expected InternalId, got {type(identifier)!r}")
+        raise ValueError(f"Expected an internal id, got {identifier!r}")
     return identifier.value
 
 
-class InternalSource(ContainerSource, RouteSource, PointSource):
-    """Our own database as a data source."""
+class InternalSource:
+    """The routes, points and containers of our own database."""
 
     kind = SourceKind.INTERNAL
 
     async def get_containers(self, query: ContainerQuery) -> list[ContainerItem]:
-        return await aggregators.get_containers(
+        return await internal_containers.get_containers(
             query.date,
-            _internal_id(query.departure),
-            _internal_id(query.destination),
+            str(query.departure),
+            str(query.destination),
         )
 
-    def search_container_ids(
-        self, containers: list[ContainerItem], weight: float, container_type: int
-    ) -> list:
-        return aggregators.search_container_ids(containers, weight, container_type)
-
-    async def find_paths(self, query: RouteQuery) -> list:
-        container_ids = [_internal_id(c) for c in query.container_ids]
-        return await aggregators.find_all_paths(
+    async def find_paths(self, query: RouteQuery) -> list[RouteResult]:
+        return await internal_routes.find_all_paths(
             query.date,
             _internal_id(query.departure),
             _internal_id(query.destination),
-            container_ids,
+            [_internal_id(container) for container in query.container_ids],
             head_truck=query.head_truck,
             tail_truck=query.tail_truck,
         )
 
-    async def get_departure_points(self, date) -> list[PointItem]:
-        return await aggregators.get_departure_points(date=date)
+    async def get_departure_points(
+        self,
+        date: datetime.date,
+        *,
+        include_truck: bool = False,
+    ) -> list[PointItem]:
+        if include_truck:
+            rows = await internal_points.get_truck_departure_points(date=date)
+        else:
+            rows = await internal_points.get_departure_points(date=date)
+        return list(transform_points(rows))
 
     async def get_destination_points(
-        self, date, departure: RouteIdentifier
+        self,
+        date: datetime.date,
+        departure: RouteIdentifier | None = None,
+        *,
+        include_truck: bool = False,
     ) -> list[PointItem]:
-        return await aggregators.get_destination_points(date=date, departure=departure)
+        if include_truck:
+            rows = await internal_points.get_truck_destination_points(date=date)
+        else:
+            rows = await internal_points.get_destination_points(date=date)
+        return list(transform_points(rows))

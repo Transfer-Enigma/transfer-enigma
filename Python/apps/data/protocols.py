@@ -66,16 +66,26 @@ class PointSource(Protocol):
 
     kind: SourceKind
 
-    async def get_departure_points(self, date: datetime.date) -> list[PointItem]:
+    async def get_departure_points(
+        self,
+        date: datetime.date,
+        *,
+        include_truck: bool = False,
+    ) -> list[PointItem]:
         """The points the source can depart from."""
         ...
 
     async def get_destination_points(
         self,
         date: datetime.date,
-        departure: RouteIdentifier,
+        departure: RouteIdentifier | None = None,
+        *,
+        include_truck: bool = False,
     ) -> list[PointItem]:
-        """The points the source can arrive at."""
+        """The points the source can arrive at.
+
+        A source that does not know the departure ignores it.
+        """
         ...
 
 
