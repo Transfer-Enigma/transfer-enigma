@@ -89,14 +89,18 @@ class PointSource(Protocol):
         ...
 
 
-def get_internal_source() -> ContainerSource:
+class DataSource(ContainerSource, RouteSource, PointSource, Protocol):
+    """A source of containers, routes and points."""
+
+
+def get_internal_source() -> DataSource:
     """The internal database as a data source."""
     from data.sources.internal import InternalSource
 
     return InternalSource()
 
 
-def get_fesco_source() -> ContainerSource:
+def get_fesco_source() -> DataSource:
     """The FESCO API as a data source."""
     from data.sources.fesco import FescoSource
 
