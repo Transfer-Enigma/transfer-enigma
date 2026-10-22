@@ -5,12 +5,10 @@ from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from starlette.status import HTTP_404_NOT_FOUND
 
-from data.repositories.demo_guests import (
-    create_demo_guest,
-    delete_demo_guest,
-    list_demo_guests,
-    update_demo_guest,
-)
+from data.repositories.demo_guests import create_demo_guest as create_demo_guest_row
+from data.repositories.demo_guests import delete_demo_guest as delete_demo_guest_row
+from data.repositories.demo_guests import list_demo_guests as list_demo_guests_row
+from data.repositories.demo_guests import update_demo_guest as update_demo_guest_row
 from entrypoints.admin.dependencies.auth_context import bind_caller_context
 from pydantic import BaseModel, Field
 from shared.context import CallerContext
@@ -54,7 +52,7 @@ async def get_demo_guests(
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
-        guests = await list_demo_guests(session)
+        guests = await list_demo_guests_row(session)
     return [DemoGuestResponse.from_model(guest) for guest in guests]
 
 
@@ -67,7 +65,7 @@ async def create_demo_guest(
     uid = payload.uid.strip()
     async with db.session_context() as session:
         try:
-            guest = await create_demo_guest(
+            guest = await create_demo_guest_row(
                 session,
                 uid,
                 payload.sea_profit,
@@ -90,7 +88,7 @@ async def update_demo_guest(
     uid = payload.uid.strip()
     async with db.session_context() as session:
         try:
-            guest = await update_demo_guest(
+            guest = await update_demo_guest_row(
                 session,
                 guest_id,
                 uid,
@@ -114,6 +112,6 @@ async def delete_demo_guest(
 ):
     async with db.session_context() as session:
         try:
-            await delete_demo_guest(session, guest_id)
+            await delete_demo_guest_row(session, guest_id)
         except NotFoundError as exc:
             raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc))
