@@ -35,6 +35,12 @@ services:
       - "./Python/apps/data/fesco/:/workspace/data/fesco/:ro"
       - "./Python/apps/data/internal/:/workspace/data/internal/:ro"
       - "./Python/apps/shared/:/workspace/shared/:ro"
+      - "./Python/apps/data/sources/:/workspace/data/sources/:ro"
+      - "./Python/apps/data/cache/:/workspace/data/cache/:ro"
+      - "./Python/apps/data/db_management/:/workspace/data/db_management/:ro"
+      - "./Python/apps/data/routes_loading/:/workspace/data/routes_loading/:ro"
+      - "./Python/apps/services/:/workspace/services/:ro"
+      - "./Python/apps/entrypoints/admin/:/workspace/entrypoints/admin/:ro"
       - "./resources/:/workspace/resources/:rw"
       - "./logs/:/var/log/app/:rw"
     command:
