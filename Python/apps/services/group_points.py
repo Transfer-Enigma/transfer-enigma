@@ -1,6 +1,7 @@
 import re
 from dataclasses import dataclass, field
-from typing import Any
+
+from shared.dto.point import PointItem
 
 _id_type = int | str
 
@@ -214,7 +215,7 @@ def group_transfers(
     return list(result.values())
 
 
-def raw_point_from_dict(data: dict[str, Any]) -> RawPoint:
+def raw_point_from_dict(data: PointItem) -> RawPoint:
     """Converts a raw input dictionary to a RawPoint object."""
     company = Company(id=data["company"]["id"], name=data["company"]["name"])
     translates = {}
