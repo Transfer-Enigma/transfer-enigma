@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from data.protocols import ContainerQuery, RouteQuery
 from data.sources.fesco import FescoSource
 from data.sources.internal import InternalSource
-from entrypoints.user.schemas.form_requests import CalculateFormRequest
+from shared.dto.calculation import CalculationRequest
 from shared.dto.errors import RouteError
 from shared.dto.route import ContainerItem, RouteResult, RouteSegment
 from shared.identifiers import ExternalId, InternalId, RouteIdentifier, SourceKind
@@ -102,42 +102,42 @@ async def _get_routes(
     return mark_expired_routes(deduplicate_routes(list(routes)), date)
 
 
-def _build_calculation_coros(request: CalculateFormRequest):
-    head_truck = request.headTruck
-    tail_truck = request.tailTruck
+def _build_calculation_coros(request: CalculationRequest):
+    head_truck = request.head_truck
+    tail_truck = request.tail_truck
 
     internal_coros = [
         _get_routes(
             internal_source,
-            request.dispatchDate,
+            request.dispatch_date,
             InternalId(departure_id),
             InternalId(destination_id),
-            request.cargoWeight,
-            request.containerType,
+            request.cargo_weight,
+            request.container_type,
             head_truck=head_truck,
             tail_truck=tail_truck,
         )
-        for destination_id in request.destinationInternalIds
-        for departure_id in request.departureInternalIds
+        for destination_id in request.destination_internal_ids
+        for departure_id in request.departure_internal_ids
     ]
     external_coros = [
         _get_routes(
             fesco_source,
-            request.dispatchDate,
+            request.dispatch_date,
             ExternalId(departure_id),
             ExternalId(destination_id),
-            request.cargoWeight,
-            request.containerType,
+            request.cargo_weight,
+            request.container_type,
             head_truck=head_truck,
             tail_truck=tail_truck,
         )
-        for destination_id in request.destinationExternalIds
-        for departure_id in request.departureExternalIds
+        for destination_id in request.destination_external_ids
+        for departure_id in request.departure_external_ids
     ]
     return internal_coros, external_coros
 
 
-async def calculate_routes(request: CalculateFormRequest) -> tuple[list[RouteResult], list[RouteError]]:
+async def calculate_routes(request: CalculationRequest) -> tuple[list[RouteResult], list[RouteError]]:
     internal_coros, external_coros = _build_calculation_coros(request)
 
     logger.info(
@@ -174,7 +174,7 @@ async def calculate_routes(request: CalculateFormRequest) -> tuple[list[RouteRes
     return routes, errors
 
 
-async def calculate_routes_stream(request: CalculateFormRequest):
+async def calculate_routes_stream(request: CalculationRequest):
     internal_coros, external_coros = _build_calculation_coros(request)
     source_map = ("internal", "external")
 

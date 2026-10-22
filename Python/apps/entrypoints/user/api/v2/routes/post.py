@@ -22,7 +22,7 @@ async def calculate(
     request: CalculateFormRequest,
     context: Annotated[CallerContext, Depends(bind_caller_context)],
 ):
-    routes, errors = await calculate_routes(request)
+    routes, errors = await calculate_routes(request.to_calculation_request())
     for route in routes:
         await apply_demo_transforms(route)
     formatted = _normalize_routes(routes)

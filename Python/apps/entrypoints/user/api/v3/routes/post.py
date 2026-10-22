@@ -20,7 +20,7 @@ async def _sse_generator(
 ) -> AsyncGenerator[ServerSentEvent]:
     current_id = last_event_id + 1 if last_event_id is not None else 0
 
-    async for item in calculate_routes_stream(request):
+    async for item in calculate_routes_stream(request.to_calculation_request()):
         if isinstance(item, RouteResult):
             await apply_demo_transforms(item)
 

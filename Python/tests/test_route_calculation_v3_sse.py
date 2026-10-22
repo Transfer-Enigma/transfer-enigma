@@ -278,7 +278,7 @@ class TestCalculateRoutesStream:
             request = _make_request(dep_internal=[1, 3], dest_internal=[2, 4])
 
             results = []
-            async for item in calculate_routes_stream(request):
+            async for item in calculate_routes_stream(request.to_calculation_request()):
                 results.append(item)
 
             assert len(results) == 8
@@ -303,7 +303,7 @@ class TestCalculateRoutesStream:
             request = _make_request()
 
             results = []
-            async for item in calculate_routes_stream(request):
+            async for item in calculate_routes_stream(request.to_calculation_request()):
                 results.append(item)
 
             assert len(results) == 1
@@ -332,7 +332,7 @@ class TestCalculateRoutesStream:
             request = _make_request(dep_internal=[1], dest_internal=[2], dep_external=["EXT1"], dest_external=["EXT2"])
 
             results = []
-            async for item in calculate_routes_stream(request):
+            async for item in calculate_routes_stream(request.to_calculation_request()):
                 results.append(item)
 
             assert len(results) == 2
@@ -354,7 +354,7 @@ class TestCalculateRoutesStream:
             request = _make_request(dep_internal=[], dest_internal=[], dep_external=[], dest_external=[])
 
             results = []
-            async for item in calculate_routes_stream(request):
+            async for item in calculate_routes_stream(request.to_calculation_request()):
                 results.append(item)
 
             assert len(results) == 0

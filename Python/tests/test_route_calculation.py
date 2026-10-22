@@ -92,7 +92,7 @@ async def test_rail_only_internal():
         mock_fesco.find_paths = AsyncMock(return_value=[])
 
         request = _make_request()
-        routes, errors = await calculate_routes(request)
+        routes, errors = await calculate_routes(request.to_calculation_request())
 
     assert len(routes) == 1
     assert len(errors) == 0
@@ -116,7 +116,7 @@ async def test_sea_only_internal():
         mock_fesco.find_paths = AsyncMock(return_value=[])
 
         request = _make_request()
-        routes, _errors = await calculate_routes(request)
+        routes, _errors = await calculate_routes(request.to_calculation_request())
 
     assert len(routes) == 1
     assert routes[0].segments[0].type == "SEA"
@@ -136,7 +136,7 @@ async def test_no_routes_found():
         mock_fesco.find_paths = AsyncMock(return_value=[])
 
         request = _make_request()
-        routes, _errors = await calculate_routes(request)
+        routes, _errors = await calculate_routes(request.to_calculation_request())
 
     assert len(routes) == 0
 
@@ -153,7 +153,7 @@ async def test_no_matching_containers():
         mock_fesco.find_paths = AsyncMock(return_value=[])
 
         request = _make_request()
-        routes, _errors = await calculate_routes(request)
+        routes, _errors = await calculate_routes(request.to_calculation_request())
 
     assert len(routes) == 0
 
@@ -173,7 +173,7 @@ async def test_multiple_internal_pairs():
         mock_fesco.find_paths = AsyncMock(return_value=[])
 
         request = _make_request(dep_internal=[1, 3], dest_internal=[2, 4])
-        routes, _errors = await calculate_routes(request)
+        routes, _errors = await calculate_routes(request.to_calculation_request())
 
     assert len(routes) >= 1
 
@@ -193,7 +193,7 @@ async def test_fesco_external_source():
         mock_fesco.find_paths = AsyncMock(return_value=[route])
 
         request = _make_request(dep_external=["EXT1"], dest_external=["EXT2"])
-        routes, _errors = await calculate_routes(request)
+        routes, _errors = await calculate_routes(request.to_calculation_request())
 
     assert len(routes) == 1
     assert routes[0].segments[0].company == "FESCO"
@@ -219,7 +219,7 @@ async def test_mixed_internal_and_external():
         request = _make_request(
             dep_internal=[1], dest_internal=[2], dep_external=["EXT1"], dest_external=["EXT2"]
         )
-        routes, _errors = await calculate_routes(request)
+        routes, _errors = await calculate_routes(request.to_calculation_request())
 
     assert len(routes) == 2
     companies = {seg.company for route_res in routes for seg in route_res.segments}
@@ -244,7 +244,7 @@ async def test_fesco_api_error_does_not_break_all():
         request = _make_request(
             dep_internal=[1], dest_internal=[2], dep_external=["EXT1"], dest_external=["EXT2"]
         )
-        routes, errors = await calculate_routes(request)
+        routes, errors = await calculate_routes(request.to_calculation_request())
 
     assert len(routes) == 1
     assert routes[0].segments[0].company == "CompanyA"
@@ -266,7 +266,7 @@ async def test_external_only_without_internal():
         mock_fesco.find_paths = AsyncMock(return_value=[route])
 
         request = _make_request(dep_internal=[], dest_internal=[], dep_external=["EXT1"], dest_external=["EXT2"])
-        routes, errors = await calculate_routes(request)
+        routes, errors = await calculate_routes(request.to_calculation_request())
 
     assert len(routes) == 1
     assert errors == []
@@ -284,7 +284,7 @@ async def test_empty_ids_lists_returns_empty():
         mock_fesco.find_paths = AsyncMock(return_value=[])
 
         request = _make_request(dep_internal=[], dest_internal=[], dep_external=[], dest_external=[])
-        routes, errors = await calculate_routes(request)
+        routes, errors = await calculate_routes(request.to_calculation_request())
 
     assert routes == []
     assert errors == []
@@ -302,7 +302,7 @@ async def test_container_fetch_fails_gracefully():
         mock_fesco.find_paths = AsyncMock(return_value=[])
 
         request = _make_request()
-        routes, errors = await calculate_routes(request)
+        routes, errors = await calculate_routes(request.to_calculation_request())
 
     assert len(routes) == 0
     assert len(errors) == 1
@@ -392,7 +392,7 @@ async def test_truck_start_point_forwarded_to_internal():
         mock_fesco.find_paths = AsyncMock(return_value=[])
 
         request = _make_request(head_truck=True)
-        await calculate_routes(request)
+        await calculate_routes(request.to_calculation_request())
 
     mock_internal.find_paths.assert_called_once()
     query = mock_internal.find_paths.call_args.args[0]
@@ -415,7 +415,7 @@ async def test_truck_end_point_forwarded_to_internal():
         mock_fesco.find_paths = AsyncMock(return_value=[])
 
         request = _make_request(tail_truck=True)
-        await calculate_routes(request)
+        await calculate_routes(request.to_calculation_request())
 
     mock_internal.find_paths.assert_called_once()
     query = mock_internal.find_paths.call_args.args[0]
@@ -438,7 +438,7 @@ async def test_no_truck_params_by_default():
         mock_fesco.find_paths = AsyncMock(return_value=[])
 
         request = _make_request()
-        await calculate_routes(request)
+        await calculate_routes(request.to_calculation_request())
 
     mock_internal.find_paths.assert_called_once()
     query = mock_internal.find_paths.call_args.args[0]
@@ -464,7 +464,7 @@ async def test_both_truck_params_forwarded_to_external():
             dep_external=["EXT1"], dest_external=["EXT2"],
             head_truck=True, tail_truck=True,
         )
-        await calculate_routes(request)
+        await calculate_routes(request.to_calculation_request())
 
     mock_fesco.find_paths.assert_called_once()
     query = mock_fesco.find_paths.call_args.args[0]
