@@ -1,8 +1,10 @@
 import sqlparse
+from shared.context import ContextKind, permissions
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+@permissions(ContextKind.ADMIN)
 async def load_db_dump(db_session: AsyncSession, dump: str):
     errors = []
 
