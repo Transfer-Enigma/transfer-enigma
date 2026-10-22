@@ -90,7 +90,7 @@ class TestSSEGenerator:
             request = _make_request()
 
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request, auth):
+            async for event in _sse_generator(request):
                 events.append(event)
 
             assert len(events) == 2
@@ -116,7 +116,7 @@ class TestSSEGenerator:
             request = _make_request()
 
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request, auth):
+            async for event in _sse_generator(request):
                 events.append(event)
 
             assert len(events) == 1
@@ -140,7 +140,7 @@ class TestSSEGenerator:
             request = _make_request()
 
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request, auth):
+            async for event in _sse_generator(request):
                 events.append(event)
 
             assert len(events) == 2
@@ -166,7 +166,7 @@ class TestSSEGenerator:
             request = _make_request()
 
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request, auth, last_event_id=5):
+            async for event in _sse_generator(request, last_event_id=5):
                 events.append(event)
 
             assert len(events) == 1
@@ -186,7 +186,7 @@ class TestSSEGenerator:
 
             request = _make_request()
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request, auth):
+            async for event in _sse_generator(request):
                 events.append(event)
 
             assert events[0].data.segments[0].company is None
@@ -205,7 +205,7 @@ class TestSSEGenerator:
 
             request = _make_request()
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request, auth):
+            async for event in _sse_generator(request):
                 events.append(event)
 
             assert events[0].data.segments[0].company == "CompanyA"
@@ -231,7 +231,7 @@ class TestSSEGenerator:
 
             request = _make_request()
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request, auth):
+            async for event in _sse_generator(request):
                 events.append(event)
 
         assert events[0].data.segments[0].company is None
@@ -252,7 +252,7 @@ class TestSSEGenerator:
             request = _make_request()
 
             events: list[ServerSentEvent] = []
-            async for event in _sse_generator(request, auth):
+            async for event in _sse_generator(request):
                 events.append(event)
 
             assert len(events) == 0
