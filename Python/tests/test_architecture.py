@@ -131,18 +131,30 @@ def test_entrypoints_do_not_import_a_concrete_source():
     assert not offenders, "the entrypoints must not import a concrete source: " + ", ".join(offenders)
 
 
+def _package_of_module(module: str) -> str:
+    """The package a module belongs to.
+
+    A directory with an __init__.py is a package of its own, any other
+    module belongs to the package of its directory.
+    """
+    path = APPS.joinpath(*module.split("."))
+    if (path / "__init__.py").exists():
+        return module
+    return module.rsplit(".", 1)[0] if "." in module else ""
+
+
 def test_no_private_symbol_is_imported_across_the_packages():
     """A private helper stays inside the package that owns it."""
     offenders = []
     for path in _all_files():
-        packages = _packages_of(path)
-        own_package = packages[0] if packages else ""
+        own_package = "/".join(_packages_of(path))
 
         for module, names in _imported_modules(path):
             if not module:
                 continue
-            other_package = module.split(".")[0]
-            if other_package == own_package or other_package not in LAYERS:
+            if module.split(".")[0] not in LAYERS:
+                continue
+            if _package_of_module(module) == own_package:
                 continue
             for name in names:
                 if name.startswith("_"):
