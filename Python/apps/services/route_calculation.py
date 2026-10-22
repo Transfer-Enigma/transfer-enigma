@@ -6,8 +6,8 @@ from collections.abc import Iterable
 from data.protocols import ContainerQuery, RouteQuery
 from data.sources.fesco import FescoSource
 from data.sources.internal import InternalSource
-from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
+from shared.dto.errors import RouteError
 from shared.dto.route import ContainerItem, RouteResult, RouteSegment
 from shared.identifiers import ExternalId, InternalId, RouteIdentifier, SourceKind
 

@@ -11,7 +11,6 @@ from data.fesco.api_client.transformers.points import transform_points as map_fe
 from data.internal import aggregators
 from data.internal.aggregators.transformers.points import transform_points as map_custom
 from entrypoints.user.dependencies.auth_context import bind_caller_context
-from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.get_points_responses import PointsDataResponse
 from services.demo_transforms import strip_demo_fields_from_points
 from services.group_points import (
@@ -20,6 +19,7 @@ from services.group_points import (
     raw_point_from_dict,
 )
 from shared.context import CallerContext, ContextKind
+from shared.dto.errors import RouteError
 from shared.orm.company import CompanyModel
 from shared.orm.point import PointModel
 
