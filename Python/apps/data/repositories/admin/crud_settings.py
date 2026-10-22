@@ -1,8 +1,7 @@
-from fastapi import HTTPException
-from starlette.status import HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
-
 from data.repositories.admin.crud_base import CRUDBase, FilterDef
 from data.repositories.admin.schemas import SettingCreate, SettingPatch, SettingResponse
+from shared.context import ContextKind, permissions
+from shared.dto.errors import ValidationError
 from shared.dto.setting import parse_setting_value
 from shared.orm.setting import SettingModel, SettingType
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,43 +25,25 @@ class CRUDSetting(CRUDBase):
         try:
             parse_setting_value(value.strip(), value_type)
         except (ValueError, TypeError) as exc:
-            raise HTTPException(
-                status_code=HTTP_400_BAD_REQUEST,
-                detail=f"Invalid value for type {value_type}: {exc}",
-            ) from exc
+            raise ValidationError(f"Invalid value for type {value_type}: {exc}") from exc
 
     def _check_locked_update(self, model: SettingModel, data: SettingCreate) -> None:
         if not model.locked:
             return
         if model.group != data.group.strip() or model.name != data.name.strip():
-            raise HTTPException(
-                status_code=HTTP_403_FORBIDDEN,
-                detail="Cannot rename locked setting",
-            )
+            raise ValidationError("Cannot rename locked setting")
         if model.value_type != data.value_type:
-            raise HTTPException(
-                status_code=HTTP_403_FORBIDDEN,
-                detail="Cannot change type of locked setting",
-            )
+            raise ValidationError("Cannot change type of locked setting")
 
     def _check_locked_patch(self, model: SettingModel, data: SettingPatch) -> None:
         if not model.locked:
             return
         if data.group is not None and data.group.strip() != model.group:
-            raise HTTPException(
-                status_code=HTTP_403_FORBIDDEN,
-                detail="Cannot rename locked setting",
-            )
+            raise ValidationError("Cannot rename locked setting")
         if data.name is not None and data.name.strip() != model.name:
-            raise HTTPException(
-                status_code=HTTP_403_FORBIDDEN,
-                detail="Cannot rename locked setting",
-            )
+            raise ValidationError("Cannot rename locked setting")
         if data.value_type is not None and data.value_type != model.value_type:
-            raise HTTPException(
-                status_code=HTTP_403_FORBIDDEN,
-                detail="Cannot change type of locked setting",
-            )
+            raise ValidationError("Cannot change type of locked setting")
 
     def _build_instance(self, data: SettingCreate) -> SettingModel:
         self._validate_value(data.value, data.value_type)
@@ -94,6 +75,7 @@ class CRUDSetting(CRUDBase):
         if data.value is not None:
             model.value = data.value.strip() if data.value else None
 
+    @permissions(ContextKind.ADMIN)
     async def update(self, session: AsyncSession, id: int, data: SettingCreate) -> SettingResponse:  # noqa: A002
         model = await self._get_or_404(session, id)
         self._check_locked_update(model, data)
@@ -102,6 +84,7 @@ class CRUDSetting(CRUDBase):
         await session.refresh(model)
         return self.response_schema.from_model(model)
 
+    @permissions(ContextKind.ADMIN)
     async def patch(self, session: AsyncSession, id: int, data: SettingPatch) -> SettingResponse:  # noqa: A002
         model = await self._get_or_404(session, id)
         self._check_locked_patch(model, data)
@@ -112,13 +95,11 @@ class CRUDSetting(CRUDBase):
         await session.refresh(model)
         return self.response_schema.from_model(model)
 
+    @permissions(ContextKind.ADMIN)
     async def delete(self, session: AsyncSession, id: int) -> None:  # noqa: A002
         model = await self._get_or_404(session, id)
         if model.locked:
-            raise HTTPException(
-                status_code=HTTP_403_FORBIDDEN,
-                detail="Cannot delete locked setting",
-            )
+            raise ValidationError("Cannot delete locked setting")
         await session.delete(model)
         await session.flush()
 

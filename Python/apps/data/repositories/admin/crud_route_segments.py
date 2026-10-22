@@ -2,9 +2,6 @@ import datetime
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import HTTPException
-from starlette.status import HTTP_404_NOT_FOUND
-
 from data.repositories.admin.crud_base import CRUDBase, FilterDef
 from data.repositories.admin.schemas import (
     RouteSegmentCreate,
@@ -13,6 +10,8 @@ from data.repositories.admin.schemas import (
     RouteSegmentResponse,
     RouteSegmentStatsResponse,
 )
+from shared.context import ContextKind, permissions
+from shared.dto.errors import NotFoundError
 from shared.orm.company import CompanyModel
 from shared.orm.route import (
     ContainerOwner,
@@ -153,6 +152,7 @@ class CRUDRouteSegment(CRUDBase):
             top_companies=top_companies,
         )
 
+    @permissions(ContextKind.ADMIN)
     async def create(
         self, session: AsyncSession, data: RouteSegmentCreate
     ) -> RouteSegmentResponse:
@@ -168,6 +168,7 @@ class CRUDRouteSegment(CRUDBase):
         await session.flush()
         return await self._reload_response(session, model.id)
 
+    @permissions(ContextKind.ADMIN)
     async def update(
         self, session: AsyncSession, id: int, data: RouteSegmentCreate  # noqa: A002
     ) -> RouteSegmentResponse:
@@ -187,6 +188,7 @@ class CRUDRouteSegment(CRUDBase):
         await session.flush()
         return await self._reload_response(session, id)
 
+    @permissions(ContextKind.ADMIN)
     async def patch(
         self, session: AsyncSession, id: int, data: RouteSegmentPatch  # noqa: A002
     ) -> RouteSegmentResponse:
@@ -216,7 +218,7 @@ class CRUDRouteSegment(CRUDBase):
         result = await session.execute(stmt)
         model = result.scalar_one_or_none()
         if not model:
-            raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Route segment not found")
+            raise NotFoundError("Route segment not found")
         return model
 
     async def _reload_response(self, session: AsyncSession, id: int) -> RouteSegmentResponse:  # noqa: A002
