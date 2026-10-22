@@ -8,7 +8,6 @@ from starlette.status import HTTP_404_NOT_FOUND
 from data.repositories.demo_guests import (
     create_demo_guest,
     delete_demo_guest,
-    get_demo_guest_by_uid,
     list_demo_guests,
     update_demo_guest,
 )
