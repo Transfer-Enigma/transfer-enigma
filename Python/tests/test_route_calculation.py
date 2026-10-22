@@ -1,10 +1,10 @@
 import datetime
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from entrypoints.user.api.v2.routes.post import _apply_demo_transforms, _normalize_routes
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
-from services.route_calculation import _strip_demo_fields, calculate_routes
+from services.demo_transforms import apply_demo_transforms, strip_demo_fields
+from services.route_calculation import calculate_routes
 from shared.context import CallerContext, ContextKind
 from shared.dto.route import ContainerItem, PriceItem, RouteResult, RouteSegment
 
@@ -336,67 +336,67 @@ async def test_container_fetch_fails_gracefully():
 
 
 @pytest.mark.asyncio
-async def test_apply_demo_transforms_strips_company():
+async def test_apply_demo_transforms_strips_company(caller_context):
     seg = _make_segment(company="CompanyA")
     route = RouteResult(segments=[seg])
-    formatted = _normalize_routes([route])
-    auth = CallerContext(kind=ContextKind.DEMO, excluded_fields=["company"])
-    await _apply_demo_transforms(formatted, auth)
+    caller_context(CallerContext(kind=ContextKind.DEMO, excluded_fields=["company"]))
 
-    assert not formatted[0][0][0].company
+    await apply_demo_transforms(route)
+
+    assert route.segments[0].company is None
 
 
 @pytest.mark.asyncio
-async def test_apply_demo_transforms_does_not_strip_for_non_demo():
+async def test_apply_demo_transforms_does_not_strip_for_non_demo(caller_context):
     seg = _make_segment(company="CompanyA")
     route = RouteResult(segments=[seg])
-    formatted = _normalize_routes([route])
-    auth = CallerContext(kind=ContextKind.ADMIN)
-    await _apply_demo_transforms(formatted, auth)
+    caller_context(CallerContext(kind=ContextKind.ADMIN))
 
-    assert formatted[0][0][0].company == "CompanyA"
+    await apply_demo_transforms(route)
+
+    assert route.segments[0].company == "CompanyA"
 
 
 @pytest.mark.asyncio
 @patch("services.profit.get_rates", new_callable=AsyncMock)
-async def test_apply_demo_transforms_with_profit(mock_rates):
+async def test_apply_demo_transforms_with_profit(mock_rates, caller_context):
     mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
     seg = _make_segment(company="CompanyA", type="sea")
     route = RouteResult(segments=[seg])
-    formatted = _normalize_routes([route])
-    auth = CallerContext(
+    caller_context(CallerContext(
         kind=ContextKind.DEMO,
         excluded_fields=["company"],
         sea_profit=100.0,
         sea_profit_currency="USD",
-    )
-    await _apply_demo_transforms(formatted, auth)
+    ))
 
-    assert formatted[0][0][0].company is None
+    await apply_demo_transforms(route)
+
+    assert route.segments[0].company is None
 
 
 @pytest.mark.asyncio
 @patch("services.profit.get_rates", new_callable=AsyncMock)
-async def test_apply_demo_transforms_with_profit_and_rail(mock_rates):
+async def test_apply_demo_transforms_with_profit_and_rail(mock_rates, caller_context):
     mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
     seg = _make_segment(company="CompanyA", type="rail")
     route = RouteResult(segments=[seg])
-    formatted = _normalize_routes([route])
-    auth = CallerContext(
+    caller_context(CallerContext(
         kind=ContextKind.DEMO,
         excluded_fields=["company"],
         rail_profit=50.0,
         rail_profit_currency="USD",
-    )
-    await _apply_demo_transforms(formatted, auth)
+    ))
 
-    assert formatted[0][0][0].company is None
+    await apply_demo_transforms(route)
+
+    assert route.segments[0].company is None
 
 
 def test_strip_demo_fields_empty_segments():
-    routes = [([], None, False, [])]
-    _strip_demo_fields(routes)
-    assert routes[0][0] == []
+    segments = []
+    strip_demo_fields(segments, ["company"])
+    assert segments == []
 
 
 @pytest.mark.asyncio

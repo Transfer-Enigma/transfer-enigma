@@ -14,7 +14,6 @@ from data.protocols import (
 )
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
-from entrypoints.user.schemas.routes import NormalizedRoutes
 from shared.dto.route import ContainerItem, RouteResult
 from shared.identifiers import ExternalId, InternalId, RouteIdentifier
 
@@ -33,17 +32,6 @@ class _RouteContainerSource(ContainerSource, RouteSource, Protocol):
         self, containers: list[ContainerItem], weight: float, container_type: int
     ) -> list:
         ...
-
-
-def _strip_demo_fields(routes: NormalizedRoutes, excluded_fields: Iterable[str] | None = None) -> None:
-    if excluded_fields is None:
-        return
-
-    for route in routes:
-        segments = route[0]
-        for segment in segments:
-            for field in excluded_fields:
-                setattr(segment, field, None)
 
 
 async def _get_routes(

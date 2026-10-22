@@ -1,5 +1,4 @@
 from collections.abc import AsyncGenerator
-from contextlib import suppress
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Response
@@ -7,28 +6,12 @@ from fastapi.sse import EventSourceResponse, ServerSentEvent
 
 from entrypoints.user.dependencies.auth_context import bind_caller_context
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
-from services.profit import apply_demo_profit_to_route
+from services.demo_transforms import apply_demo_transforms
 from services.route_calculation import calculate_routes_stream
-from shared.context import CallerContext, ContextKind
+from shared.context import CallerContext
 from shared.dto.route import RouteResult
 
 router = APIRouter(prefix="/v3/routes", tags=["v3", "routes"])
-
-
-async def _apply_demo_transforms_to_route(route: RouteResult, context: CallerContext) -> None:
-    if context.sea_profit or context.rail_profit:
-        await apply_demo_profit_to_route(
-            route,
-            context.sea_profit,
-            context.sea_profit_currency,
-            context.rail_profit,
-            context.rail_profit_currency,
-        )
-
-    for segment in route.segments:
-        for field in context.excluded_fields:
-            with suppress(ValueError):
-                setattr(segment, field, None)
 
 
 async def _sse_generator(
@@ -38,8 +21,8 @@ async def _sse_generator(
     current_id = last_event_id + 1 if last_event_id is not None else 0
 
     async for item in calculate_routes_stream(request):
-        if isinstance(item, RouteResult) and context.kind == ContextKind.DEMO:
-            await _apply_demo_transforms_to_route(item, context)
+        if isinstance(item, RouteResult):
+            await apply_demo_transforms(item)
 
         event_type = "route" if isinstance(item, RouteResult) else "error"
         yield ServerSentEvent(data=item, event=event_type, id=str(current_id))

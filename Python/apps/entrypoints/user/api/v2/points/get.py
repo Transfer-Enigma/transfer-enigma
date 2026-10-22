@@ -5,7 +5,6 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends, Query
-from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
 from data.fesco import api_client
 from data.fesco.api_client.transformers.points import transform_points as map_fesco
@@ -14,6 +13,7 @@ from data.internal.aggregators.transformers.points import transform_points as ma
 from entrypoints.user.dependencies.auth_context import bind_caller_context
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.get_points_responses import PointsDataResponse
+from services.demo_transforms import strip_demo_fields_from_points
 from services.group_points import (
     group_companies,
     group_transfers,
@@ -24,19 +24,6 @@ from shared.orm.company import CompanyModel
 from shared.orm.point import PointModel
 
 router = APIRouter(prefix="/v2/points", tags=["v2", "points"])
-
-
-def _strip_demo_fields_from_points(data: list, context: CallerContext) -> None:
-    if context.kind != ContextKind.DEMO:
-        return
-
-    if "company" not in context.excluded_fields:
-        return
-
-    for point in data:
-        point.companies = []
-        for port in point.ports:
-            port.companies = []
 
 
 def _parse_point_ids(departure_point_ids: Annotated[str, Query]) -> tuple[list[int], list[str]]:
@@ -79,7 +66,7 @@ async def all_departure_by_date(date: datetime.date, context: Annotated[CallerCo
         data.extend(map_custom(custom_points))
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
-    _strip_demo_fields_from_points(result, context)
+    strip_demo_fields_from_points(result, context)
 
     return {
         "errors": errors,
@@ -127,7 +114,7 @@ async def all_destination_by_date(
             data.extend(map_fesco(fesco_points))
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
-    _strip_demo_fields_from_points(result, context)
+    strip_demo_fields_from_points(result, context)
 
     return {
         "errors": errors,
@@ -147,7 +134,7 @@ async def truck_departure_points(date: datetime.date, context: Annotated[CallerC
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
 
-    _strip_demo_fields_from_points(result, context)
+    strip_demo_fields_from_points(result, context)
 
     return {
         "errors": [],
@@ -170,7 +157,7 @@ async def truck_destination_points(
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
 
-    _strip_demo_fields_from_points(result, context)
+    strip_demo_fields_from_points(result, context)
 
     return {
         "errors": [],

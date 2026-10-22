@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from services.route_calculation import _strip_demo_fields
+from services.demo_transforms import strip_demo_fields
 from shared.context import ContextKind
 from shared.dto.route import RouteSegment
 
@@ -10,15 +10,15 @@ class TestStripDemoFields:
     def test_removes_company_from_segments(self):
         seg1 = _make_segment(company="CompanyA")
         seg2 = _make_segment(company="CompanyB", id=2)
-        routes = [([seg1, seg2], None, False, [])]
-        _strip_demo_fields(routes, ["company"])
+        routes = [seg1, seg2]
+        strip_demo_fields(routes, ["company"])
         assert seg1.company is None
         assert seg2.company is None
 
     def test_preserves_other_fields(self):
         seg = _make_segment(company="CompanyA")
-        routes = [([seg], None, False, [])]
-        _strip_demo_fields(routes, ["company"])
+        routes = [seg]
+        strip_demo_fields(routes, ["company"])
         assert seg.company is None
         assert seg.id == 1
         assert seg.type == "RAIL"
@@ -26,11 +26,8 @@ class TestStripDemoFields:
     def test_multiple_routes(self):
         seg1 = _make_segment(company="Co1")
         seg2 = _make_segment(company="Co2", id=2)
-        routes = [
-            ([seg1], None, False, []),
-            ([seg2], None, False, []),
-        ]
-        _strip_demo_fields(routes, ["company"])
+        routes = [seg1, seg2]
+        strip_demo_fields(routes, ["company"])
         assert seg1.company is None
         assert seg2.company is None
 
@@ -139,17 +136,13 @@ async def test_get_caller_context_invalid_demo_uid(sqlite_db):
 
 @pytest.mark.asyncio
 async def test_strip_demo_fields_no_routes():
-    from services.route_calculation import _strip_demo_fields
-
     routes = []
-    _strip_demo_fields(routes)
+    strip_demo_fields(routes, ["company"])
     assert routes == []
 
 
 @pytest.mark.asyncio
 async def test_strip_demo_fields_empty_segments_list():
-    from services.route_calculation import _strip_demo_fields
-
-    routes = [([], None, False, [])]
-    _strip_demo_fields(routes)
-    assert routes[0][0] == []
+    segments = []
+    strip_demo_fields(segments, ["company"])
+    assert segments == []
