@@ -34,6 +34,7 @@ FORBIDDEN_IN_SERVICES_DATA = (
     "data.repositories",
     "data.internal",
     "data.fesco",
+    "data.sources",
 )
 
 FORBIDDEN_IN_DATA = (
@@ -44,6 +45,7 @@ FORBIDDEN_IN_DATA = (
 FORBIDDEN_IN_ENTRYPOINTS = (
     "data.internal",
     "data.fesco",
+    "data.sources",
 )
 
 
