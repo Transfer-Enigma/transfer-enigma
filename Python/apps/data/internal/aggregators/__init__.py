@@ -1,4 +1,4 @@
-from .containers import get_containers, search_container_ids  # noqa: F401
+from .containers import get_containers  # noqa: F401
 from .points import (  # noqa: F401
     get_departure_points,
     get_destination_points,

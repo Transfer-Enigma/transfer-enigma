@@ -2,74 +2,116 @@ import asyncio
 import datetime
 import logging
 from collections.abc import Iterable
-from typing import Protocol
 
-from data.protocols import (
-    ContainerQuery,
-    ContainerSource,
-    RouteQuery,
-    RouteSource,
-    get_fesco_source,
-    get_internal_source,
-)
+from data.protocols import ContainerQuery, RouteQuery
+from data.sources.fesco import FescoSource
+from data.sources.internal import InternalSource
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
-from shared.dto.route import ContainerItem, RouteResult
-from shared.identifiers import ExternalId, InternalId, RouteIdentifier
+from shared.dto.route import ContainerItem, RouteResult, RouteSegment
+from shared.identifiers import ExternalId, InternalId, RouteIdentifier, SourceKind
 
 logger = logging.getLogger(__name__)
 
-
-def _source_id(value: int | str) -> RouteIdentifier:
-    """Wrap a raw departure/destination id as the identifier of its source."""
-    return InternalId(value) if isinstance(value, int) else ExternalId(str(value))
+internal_source = InternalSource()
+fesco_source = FescoSource()
 
 
-class _RouteContainerSource(ContainerSource, RouteSource, Protocol):
-    """A source that can list containers and find routes."""
+def search_containers(containers: list[ContainerItem], weight: float, size: int) -> list[ContainerItem]:
+    """The containers that fit the weight and the size of the request."""
+    matching = []
+    for container in containers:
+        if container.size != size:
+            continue
+        weight_from = container.weight_from
+        weight_to = container.weight_to
+        if weight_to is None:
+            matching.append(container)
+            continue
+        if weight_from is not None and weight_from <= weight <= weight_to:
+            matching.append(container)
+    return matching
 
-    def search_container_ids(
-        self, containers: list[ContainerItem], weight: float, container_type: int
-    ) -> list:
-        ...
+
+def _make_identifier(kind: SourceKind, value) -> RouteIdentifier:
+    """The identifier of a value of a source."""
+    if kind == SourceKind.INTERNAL:
+        return InternalId(value)
+    return ExternalId(value)
+
+
+def deduplicate_routes(routes: list[RouteResult]) -> list[RouteResult]:
+    """Keep the first of the routes that have the same segments."""
+    unique: list[RouteResult] = []
+    seen: set[tuple[object, ...]] = set()
+
+    for route in routes:
+        ids = tuple(segment.id for segment in route.segments)
+        if ids in seen:
+            continue
+        seen.add(ids)
+        unique.append(route)
+
+    return unique
+
+
+def is_expired(segment: RouteSegment, date: datetime.date) -> bool:
+    """Whether the segment is not valid anymore at the given date."""
+    effective_to = segment.effectiveTo
+    if isinstance(effective_to, str):
+        try:
+            effective_to = datetime.datetime.fromisoformat(effective_to)
+        except ValueError:
+            return False
+    return effective_to.date() < date
+
+
+def mark_expired_routes(routes: list[RouteResult], date: datetime.date) -> list[RouteResult]:
+    """Mark the routes that hold a segment which is not valid anymore."""
+    for route in routes:
+        route.may_be_invalid = any(is_expired(segment, date) for segment in route.segments)
+    return routes
 
 
 async def _get_routes(
-    source: _RouteContainerSource,
+    source,
     date: datetime.date,
-    departure: int | str,
-    destination: int | str,
+    departure: RouteIdentifier,
+    destination: RouteIdentifier,
     container_weight: float,
     container_type: int,
     *,
     head_truck: bool = False,
     tail_truck: bool = False,
 ) -> Iterable[RouteResult]:
-    dep = _source_id(departure)
-    dest = _source_id(destination)
-    containers = await source.get_containers(ContainerQuery(date, dep, dest))
-    container_ids = source.search_container_ids(containers, container_weight, container_type)
-    if not container_ids:
+    containers = await source.get_containers(ContainerQuery(date, departure, destination))
+    matching = search_containers(containers, container_weight, container_type)
+    if not matching:
         logger.warning("No matching containers for %s-%s", departure, destination)
         return []
-    return await source.find_paths(
-        RouteQuery(date, dep, dest, container_ids, head_truck=head_truck, tail_truck=tail_truck)
+    routes = await source.find_paths(
+        RouteQuery(
+            date,
+            departure,
+            destination,
+            [_make_identifier(source.kind, container.id) for container in matching],
+            head_truck=head_truck,
+            tail_truck=tail_truck,
+        ),
     )
+    return mark_expired_routes(deduplicate_routes(list(routes)), date)
 
 
 def _build_calculation_coros(request: CalculateFormRequest):
     head_truck = request.headTruck
     tail_truck = request.tailTruck
 
-    internal_source = get_internal_source()
-    external_source = get_fesco_source()
-
     internal_coros = [
         _get_routes(
             internal_source,
             request.dispatchDate,
-            departure_id,
-            destination_id,
+            InternalId(departure_id),
+            InternalId(destination_id),
             request.cargoWeight,
             request.containerType,
             head_truck=head_truck,
@@ -80,10 +122,10 @@ def _build_calculation_coros(request: CalculateFormRequest):
     ]
     external_coros = [
         _get_routes(
-            external_source,
+            fesco_source,
             request.dispatchDate,
-            departure_id,
-            destination_id,
+            ExternalId(departure_id),
+            ExternalId(destination_id),
             request.cargoWeight,
             request.containerType,
             head_truck=head_truck,

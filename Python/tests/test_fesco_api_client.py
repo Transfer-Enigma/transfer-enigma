@@ -2,7 +2,7 @@ import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from data.fesco.api_client.containers import get_containers, search_container_ids
+from data.fesco.api_client.containers import get_containers
 from data.fesco.api_client.points import (
     get_departure_points_by_date,
     get_destination_points_by_date,
@@ -23,7 +23,6 @@ from data.fesco.api_client.transformers.routes import (
 )
 from data.fesco.cache import containers_parts, routes_parts
 from shared.cache import CacheBackend, CacheEntity, CachePolicy, LocalStorage
-from shared.dto.route import ContainerItem
 
 
 def _fesco_backend(storage, *entities: CacheEntity) -> CacheBackend:
@@ -655,35 +654,6 @@ class TestGetContainers:
             result = await get_containers(date, "dep1", "dest1")
 
         assert result == []
-
-
-class TestSearchContainerIds:
-    def test_finds_matching_containers(self):
-        containers = [
-            ContainerItem(id=1, size=20, type="DC", weight_from=0, weight_to=28000, name="20DC"),
-            ContainerItem(id=2, size=20, type="DC", weight_from=28001, weight_to=50000, name="20DC"),
-        ]
-
-        assert search_container_ids(containers, weight=20000, container_type=20) == [1]
-        assert search_container_ids(containers, weight=30000, container_type=20) == [2]
-
-    def test_no_weight_to_returns_id(self):
-        containers = [
-            ContainerItem(id=1, size=20, type="DC", weight_from=0, weight_to=None, name="20DC"),
-        ]
-        assert search_container_ids(containers, weight=99999, container_type=20) == [1]
-
-    def test_no_match_returns_empty(self):
-        containers = [
-            ContainerItem(id=1, size=20, type="DC", weight_from=0, weight_to=28000, name="20DC"),
-        ]
-        assert search_container_ids(containers, weight=99999, container_type=20) == []
-
-    def test_wrong_size_returns_empty(self):
-        containers = [
-            ContainerItem(id=1, size=20, type="DC", weight_from=0, weight_to=28000, name="20DC"),
-        ]
-        assert search_container_ids(containers, weight=20000, container_type=40) == []
 
 
 class TestGetDeparturePoints:

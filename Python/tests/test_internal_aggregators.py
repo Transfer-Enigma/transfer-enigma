@@ -2,10 +2,9 @@ import datetime
 from unittest.mock import patch
 
 import pytest
-from data.internal.aggregators.containers import get_containers, search_container_ids
+from data.internal.aggregators.containers import get_containers
 from data.internal.aggregators.routes import find_all_paths, process_results
 from shared.database import Database
-from shared.dto.route import ContainerItem
 from shared.dto.setting import SettingItem
 from shared.orm.container import ContainerType
 from shared.orm.route import ContainerOwner, RouteType
@@ -72,36 +71,6 @@ async def test_get_containers(sqlite_db: Database):
     assert len(result_list) == 2
     sizes = {c.size for c in result_list}
     assert sizes == {20, 40}
-
-
-def test_search_container_ids_edge():
-    containers = [
-        ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, name="20DC", type=ContainerType.DC),
-        ContainerItem(id=2, size=20, weight_from=28001, weight_to=50000, name="20DC", type=ContainerType.DC),
-        ContainerItem(id=3, size=40, weight_from=0, weight_to=28000, name="40DC", type=ContainerType.DC),
-        ContainerItem(id=4, size=40, weight_from=28001, weight_to=50000, name="40DC", type=ContainerType.DC),
-    ]
-
-    assert search_container_ids(containers, weight=0, size=20) == [1]
-    assert search_container_ids(containers, weight=28000, size=20) == [1]
-    assert search_container_ids(containers, weight=28001, size=20) == [2]
-    assert search_container_ids(containers, weight=50000, size=40) == [4]
-    assert search_container_ids(containers, weight=50001, size=40) == []
-    assert search_container_ids(containers, weight=20000, size=30) == []
-    assert search_container_ids(containers, weight=-1, size=20) == []
-
-
-def test_search_container_ids():
-    containers = [
-        ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, name="20DC", type=ContainerType.DC),
-        ContainerItem(id=2, size=20, weight_from=28001, weight_to=50000, name="20DC", type=ContainerType.DC),
-        ContainerItem(id=3, size=40, weight_from=0, weight_to=28000, name="40DC", type=ContainerType.DC),
-    ]
-
-    assert search_container_ids(containers, weight=20000, size=20) == [1]
-    assert search_container_ids(containers, weight=30000, size=20) == [2]
-    assert search_container_ids(containers, weight=20000, size=40) == [3]
-    assert search_container_ids(containers, weight=100000, size=20) == []
 
 
 @pytest.mark.asyncio
