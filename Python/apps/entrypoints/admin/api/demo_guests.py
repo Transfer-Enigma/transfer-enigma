@@ -35,7 +35,7 @@ class DemoGuestResponse(BaseModel):
     rail_profit_currency: str
 
     @classmethod
-    def from_model(cls, guest) -> "DemoGuestResponse":
+    def from_model(cls, guest) -> DemoGuestResponse:
         return cls(
             id=guest.id,
             uid=guest.uid,
