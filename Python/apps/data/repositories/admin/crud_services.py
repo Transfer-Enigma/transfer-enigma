@@ -1,7 +1,7 @@
 from typing import Any
 
-from entrypoints.admin.schemas.data_browser import ServiceCreate, ServicePatch, ServiceResponse
-from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
+from data.repositories.admin.crud_base import CRUDBase, FilterDef
+from data.repositories.admin.schemas import ServiceCreate, ServicePatch, ServiceResponse
 from shared.orm.service import ServiceModel
 
 

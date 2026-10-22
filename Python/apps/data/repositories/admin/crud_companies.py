@@ -1,5 +1,5 @@
-from entrypoints.admin.schemas.data_browser import CompanyCreate, CompanyPatch, CompanyResponse
-from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
+from data.repositories.admin.crud_base import CRUDBase, FilterDef
+from data.repositories.admin.schemas import CompanyCreate, CompanyPatch, CompanyResponse
 from shared.orm.company import CompanyModel
 
 

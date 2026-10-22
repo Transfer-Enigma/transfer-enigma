@@ -5,14 +5,14 @@ from typing import Any
 from fastapi import HTTPException
 from starlette.status import HTTP_404_NOT_FOUND
 
-from entrypoints.admin.schemas.data_browser import (
+from data.repositories.admin.crud_base import CRUDBase, FilterDef
+from data.repositories.admin.schemas import (
     RouteSegmentCreate,
     RouteSegmentListResponse,
     RouteSegmentPatch,
     RouteSegmentResponse,
     RouteSegmentStatsResponse,
 )
-from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
 from shared.orm.company import CompanyModel
 from shared.orm.route import (
     ContainerOwner,

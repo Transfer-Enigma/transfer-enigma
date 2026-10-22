@@ -4,8 +4,14 @@ from fastapi import APIRouter, BackgroundTasks, Query
 from fastapi.params import Depends
 
 from data.cache.settings import delete_settings_cache, set_settings_cache
-from entrypoints.admin.dependencies.auth_context import bind_caller_context
-from entrypoints.admin.schemas.data_browser import (
+from data.repositories.admin.crud_companies import crud_companies
+from data.repositories.admin.crud_containers import crud_containers
+from data.repositories.admin.crud_drop_off import crud_drop_off
+from data.repositories.admin.crud_points import crud_points
+from data.repositories.admin.crud_route_segments import crud_route_segments
+from data.repositories.admin.crud_services import crud_services
+from data.repositories.admin.crud_settings import crud_settings
+from data.repositories.admin.schemas import (
     CompanyCreate,
     CompanyPatch,
     CompanyResponse,
@@ -30,13 +36,7 @@ from entrypoints.admin.schemas.data_browser import (
     SettingPatch,
     SettingResponse,
 )
-from entrypoints.admin.service.crud_companies import crud_companies
-from entrypoints.admin.service.crud_containers import crud_containers
-from entrypoints.admin.service.crud_drop_off import crud_drop_off
-from entrypoints.admin.service.crud_points import crud_points
-from entrypoints.admin.service.crud_route_segments import crud_route_segments
-from entrypoints.admin.service.crud_services import crud_services
-from entrypoints.admin.service.crud_settings import crud_settings
+from entrypoints.admin.dependencies.auth_context import bind_caller_context
 from shared.context import CallerContext
 from shared.database import Database, get_database
 from shared.dto.setting import SettingItem

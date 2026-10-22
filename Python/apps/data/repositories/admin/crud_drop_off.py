@@ -1,8 +1,8 @@
 import datetime
 from typing import Any
 
-from entrypoints.admin.schemas.data_browser import DropOffCreate, DropOffPatch, DropOffResponse
-from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
+from data.repositories.admin.crud_base import CRUDBase, FilterDef
+from data.repositories.admin.schemas import DropOffCreate, DropOffPatch, DropOffResponse
 from shared.orm import DropModel
 
 
