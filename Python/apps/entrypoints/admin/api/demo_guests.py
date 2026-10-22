@@ -5,12 +5,18 @@ from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from starlette.status import HTTP_404_NOT_FOUND
 
-from data.repositories.demo_guests import get_demo_guest_by_uid, list_demo_guests
+from data.repositories.demo_guests import (
+    create_demo_guest,
+    delete_demo_guest,
+    get_demo_guest_by_uid,
+    list_demo_guests,
+    update_demo_guest,
+)
 from entrypoints.admin.dependencies.auth_context import bind_caller_context
 from pydantic import BaseModel, Field
 from shared.context import CallerContext
 from shared.database import Database, get_database
-from shared.orm.demo_guest import DemoGuestModel
+from shared.dto.errors import NotFoundError, ValidationError
 
 router = APIRouter(prefix="/demo-guests", tags=["demo-guests"])
 
@@ -32,14 +38,14 @@ class DemoGuestResponse(BaseModel):
     rail_profit_currency: str
 
     @classmethod
-    def from_model(cls, model: DemoGuestModel) -> DemoGuestResponse:
+    def from_model(cls, guest) -> "DemoGuestResponse":
         return cls(
-            id=model.id,
-            uid=model.uid,
-            sea_profit=model.sea_profit,
-            sea_profit_currency=model.sea_profit_currency,
-            rail_profit=model.rail_profit,
-            rail_profit_currency=model.rail_profit_currency,
+            id=guest.id,
+            uid=guest.uid,
+            sea_profit=guest.sea_profit,
+            sea_profit_currency=guest.sea_profit_currency,
+            rail_profit=guest.rail_profit,
+            rail_profit_currency=guest.rail_profit_currency,
         )
 
 
@@ -61,20 +67,17 @@ async def create_demo_guest(
 ):
     uid = payload.uid.strip()
     async with db.session_context() as session:
-        if await get_demo_guest_by_uid(session, uid):
-            raise HTTPException(status_code=409, detail="UID already exists")
-
-        guest = DemoGuestModel(
-            uid=uid,
-            sea_profit=payload.sea_profit,
-            sea_profit_currency=payload.sea_profit_currency,
-            rail_profit=payload.rail_profit,
-            rail_profit_currency=payload.rail_profit_currency,
-        )
-        session.add(guest)
-        await session.flush()
-        await session.refresh(guest)
-
+        try:
+            guest = await create_demo_guest(
+                session,
+                uid,
+                payload.sea_profit,
+                payload.sea_profit_currency,
+                payload.rail_profit,
+                payload.rail_profit_currency,
+            )
+        except ValidationError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
     return DemoGuestResponse.from_model(guest)
 
 
@@ -87,22 +90,20 @@ async def update_demo_guest(
 ):
     uid = payload.uid.strip()
     async with db.session_context() as session:
-        guest = await session.get(DemoGuestModel, guest_id)
-        if not guest:
-            raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Demo guest not found")
-
-        existing = await get_demo_guest_by_uid(session, uid)
-        if existing and existing.id != guest_id:
-            raise HTTPException(status_code=409, detail="UID already exists")
-
-        guest.uid = uid
-        guest.sea_profit = payload.sea_profit
-        guest.sea_profit_currency = payload.sea_profit_currency
-        guest.rail_profit = payload.rail_profit
-        guest.rail_profit_currency = payload.rail_profit_currency
-        await session.flush()
-        await session.refresh(guest)
-
+        try:
+            guest = await update_demo_guest(
+                session,
+                guest_id,
+                uid,
+                payload.sea_profit,
+                payload.sea_profit_currency,
+                payload.rail_profit,
+                payload.rail_profit_currency,
+            )
+        except NotFoundError as exc:
+            raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc))
+        except ValidationError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
     return DemoGuestResponse.from_model(guest)
 
 
@@ -113,7 +114,7 @@ async def delete_demo_guest(
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
-        guest = await session.get(DemoGuestModel, guest_id)
-        if not guest:
-            raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Demo guest not found")
-        await session.delete(guest)
+        try:
+            await delete_demo_guest(session, guest_id)
+        except NotFoundError as exc:
+            raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail=str(exc))
