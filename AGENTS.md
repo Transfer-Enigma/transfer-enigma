@@ -31,66 +31,76 @@ Python/
 │   ├── db_explorer.py     # Tool 2: Admin CRUD client (list, get, create, update, patch, delete)
 │   └── sheets_reader.py   # Tool 3: Google Sheets reader (worksheets, show, search)
 ├── apps/
-│   ├── backend_auth/         # Port 8081 — Auth & demo guest login
-│   │   └── main.py           # FastAPI app: /login, /token/refresh, /logout, /me
-│   ├── backend_user/         # Port 8080 — Route calculator (user-facing API)
-│   │   ├── main.py
-│   │   ├── autodiscover.py
-│   │   ├── config.py
-│   │   ├── api/v1/, api/v2/  # Versioned API endpoints
-│   │   ├── dependencies/
-│   │   └── services/
-│   ├── backend_admin/        # Port 8082 — Admin data management
-│   │   ├── main.py
-│   │   ├── autodiscover.py
-│   │   ├── api/
-│   │   │   ├── routes_loading.py  # Import routes from Google Sheets
-│   │   │   ├── data_manager.py    # DB dump/erase/load
-│   │   │   ├── demo_guests.py     # CRUD demo guests
-│   │   │   └── data_browser.py    # Thin CRUD routes (delegates to service/)
-│   │   ├── schemas/
-│   │   │   └── data_browser.py    # Pydantic request/response models
-│   │   └── service/
-│   │       ├── crud_base.py           # Generic CRUD template (CRUDBase)
-│   │       ├── crud_companies.py      # Company CRUD service
-│   │       ├── crud_points.py         # Point CRUD service
-│   │       ├── crud_containers.py     # Container CRUD service
-│   │       ├── crud_route_segments.py # Route segment CRUD (composite)
-│   │       ├── crud_services.py       # Service CRUD service
-│   │       ├── crud_drop_off.py      # Drop-off CRUD service
-│   │       └── crud_settings.py     # Settings CRUD service
-│   ├── module_shared/
-│   │   ├── models/
-│   │   │   ├── route.py          # Pydantic route models
-│   │   │   ├── setting.py        # Pydantic SettingItem with _parse_value validator (converts str → bool|int|float|dict|list via value_type) and locked field
-│   │   │   └── errors.py         # RouteError model
-│   │   ├── schemas/
-│   │   │   ├── __init__.py       # re-exports Base, all ORM models + enums
-│   │   │   ├── company.py        # CompanyModel ORM model
-│   │   │   ├── container.py      # ContainerModel + ContainerType ORM model
-│   │   │   ├── demo_guest.py     # DemoGuestModel ORM model
-│   │   │   ├── drop.py           # DropModel ORM model
-│   │   │   ├── point.py          # PointModel ORM model
-│   │   │   ├── route.py          # PriceModel, RouteModel, ServicePriceModel + RouteType, ContainerTransferTerms, ContainerShipmentTerms, ContainerOwner enums
-│   │   │   ├── service.py        # ServiceModel ORM model
-│   │   │   └── setting.py        # SettingModel ORM model + SettingType enum
-│   │   ├── cache.py              # Shared CacheController (Redis GET/SET + Pydantic validation + locker-guarded async writes)
-│   │   ├── cache_settings.py     # Settings Redis cache (cache-aside, TTL 12h) + ensure_settings
-│   │   ├── settings.py           # Thin wrappers: get_setting, list_settings (open session → repository)
-│   │   ├── setting_definitions.py  # Setting definition registry (SettingDefinition dataclass)
-│   │   ├── redis_client.py       # Redis async singleton (get_redis / get_redis_client)
-│   │   └── repositories/
-│   │       ├── demo_guest.py     # get/list demo guests
-│   │       ├── setting.py        # get_setting, list_settings
-│   │       └── locker/
-│   │           ├── __init__.py         # Re-exports Locker, TaskAlreadyRunningError
-│   │           ├── abstract_locker.py  # Abstract Locker ABC with @locked/@alocked decorators
-│   │           ├── local_locker.py     # LocalLocker — in-process threading lock
-│   │           └── redis_locker.py     # RedisLocker — distributed Redis lock (async only)
-│   ├── module_data_internal/
-│   │   ├── query_domain/    # New declarative query builder
-│   └── module_data_fesco_api_adapter/
+│   ├── shared/                # Kernel — used by every layer
+│   │   ├── dto/                # Pydantic domain models
+│   │   │   ├── route.py        # ContainerItem, PriceItem, ServiceItem, DropItem, RouteSegment, RouteResult
+│   │   │   ├── setting.py      # SettingItem + parse_setting_value
+│   │   │   ├── errors.py       # RouteError
+│   │   │   └── calculation.py  # CalculationRequest (the input of the calculation)
+│   │   ├── orm/                # SQLAlchemy ORM models
+│   │   │   ├── __init__.py     # re-exports Base, all ORM models + enums
+│   │   │   ├── company.py, container.py, demo_guest.py, drop.py, point.py,
+│   │   │   ├── route.py        # PriceModel, RouteModel, ServicePriceModel + RouteType, ContainerTransferTerms, ContainerShipmentTerms, ContainerOwner enums
+│   │   │   ├── service.py, setting.py, cache_policy.py
+│   │   ├── cache/              # The cache mechanism
+│   │   │   ├── entity.py       # CacheEntity (StrEnum) — the cacheable entities
+│   │   │   ├── policy.py       # CachePolicy (source, entity, enabled, ttl)
+│   │   │   ├── storage.py      # CacheStorage protocol, RedisStorage, LocalStorage
+│   │   │   └── backend.py      # CacheBackend — the reads and the writes
+│   │   ├── concurrency/        # Locker, LocalLocker, RedisLocker
+│   │   ├── identifiers.py      # SourceKind, RouteIdentifier, InternalId, ExternalId
+│   │   ├── context.py          # ContextKind, CallerContext, get_context, permissions
+│   │   ├── auth.py             # require_token — the shared token check
+│   │   ├── config.py           # Settings — one class for every app
+│   │   ├── database.py         # Base, Database, get_database
+│   │   ├── logger.py, redis_client.py, jwt_error_handler.py
+│   ├── data/                  # Data access
+│   │   ├── protocols.py        # RouteSource, PointSource, ContainerSource + the queries
+│   │   ├── sources/            # The adapters behind the protocols
+│   │   │   ├── internal.py     # Our own database
+│   │   │   └── fesco.py        # The FESCO API
+│   │   ├── repositories/       # All the database work
+│   │   │   ├── routes.py, points.py, containers.py, settings.py, demo_guests.py,
+│   │   │   ├── cache_policies.py
+│   │   │   └── admin/          # The CRUD of the data browser
+│   │   ├── cache/              # The cache of the sources
+│   │   │   ├── registry.py     # CacheRegistry — the policies from the database
+│   │   │   └── settings.py     # The cache of the settings
+│   │   ├── internal/           # The internals of our own database
+│   │   │   ├── aggregators/    # The queries and the transformers
+│   │   │   └── query_domain/   # The declarative query builder
+│   │   ├── fesco/              # The FESCO API client
+│   │   │   ├── api_client/     # containers, points, routes
+│   │   │   └── transformers/
+│   │   ├── routes_loading/     # The import of the routes from the sheets
+│   │   └── db_management/      # The dump, the erase and the load of the database
+│   ├── services/              # Business logic
+│   │   ├── route_calculation.py, points.py, profit.py, demo_transforms.py
+│   │   ├── group_points.py, rates.py, cache_management.py
+│   ├── entrypoints/           # The processes
+│   │   ├── user/              # Port 8080 — the user API
+│   │   │   ├── main.py, autodiscover.py, config.py
+│   │   │   ├── api/v1/, api/v2/, api/v3/
+│   │   │   ├── dependencies/, schemas/, utils/
+│   │   ├── admin/             # Port 8082 — the admin API
+│   │   │   ├── main.py, autodiscover.py, config.py, resources.py
+│   │   │   ├── api/            # cache, data_browser, data_manager, demo_guests, routes_loading
+│   │   │   ├── dependencies/, schemas/
+│   │   └── auth/              # Port 8081 — the auth API
 ```
+
+The layers may only depend on each other downwards:
+
+```
+entrypoints/  ->  services/  ->  data/  ->  shared/
+```
+
+- **`entrypoints/`** — the processes: the HTTP API of the user, the admin and the auth app. They parse the request, bind the caller context, call the services and format the answer. No business logic, no SQL.
+- **`services/`** — the business logic: the use cases, the rules, the orchestration. No `fastapi`, no `sqlalchemy`; the data is reached through the protocols of the data layer.
+- **`data/`** — the access to the data: the repositories (they own their session), the query builder, the source adapters behind the protocols, the cache of the sources.
+- **`shared/`** — the kernel: the domain models, the ORM models, the cache mechanism, the identifiers, the caller context, the database, the config.
+
+The rules are checked by `Python/tests/test_architecture.py` — a violation of a layer fails the test suite.
 
 ### Node Frontends (`Node/apps/`)
 
@@ -163,39 +173,64 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 
 **Status:** Active — Redis service available in all environments (prod, dev, test).
 
-**Redis client:** `module_shared/redis_client.py` — async singleton via `get_redis()` / `get_redis_client()`. Connection pool managed by `redis.asyncio`.
+**Redis client:** `shared/redis_client.py` — async singleton via `get_redis()` / `get_redis_client()`. Connection pool managed by `redis.asyncio`.
 - `decode_responses=True` — all values are strings (JSON serialized)
-- Config: `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, `REDIS_PASSWORD` from `module_shared/config.py`
+- Config: `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, `REDIS_PASSWORD` from `shared/config.py`
 
-**Shared `CacheController`** (`module_shared/cache.py`):
-- `get_cached(key, pydantic_class?, iterable?)` — Redis GET → JSON → optional Pydantic `model_validate`
-- `set_cache(key, data, ttl, model_dump?)` — Redis SET with optional automatic `model_dump(mode="json")`, returns `bool`
-- `set_cache_async(key, data, ttl, model_dump?)` — fire-and-forget async write, guarded by `LocalLocker` to prevent duplicate concurrent writes for the same cache key
-- `silent_set_cache_async(...)` — same as above, suppresses `TaskAlreadyRunningError`
+**One mechanism, per-source configuration.** The cache is driven by the `cache_policies` table — one row per `(source, entity)` with the switch and the TTL. An entity **without** an enabled policy row is not cached at all.
 
-**FESCO cache** (`module_data_fesco_api_adapter/cache.py`):
-- `CacheKeys` — static methods for key generation (`get_departures_cache_key`, `get_destinations_cache_key`, `get_wte_cache_key`, `get_routes_cache_key`)
-- `get_points_ttl(date)` — returns TTL (24h for today, 12h for other dates)
-- `get_cache_controller()` — singleton, returns `CacheController(logger)`
-- API clients (`containers.py`, `points.py`, `routes.py`) use `CacheController` directly for cache-aside pattern
+| Piece | Location | Content |
+|-------|----------|---------|
+| `CacheEntity` | `shared/cache/entity.py` | `StrEnum` of the cacheable entities — a policy cannot reference an unknown one |
+| `CachePolicy` | `shared/cache/policy.py` | `source`, `entity`, `enabled`, `ttl` |
+| `CacheStorage` | `shared/cache/storage.py` | `Protocol`; `RedisStorage` and `LocalStorage` (in process, for the tests) |
+| `CacheBackend` | `shared/cache/backend.py` | the reads and the writes over a `CacheStorage` |
+| `CacheRegistry` | `data/cache/registry.py` | the policies from the database, one backend per source |
+| `CachePolicyModel` | `shared/orm/cache_policy.py` | the ORM model of the table |
 
-**Cache key scheme:**
+**`CacheBackend`:**
+- `get(entity, *parts, model?, many=True)` — read, validate against the model, `None` when the entity is not cached
+- `set(entity, *parts, data, ttl?, dump=False)` — write, `False` when the entity is not cached
+- `set_async(...)` / `silent_set_async(...)` — fire-and-forget write, guarded by `LocalLocker` **by the cache key**
+- `delete(entity, *parts)`, `flush()`, `keys(entity?)` — the administration of the cache
+
+**Cache key scheme** — `{source}:{entity}:{parts}`:
 
 | Data | Key pattern | TTL | Eviction |
 |------|-------------|-----|----------|
-| Currency rates | `backend_user:rates:latest` | 24h | — |
-| FESCO departures | `backend_user:fesco:departures:{date}` | 24h (today) / 12h (other) | volatile-lru |
-| FESCO destinations | `backend_user:fesco:destinations:{date}:{dep_id}` | 24h (today) / 12h (other) | volatile-lru |
-| FESCO routes | `backend_user:fesco:routes:{date}:{dep}:{dest}:{wte_ids}` | 12h | volatile-lru |
-| Settings | `backend_user:settings:{group}:{name}` | 12h | volatile-lru |
+| Currency rates | `backend_user:rates:latest` | 24h | — (not policy driven yet) |
+| FESCO departures | `fesco:departures:{date}` | from the policy | volatile-lru |
+| FESCO destinations | `fesco:destinations:{date}:{dep_id}` | from the policy | volatile-lru |
+| FESCO containers | `fesco:containers:{date}:{dep}:{dest}` | from the policy | volatile-lru |
+| FESCO routes | `fesco:routes:{date}:{dep}:{dest}:{wte_ids}` | from the policy | volatile-lru |
+| Settings | `internal:settings:{group}:{name}` | from the policy | volatile-lru |
 
-**Settings cache — transparent:** `module_shared/cache_settings.py` implements cache-aside for DB-backed settings:
-- `get_setting_cached(group, name, *, session=None)` — Redis → DB → fire-and-forget write
-- `set_settings_cache(item)` — write single setting to Redis
-- `delete_settings_cache(group, name)` — remove single setting from Redis
-- `backend_admin` lifespan includes `get_redis_client().init()` / `.close()`
-- Admin CRUD endpoints (`POST/PUT/PATCH/DELETE /db/settings`) use `BackgroundTasks` to update/delete Redis after DB write so cache stays in sync
-1. Always try CBR API first (`ExchangeRates`)
+The TTL of the points of the FESCO API depends on the date (24h for today, 12h for the other days) and is passed as an override, the policy gives the default one.
+
+**The cache is loaded on startup:** the lifespans of the user and the admin apps call `await get_cache_registry().load()` after the database and the Redis are ready. The policies are read from the database, so an entity is cached only after its row exists.
+
+**The rows are created by hand after the deploy** — there is no automatic seeding. Until they exist, nothing is cached:
+
+```sql
+INSERT INTO cache_policies (source, entity, enabled, ttl) VALUES
+  ('internal', 'settings',    1, 43200),
+  ('fesco',    'departures',  1, 43200),
+  ('fesco',    'destinations',1, 43200),
+  ('fesco',    'containers',  1, 86400),
+  ('fesco',    'routes',      1, 43200);
+```
+
+**The admin panel manages the cache:** `GET /admin/api/cache` (the sources and their policies), `GET /admin/api/cache/{source}` (the keys), `PATCH /admin/api/cache/{source}/{entity}` (the switch and the TTL), `DELETE /admin/api/cache/{source}` (flush it).
+
+**The settings cache — transparent:** `data/cache/settings.py` implements cache-aside for the DB backed settings:
+- `get_setting_cached(group, name, *, session=None)` — the cache → the database → a fire-and-forget write
+- `set_settings_cache(item)` — write a single setting
+- `delete_settings_cache(group, name)` — remove a single setting
+- `ensure_settings()` — the seeding of the settings, called by the lifespan of the user app
+- The admin CRUD of the settings updates the cache after the write, so the cache stays in sync
+
+**The rates cache** (`services/get_rates.py`):
+1. Always try the CBR API first (`ExchangeRates`)
 2. On success: return `(rates, today)` + `asyncio.create_task()` writes to Redis
 3. On failure: fallback to Redis — return `(rates, cached_date)` from cache
 4. If both fail: `RuntimeError`
@@ -211,12 +246,14 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 
 ### Locker System
 
-`module_shared/repositories/locker/` — lock/unlock abstraction for preventing duplicate concurrent operations:
+`shared/concurrency/` — lock/unlock abstraction for preventing duplicate concurrent operations:
 
 - **`Locker` (ABC)** — sync/async `acquire`/`release`, context managers, class-level `@locked`/`@alocked` decorators that wrap functions with acquire/release semantics
-- **`LocalLocker`** — in-process threading-based lock (`threading.Lock` + `dict[str, bool]`). Used by `CacheController.set_cache_async` to prevent duplicate fire-and-forget writes for the same cache key
+- **`LocalLocker`** — in-process threading-based lock (`threading.Lock` + `dict[str, bool]`). Used by `CacheBackend.set_async` to prevent duplicate fire-and-forget writes for the same cache key
 - **`RedisLocker`** — distributed Redis-based lock using `SET NX EX` (async only; sync methods raise `RuntimeError`)
 - **`TaskAlreadyRunningError`** — raised on re-acquire
+
+The `@locked` decorator takes the key from the **first positional argument** of the wrapped function. On a method that is the instance, so the key function must build it explicitly: `@LocalLocker.locked(key=lambda self, entity, *parts, **__: self.key(entity, *parts))`.
 
 ### Nginx Routing
 
@@ -249,9 +286,9 @@ Examples:
 - `Nginx: Add SSL support`
 
 Module prefixes:
-- `Auth Backend:` — `backend_auth` only
-- `User Backend:` — `backend_user` only
-- `Admin Backend:` — `backend_admin` only
+- `Auth Backend:` — `entrypoints/auth` only
+- `User Backend:` — `entrypoints/user` only
+- `Admin Backend:` — `entrypoints/admin` only
 - `Python:` — crosses multiple Python modules (e.g., adding shared code)
 - `User Frontend:` — Vue app only
 - `Admin Frontend:` — React app only
@@ -296,14 +333,15 @@ Module prefixes:
 
 ### Python Tests
 - Tests live in `Python/tests/`, run with `make test`
-    - `test_route_calculation.py` — route calculation (service-level: internal, FESCO, mixed, errors; handler-level: format conversion, demo transforms/strip/profit)
+    - `test_architecture.py` — the rules of the layers (see the dependencies graph above)
+    - `test_route_calculation.py` — route calculation (service-level: internal, FESCO, mixed, errors; handler-level: format conversion, demo transforms/strip/profit) and the search of the containers
     - `test_internal_aggregators.py` — containers, paths (rail/sea/COC/SOC/expired/services/drop/dropp_off/no_data/process_results), hide-sea-soc + route-type feature flags + TRUCK routes (direct, truck→rail, rail→truck, truck→rail→truck, truck→sea→rail→truck, truck→rail→sea→truck, sea+rail with truck, base queries for "without delivery" button)
     - `test_profit.py` — currency conversion, profit application, segment type filtering, mixed segments, currency conversion in profit
-    - `test_auth_utils.py` — `_strip_demo_fields`, `get_auth_context` with/without/invalid demo header, empty routes
+    - `test_auth_utils.py` — `strip_demo_fields`, `get_caller_context` with/without/invalid demo header, empty routes
     - `test_get_points.py` — `get_departure_points`, `get_destination_points`, no routes, multiple companies
     - `test_demo_guest_repo.py` — `get_demo_guest_by_uid` found/not found/profit overrides, `list_demo_guests` empty/multiple
     - `test_get_rates.py` — `get_rates` returns dict, caching, with datetime, API failure fallback
-    - `test_setting_cache.py` — `get_setting_cached` cache hit/miss/not_found
+    - `test_setting_cache.py` — `get_setting_cached` cache hit/miss/not_found, and the entity that has no policy is not cached
     - `test_fesco_api_client.py` — FESCO API transformations, container search, points, routes, caching
     - `test_deduplication.py` — route deduplication preserves distinct routes, multiple prices
     - `test_route_calculation_v3_sse.py` — SSE streaming, demo transforms, error handling
@@ -313,18 +351,39 @@ Module prefixes:
     - `test_query_domain_builder.py` — RouteBuilder API tests + DB-backed build tests
 - **Test DB**: SQLite in-memory (`sqlite+aiosqlite`). Tables created via `Base.metadata.create_all()`, **not** via Alembic migrations (migrations have MySQL-specific code).
 - **Auth mocks**: patch `get_demo_guest_by_uid`, `get_database`, and `request_auth` directly
-- **FESCO API mocks**: use `unittest.mock.patch` on `module_data_fesco_api_adapter.api_client` directly
-- **Test data**: factory functions in `Python/tests/data/__init__.py` build ORM objects with sensible defaults
+- **FESCO API mocks**: use `unittest.mock.patch` on `data.fesco.api_client` directly
+- **The caller context**: the `caller_context` fixture binds a `CallerContext` for the duration of a test and restores it after
+- **Test data**: factory functions in `Python/tests/factories.py` build ORM objects with sensible defaults
 - **Currency rates**: tests use RUB-relative rates `{"USD": 90.0, "RUB": 1.0}`; `_convert_currency` formula is `amount * rates[from] / rates[to]`
 - Run: `make test` (Docker, profile `test` — won't start with plain `docker compose up`)
 
 ### Python Module Dependencies Graph
 ```
-module_shared ───┬── backend_auth
-                 ├── backend_user ───┬── module_data_internal
-                 │                   └── module_data_fesco_api_adapter
-                 └── backend_admin ─── module_data_internal
+entrypoints ─── services ─── data ─── shared
 ```
+
+The layers may only depend on each other downwards. `Python/tests/test_architecture.py` checks it:
+
+| Rule | Check |
+|------|-------|
+| The services do not import the web framework or the ORM | `test_services_do_not_import_the_web_framework_or_the_orm` |
+| The services reach the data through the protocols | `test_services_reach_the_data_through_the_protocols` |
+| The data layer does not import the layers above it | `test_data_does_not_import_the_layers_above` |
+| The entrypoints do not import a concrete source | `test_entrypoints_do_not_import_a_concrete_source` |
+| No private symbol crosses a package | `test_no_private_symbol_is_imported_across_the_packages` |
+
+### The Caller Context
+One global context instead of the context passed through every signature — `shared/context.py`:
+
+- **`ContextKind`** — `SYSTEM` (a process, e.g. a scheduler), `ADMIN`, `DEMO`, `USER` (reserved for a future users and roles system)
+- **`CallerContext`** — the kind, the identity, the pricing overrides, the fields the caller must not see, the user id and the permissions
+- **`get_context()`** — the context of the current call; it **raises** when nothing is bound, so a use case never runs with the privileges of nobody by accident
+- **`set_context()` / `reset_context()`** — bind and restore, over a `contextvars.ContextVar` (per task, so the requests do not see each other)
+- **`@permissions(ContextKind...)`** — a decorator for the services, it checks the kind of the caller
+
+The entrypoints bind the context: the user app resolves it from the request (JWT → `ADMIN`, `X-Demo-User-UID` → `DEMO`), the admin app binds `ADMIN`, a process binds `SYSTEM` explicitly. The services read it with `get_context()`.
+
+The services never take the context as an argument — that is what makes them reusable by a process that is not an HTTP request.
 
 ### TypeScript / Frontends
 - **User Frontend**: Vue 3 Composition API (`<script setup lang="ts">`), Pinia stores, Vue Router
@@ -361,19 +420,18 @@ module_shared ───┬── backend_auth
 ### Auth Flow
 1. Login sets JWT access + refresh cookies (httpOnly)
 2. Frontend refreshes token on interval via `POST /token/refresh`
-3. Demo users authenticate via `X-Demo-User-UID` header (no JWT, no backend_auth)
+3. Demo users authenticate via `X-Demo-User-UID` header (no JWT, the auth app is NOT involved)
 
 ### Demo Guest Feature
 - Admin creates demo guests with UID + profit overrides (stored in `demo_guests` table)
 - Demo link format: `/demo/<UID>`
-- All demo auth is in `backend_user` — `backend_auth` is NOT involved
-- Backend: `get_auth_context` dependency checks `X-Demo-User-UID` header → looks up `demo_guests` table → returns `AuthContext` (is_demo, profit overrides). If no header, falls through to JWT via `request_auth`.
-- V2 endpoints use `Depends(get_auth_context)` (supports both JWT and header auth)
-- V1 endpoints use `Depends(request_auth)` (JWT only)
+- All demo auth is in the user entrypoint — the auth app is NOT involved
+- Backend: the `bind_caller_context` dependency checks the `X-Demo-User-UID` header → looks up the `demo_guests` table → builds a `CallerContext` (kind `DEMO`, the profit overrides, the blurred fields). If no header, it falls through to the JWT via `request_auth` and binds `ADMIN`.
+- The endpoints use `Depends(bind_caller_context)` (it supports both the JWT and the header)
 - Demo endpoints: `POST /api/v2/demo/validate` (validates UID), `GET /api/v2/demo/feature-flags` (returns blurred_fields list)
 - Frontend: `helpers/requests.ts` → `demoHeaders()` reads `useDemoAuth()` Pinia store → injects `X-Demo-User-UID` into every `fetchAsJSON()` call
 - Demo users see blurred company names via CSS class (driven by `useBlurredFields` composable ← `featureFlags` store)
-- Profits (`sea_profit`, `rail_profit`) are added to route prices for demo users only (in profit service)
+- Profits (`sea_profit`, `rail_profit`) are added to route prices for demo users only (in the profit service, it reads the caller context)
 - `Error404Page.vue` shown for invalid UIDs or unmatched routes
 
 ### Pinia Timing Constraints (Critical!)
@@ -391,13 +449,13 @@ module_shared ───┬── backend_auth
 
 ### Domain Models
 
-**`module_shared/models/route.py`** — Route entities (Pydantic V2 `BaseModel`):
+**`shared/dto/route.py`** — Route entities (Pydantic V2 `BaseModel`):
 - Models: `ContainerItem`, `PriceItem`, `OnePrice`, `ServiceItem`, `DropItem`, `RouteSegment`, `RouteResult`
 - `OnePrice` represents FESCO single-price format with `beginCond`/`finishCond` (price-level conditions, set only for sea segments)
 - `PriceItem` represents internal multi-price format (always has `value: float`)
 - `RouteSegment.prices` can be `list[PriceItem]` (internal) or `OnePrice` (FESCO) or `None`
 
-**`module_shared/models/setting.py`** — Setting entities (Pydantic V2 `BaseModel`):
+**`shared/dto/setting.py`** — Setting entities (Pydantic V2 `BaseModel`):
 - `SettingItem(id, group, name, description?, value_type, value)` — unified settings model
 - `value: bool | int | float | str | dict | list | None` — auto-converted from DB string via `_parse_value` validator (`mode="before"`):
     - `INT` → `int(v)`, `FLOAT` → `float(v)`, `BOOL` → `v.lower() in ("true", "1")`, `JSON` → `json.loads(v)`
@@ -405,33 +463,38 @@ module_shared ───┬── backend_auth
 - `from_model(model: SettingModel) -> SettingItem` — factory from ORM model
 - `parse_setting_value(value, value_type)` — standalone function used by both `_parse_value` and admin CRUD validation
 
-**`module_shared/models/errors.py`** — Error model:
+**`shared/dto/errors.py`** — Error model:
 - `RouteError(error_type: str, error_text: str, source: str | None)`
 - Used in services (no source) and points handlers (`"internal"`/`"external"`)
 
+**`shared/dto/calculation.py`** — `CalculationRequest` — the input of the calculation service. The API model of the request (`CalculateFormRequest`) turns itself into it with `to_calculation_request()`, so the services do not depend on the shape of the API.
+
+**`shared/identifiers.py`** — the ids of the entities of a source:
+- `SourceKind` — `INTERNAL`, `EXTERNAL`
+- `RouteIdentifier` (ABC) — `source` (read only), `__str__` (the canonical form, used for the cache keys), `__hash__`, `__eq__` (by the hash, so the ids are comparable and usable as dict and set members)
+- `InternalId` (an int) and `ExternalId` (a str) — the adapters convert at the boundary
+
 ### Service/API Separation (Single Responsibility)
-- **Services** (`backend_user/services/`) handle data work: fetching, aggregating, manipulating (e.g., `_strip_demo_fields`)
-- **API handlers** (`backend_user/api/`) handle format conversion: model → tuple for HTTP response
-- Models in `module_shared/models/route.py` are Pydantic V2 `BaseModel` (not dataclasses) — they serve as both domain objects and response schemas
+- **Services** (`services/`) hold the business logic: the use cases, the rules, the orchestration
+- **API handlers** (`entrypoints/*/api/`) parse the request, bind the caller context, call the service and format the answer
+- The models in `shared/dto/route.py` are Pydantic V2 `BaseModel` (not dataclasses) — they serve as both domain objects and response schemas
 - `calculate_routes()` returns `tuple[list[RouteResult], list[RouteError]]` (raw Pydantic models + errors)
-- V2 handler (`api/v2/routes/post.py`) owns: `_route_result_to_tuple`, `_normalize_routes`, `_apply_demo_transforms`
-    - `_seg_to_price_dict` was removed — models are returned as-is (no OnePrice flattening to `price`/`currency`/`container`/`beginCond`/`finishCond` flat fields)
-    - Response format: `[segments: list[RouteSegment], drop: DropItem | None, bool, services: list[ServiceItem]]` — tuple with raw model objects
-- V1 handler (`api/v1/routes/post.py`) has its own copies of these functions (legacy, separate format)
-- `_strip_demo_fields` stays in `services/route_calculation.py` (data manipulation, not format conversion)
-- No duplicate Pydantic response models — `backend_user/schemas/routes_responses.py` imports `RouteSegment`, `DropItem`, `ServiceItem` from `module_shared.models.route`
+- The V2 handler (`entrypoints/user/api/v2/routes/post.py`) owns `_normalize_routes` — the tuple format of the response
+- The demo rules are one service (`services/demo_transforms.py`), it reads the caller context
+- No duplicate Pydantic response models — the schemas of the entrypoints import `RouteSegment`, `DropItem`, `ServiceItem` from `shared.dto.route`
 
 ### Database
 - MariaDB, accessed via SQLAlchemy async + `aiomysql`
 - Migrations via Alembic
-- All ORM models and enums defined in `module_shared/schemas/`
-- Both use the same `Base` class from `module_shared.database`
+- All ORM models and enums defined in `shared/orm/`
+- Both use the same `Base` class from `shared.database`
+- The repositories own their session: `async with get_database().session_context() as session` — auto-commits on exit, auto-rollbacks on exception
 
 ### Route Calculation — Key Logic
 
 > Подробное описание логики расчёта маршрутов см. в [ROUTES-CALCULATION-LOGIC.md](./ROUTES-CALCULATION-LOGIC.md).
 
-** Query Composer (`query_domain/`) —** wired into `routes.py` (replaced raw SQL `build_usual_query`/`build_base_sea_rail_query`). Full API docs in [`query_domain/README.md`](./Python/apps/module_data_internal/query_domain/README.md).
+** Query Composer (`data/internal/query_domain/`) —** wired into `data/repositories/routes.py` (replaced raw SQL `build_usual_query`/`build_base_sea_rail_query`). Full API docs in [`query_domain/README.md`](./Python/apps/data/internal/query_domain/README.md).
 - **`ColumnRef`** — single entity for column references (no separate `Field`/`RelField`). Accessed via `Segment.__getattr__`/`DropOff.__getattr__` which looks up `_COLUMN_MAP` (domain → DB column name). Methods: `.equals()`, `.not_equals()`, `.not_()`, `.not_null()`, `.null()`, `.in_()`, `.lte()`, `.gte()`. `_id` columns hidden (only accessible via relationship names like `company` → `company_id`).
 - **`Condition`** — AST node: `op`, `left`, `right`, `operand`, `operands`. Supports unary (not/not_null/null), binary (eq/in/lte/gte), and n-ary (and/or) operations.
 - **`Segment`** — represents a route table segment. `type` param accepts string or `RouteType` enum (auto-converts). `auto_services=False` default. All route columns accessible via `_COLUMN_MAP`.
@@ -454,12 +517,12 @@ module_shared ───┬── backend_auth
 | `feature-flag` | `tail-truck` | `BOOL` | `true` | When `true`, allows appending a TRUCK segment after the route (via `truck_end_point_id`) |
 | `feature-flag` | `demo-excluded-fields` | `JSON` | `["company"]` | List of fields to blur for demo users |
 
-- All 7 route-related flags are read in `module_data_internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached("feature-flag", name)` using the `_flags` list
-- `demo-excluded-fields` is read in `backend_user/api/v2/demo/feature_flags.py` and several point/route handlers
-- All settings are defined in `module_shared/setting_definitions.py` and auto-synced to DB on startup via `ensure_settings()`
+- All 7 route-related flags are read in `data/internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached("feature-flag", name)` using the `_flags` list
+- `demo-excluded-fields` is read once per request, when the caller context is bound
+- All settings are defined in `data/repositories/settings_definitions.py` and auto-synced to DB on startup via `ensure_settings()`
 - Falls back to default value if setting not found or Redis/DB unavailable
 
-**TRUCK segment connection rules (in `routes.py`):**
+**TRUCK segment connection rules (in `data/repositories/routes.py`):**
 - `_connect_segments(prev, curr)` adds: `prev.end_point == curr.start_point`
 - `_connect_segments_reversed(curr, _next)` adds: `curr.end_point == _next.start_point` (uses `q.prepend_segment()`)
 - Head truck: `_attach_head_trucks` prepends truck segment before the first segment via `_connect_segments_reversed`
@@ -501,9 +564,9 @@ All output is JSON by default (for AI/script parsing).
 
 ### Admin CRUD API (`data_browser.py`)
 
-**File:** `Python/apps/backend_admin/api/data_browser.py`
+**File:** `Python/apps/entrypoints/admin/api/data_browser.py`
 **Prefix:** `/db` (auto-discovered by `autodiscover.py`)
-**Auth:** JWT via `Depends(request_auth)`
+**Auth:** JWT via `Depends(bind_caller_context)`
 
 **Resources and endpoints:**
 
@@ -518,17 +581,17 @@ All output is JSON by default (for AI/script parsing).
 | Settings | `GET/POST /db/settings`, `GET/PUT/PATCH/DELETE /db/settings/{id}` | `group, name, description?, value_type, value?` |
 
 **Architecture:**
-- `api/data_browser.py` — thin route definitions only (delegates to service layer)
-- `schemas/data_browser.py` — all Pydantic request/response models with `from_model()` classmethods
-- `service/crud_base.py` — generic `CRUDBase` template (ABC) with `list`, `get`, `create`, `update`, `patch`, `delete` + filter definitions via `FilterDef`
-- `service/crud_*.py` — per-entity service classes that override `_build_instance`, `_apply_update`, `_apply_patch` for entity-specific conversion logic (strip, enum/date parsing, nested prices/services)
+- `entrypoints/admin/api/data_browser.py` — thin route definitions only (delegates to the repositories)
+- `data/repositories/admin/schemas.py` — all Pydantic request/response models with `from_model()` classmethods
+- `data/repositories/admin/crud_base.py` — generic `CRUDBase` template (ABC) with `list`, `get`, `create`, `update`, `patch`, `delete` + filter definitions via `FilterDef`
+- `data/repositories/admin/crud_*.py` — per-entity classes that override `_build_instance`, `_apply_update`, `_apply_patch` for entity-specific conversion logic (strip, enum/date parsing, nested prices/services)
 
 **Route Segment** is a composite resource — `crud_route_segments.py` overrides `create`/`update` to handle nested `prices[]` and `services[]` (fully replaced on PUT); PATCH only touches route-level fields via `_apply_patch`. The `get` method uses `selectinload` for eager relationship loading.
 - `RouteSegmentListResponse` includes `is_through` and `container_owner`
 - `RouteSegmentStatsResponse` is returned by `GET /db/route-segments/stats`: totals, type/through/owner distribution, top 20 companies
 
 **Settings CRUD** (`crud_settings.py`) — value validation:
-- `parse_setting_value(value, value_type)` in `module_shared/models/setting.py` is a standalone function (also used by `SettingItem._parse_value` validator)
+- `parse_setting_value(value, value_type)` in `shared/dto/setting.py` is a standalone function (also used by `SettingItem._parse_value` validator)
 - `_validate_value()` static method wraps it, raising `HTTPException(422)` on parse failure
 - `_build_instance` / `_apply_update` validate against `data.value_type` (known from request)
 - For PATCH: `patch()` method is overridden — gets the model from DB first, validates `data.value` against the **model's existing** `value_type`, then calls `_apply_patch` (which does no value validation)
@@ -545,7 +608,7 @@ All output is JSON by default (for AI/script parsing).
 | `make dev` | `./scripts/run-dev.sh` — Ctrl+C runs `./scripts/stop-dev.sh` |
 | `make test` | `./scripts/run-test.sh` — pytest in Docker (profile `test`) |
 | `make lint` | Backend + frontend lint |
-| `make lint-backend` | pre-commit (black, isort, flake8, mypy) via uv |
+| `make lint-backend` | pre-commit (isort, flake8, mypy, pyupgrade) via uv |
 | `make lint-frontend` | ESLint + build (user-frontend), ESLint (admin-frontend) |
 | `make alembic [args]` | `./scripts/alembic-proxy.sh` — pass alembic subcommand via args |
 
@@ -553,16 +616,25 @@ All output is JSON by default (for AI/script parsing).
 
 ### Cache Pitfalls
 
-- `find_all_paths` in `api_client/routes.py` must call `list(data)` on the fetch result because `transform_routes` returns a `map` object (consumable iterator). Without `list()`, `CacheController.set_cache(model_dump=True)` inside `silent_set_cache_async` would exhaust the iterator before serialization. The `list()` call also ensures the result can be returned to the caller.
-- Points caching (`api_client/points.py`) is safe because its fetch functions return plain JSON dicts/lists, not iterators.
-- Container caching (`api_client/containers.py`) is also safe — `transform_containers` returns a sorted list.
+- `find_all_paths` in `data/fesco/api_client/routes.py` must call `list(data)` on the fetch result because `transform_routes` returns a `map` object (consumable iterator). Without `list()`, the background write of the cache would exhaust the iterator before serialization.
+- The cache is policy driven: without a row in `cache_policies` the entity is not cached at all, so a test that expects a cache hit must give the source a policy.
 
 ### FESCO API Client Tests
 
-All tests in `test_fesco_api_client.py` that call `get_containers`, `get_departure_points_by_date`, `get_destination_points_by_date`, or `find_all_paths` must mock `redis` because these functions now use Redis caching directly. The mock targets:
-- `module_data_fesco_api_adapter.cache.get_redis` — for points/routes (functions go through `cache.py`)
-- `module_data_fesco_api_adapter.api_client.containers.get_cache_controller` — for containers (imports `get_cache_controller` from `cache.py`)
-- `module_data_fesco_api_adapter.api_client.routes.aiohttp.ClientSession` — for `find_all_paths` (uses `_fetch_all_paths`)
+All tests in `test_fesco_api_client.py` that call `get_containers`, `get_departure_points_by_date`, `get_destination_points_by_date`, or `find_all_paths` mock the HTTP session:
+- `data.fesco.api_client.containers.aiohttp.ClientSession`
+- `data.fesco.api_client.points.aiohttp.ClientSession`
+- `data.fesco.api_client.routes.aiohttp.ClientSession`
+
+The cache tests use a `LocalStorage` instead of a mocked Redis, and the backend of the source is built with a policy.
+
+### The Static Checks (without the containers)
+
+The project can not run `uv sync` in every environment, so the following checks are done with the standard library only and are worth repeating after every change:
+- the import graph of the packages — every `from X import Y` must resolve
+- the targets of `mock.patch(...)` — the module and the attribute must exist
+- `python3 -m compileall` — the syntax of every file
+- `isort --check-only` — the order of the imports
 
 ---
 
