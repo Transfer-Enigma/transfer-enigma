@@ -13,6 +13,5 @@ class CacheEntity(StrEnum):
     DESTINATIONS = "destinations"
     CONTAINERS = "containers"
     ROUTES = "routes"
-    POINTS = "points"
     RATES = "rates"
     SETTINGS = "settings"
