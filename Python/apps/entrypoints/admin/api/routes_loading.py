@@ -51,7 +51,7 @@ def get_fields_config_from_file():
 
 @router.post("/update-from-gsheets")
 async def update_from_gsheets(
-    _: Annotated[CallerContext, Depends(bind_caller_context)],
+    context: Annotated[CallerContext, Depends(bind_caller_context)],
     fields_config: Annotated[UploaderFieldsConfig, Depends(get_fields_config_from_file)],
     db_session: Annotated[AsyncSession, Depends(get_database().session)],
     gsheets_url: str = settings.DEFAULT_GSHEETS_URL,
@@ -65,6 +65,7 @@ async def update_from_gsheets(
     data_file: Annotated[bytes | None, File()] = None,
 ):
     return await update_from_gsheets_with_custom_fields(
+        context,
         db_session,
         fields_config,
         gsheets_url,
@@ -81,6 +82,7 @@ async def update_from_gsheets(
 
 @router.post("/update-from-gsheets-with-custom-fields")
 async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split it by worksheets
+    context: Annotated[CallerContext, Depends(bind_caller_context)],
     db_session: Annotated[AsyncSession, Depends(get_database().session)],
     fields_config: UploaderFieldsConfig,
     gsheets_url: str = settings.DEFAULT_GSHEETS_URL,
