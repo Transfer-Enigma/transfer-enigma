@@ -5,10 +5,10 @@ from fastapi.sse import ServerSentEvent
 
 import pytest
 from entrypoints.user.api.v3.routes.post import _sse_generator
-from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from services.route_calculation import calculate_routes_stream
 from shared.context import CallerContext, ContextKind
+from shared.dto.errors import RouteError
 from shared.dto.route import ContainerItem, PriceItem, RouteResult, RouteSegment
 
 

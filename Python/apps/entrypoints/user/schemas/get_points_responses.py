@@ -1,6 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-
-from .errors import RouteError
+from shared.dto.errors import RouteError
 
 
 class CompanyResponse(BaseModel):
