@@ -336,6 +336,7 @@ Module prefixes:
     - `test_architecture.py` — the rules of the layers (see the dependencies graph above)
     - `test_route_calculation.py` — route calculation (service-level: internal, FESCO, mixed, errors; handler-level: format conversion, demo transforms/strip/profit) and the search of the containers
     - `test_internal_aggregators.py` — containers, paths (rail/sea/COC/SOC/expired/services/drop/dropp_off/no_data/process_results), hide-sea-soc + route-type feature flags + TRUCK routes (direct, truck→rail, rail→truck, truck→rail→truck, truck→sea→rail→truck, truck→rail→sea→truck, sea+rail with truck, base queries for "without delivery" button)
+    - `test_deduplication.py` — the routes with the same segments are returned once (the rule lives in the service)
     - `test_profit.py` — currency conversion, profit application, segment type filtering, mixed segments, currency conversion in profit
     - `test_auth_utils.py` — `strip_demo_fields`, `get_caller_context` with/without/invalid demo header, empty routes
     - `test_get_points.py` — `get_departure_points`, `get_destination_points`, no routes, multiple companies
@@ -517,7 +518,8 @@ The services never take the context as an argument — that is what makes them r
 | `feature-flag` | `tail-truck` | `BOOL` | `true` | When `true`, allows appending a TRUCK segment after the route (via `truck_end_point_id`) |
 | `feature-flag` | `demo-excluded-fields` | `JSON` | `["company"]` | List of fields to blur for demo users |
 
-- All 7 route-related flags are read in `data/internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached("feature-flag", name)` using the `_flags` list
+- All 7 route-related flags are read in `data/internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached("feature-flag", name)` using the `_flags` list — they are the configuration of our own data, so the source reads them
+- The rules of the result are applied by the service (`services/route_calculation.py`): `deduplicate_routes()` keeps the first of the routes with the same segments, `mark_expired_routes()` marks the routes that hold a segment which is not valid anymore (`may_be_invalid`)
 - `demo-excluded-fields` is read once per request, when the caller context is bound
 - All settings are defined in `data/repositories/settings_definitions.py` and auto-synced to DB on startup via `ensure_settings()`
 - Falls back to default value if setting not found or Redis/DB unavailable
