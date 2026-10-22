@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Query
 from fastapi.params import Depends
 
 from data.cache.settings import delete_settings_cache, set_settings_cache
-from entrypoints.admin.dependencies.auth import request_auth
+from entrypoints.admin.dependencies.auth_context import bind_caller_context
 from entrypoints.admin.schemas.data_browser import (
     CompanyCreate,
     CompanyPatch,
@@ -37,6 +37,7 @@ from entrypoints.admin.service.crud_points import crud_points
 from entrypoints.admin.service.crud_route_segments import crud_route_segments
 from entrypoints.admin.service.crud_services import crud_services
 from entrypoints.admin.service.crud_settings import crud_settings
+from shared.context import CallerContext
 from shared.database import Database, get_database
 from shared.dto.setting import SettingItem
 
@@ -48,7 +49,7 @@ router = APIRouter(prefix="/db", tags=["data-browser"])
 
 @router.get("/companies", response_model=list[CompanyResponse])
 async def list_companies(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     q: str = Query("", description="Search by name"),
 ):
@@ -59,7 +60,7 @@ async def list_companies(
 @router.get("/companies/{company_id}", response_model=CompanyResponse)
 async def get_company(
     company_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -69,7 +70,7 @@ async def get_company(
 @router.post("/companies", response_model=CompanyResponse, status_code=201)
 async def create_company(
     payload: CompanyCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -80,7 +81,7 @@ async def create_company(
 async def update_company(
     company_id: int,
     payload: CompanyCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -91,7 +92,7 @@ async def update_company(
 async def patch_company(
     company_id: int,
     payload: CompanyPatch,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -101,7 +102,7 @@ async def patch_company(
 @router.delete("/companies/{company_id}", status_code=204)
 async def delete_company(
     company_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -113,7 +114,7 @@ async def delete_company(
 
 @router.get("/points", response_model=list[PointResponse])
 async def list_points(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     city: str = Query("", description="Filter by city"),
     country: str = Query("", description="Filter by country"),
@@ -125,7 +126,7 @@ async def list_points(
 @router.get("/points/{point_id}", response_model=PointResponse)
 async def get_point(
     point_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -135,7 +136,7 @@ async def get_point(
 @router.post("/points", response_model=PointResponse, status_code=201)
 async def create_point(
     payload: PointCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -146,7 +147,7 @@ async def create_point(
 async def update_point(
     point_id: int,
     payload: PointCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -157,7 +158,7 @@ async def update_point(
 async def patch_point(
     point_id: int,
     payload: PointPatch,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -167,7 +168,7 @@ async def patch_point(
 @router.delete("/points/{point_id}", status_code=204)
 async def delete_point(
     point_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -179,7 +180,7 @@ async def delete_point(
 
 @router.get("/containers", response_model=list[ContainerResponse])
 async def list_containers(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     size: int | None = Query(None, description="Filter by size"),
     type: str | None = Query(None, description="Filter by type (DC/HC)"),  # noqa: A002
@@ -193,7 +194,7 @@ async def list_containers(
 @router.get("/containers/{container_id}", response_model=ContainerResponse)
 async def get_container(
     container_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -203,7 +204,7 @@ async def get_container(
 @router.post("/containers", response_model=ContainerResponse, status_code=201)
 async def create_container(
     payload: ContainerCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -214,7 +215,7 @@ async def create_container(
 async def update_container(
     container_id: int,
     payload: ContainerCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -225,7 +226,7 @@ async def update_container(
 async def patch_container(
     container_id: int,
     payload: ContainerPatch,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -235,7 +236,7 @@ async def patch_container(
 @router.delete("/containers/{container_id}", status_code=204)
 async def delete_container(
     container_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -247,7 +248,7 @@ async def delete_container(
 
 @router.get("/route-segments", response_model=list[RouteSegmentListResponse])
 async def list_route_segments(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     company_id: int | None = Query(None),
     start_point_id: int | None = Query(None),
@@ -262,7 +263,7 @@ async def list_route_segments(
 
 @router.get("/route-segments/stats", response_model=RouteSegmentStatsResponse)
 async def route_segments_stats(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -272,7 +273,7 @@ async def route_segments_stats(
 @router.get("/route-segments/{segment_id}", response_model=RouteSegmentResponse)
 async def get_route_segment(
     segment_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -282,7 +283,7 @@ async def get_route_segment(
 @router.post("/route-segments", response_model=RouteSegmentResponse, status_code=201)
 async def create_route_segment(
     payload: RouteSegmentCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -293,7 +294,7 @@ async def create_route_segment(
 async def update_route_segment(
     segment_id: int,
     payload: RouteSegmentCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -304,7 +305,7 @@ async def update_route_segment(
 async def patch_route_segment(
     segment_id: int,
     payload: RouteSegmentPatch,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -314,7 +315,7 @@ async def patch_route_segment(
 @router.delete("/route-segments/{segment_id}", status_code=204)
 async def delete_route_segment(
     segment_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -326,7 +327,7 @@ async def delete_route_segment(
 
 @router.get("/services", response_model=list[ServiceResponse])
 async def list_services(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     q: str = Query("", description="Search by name or internal_name"),
 ):
@@ -337,7 +338,7 @@ async def list_services(
 @router.get("/services/{service_id}", response_model=ServiceResponse)
 async def get_service(
     service_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -347,7 +348,7 @@ async def get_service(
 @router.post("/services", response_model=ServiceResponse, status_code=201)
 async def create_service(
     payload: ServiceCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -358,7 +359,7 @@ async def create_service(
 async def update_service(
     service_id: int,
     payload: ServiceCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -369,7 +370,7 @@ async def update_service(
 async def patch_service(
     service_id: int,
     payload: ServicePatch,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -379,7 +380,7 @@ async def patch_service(
 @router.delete("/services/{service_id}", status_code=204)
 async def delete_service(
     service_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -391,7 +392,7 @@ async def delete_service(
 
 @router.get("/drop-off", response_model=list[DropOffResponse])
 async def list_drop_off(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     company_id: int | None = Query(None),
     container_id: int | None = Query(None),
@@ -403,7 +404,7 @@ async def list_drop_off(
 @router.get("/drop-off/{drop_id}", response_model=DropOffResponse)
 async def get_drop_off(
     drop_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -413,7 +414,7 @@ async def get_drop_off(
 @router.post("/drop-off", response_model=DropOffResponse, status_code=201)
 async def create_drop_off(
     payload: DropOffCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -424,7 +425,7 @@ async def create_drop_off(
 async def update_drop_off(
     drop_id: int,
     payload: DropOffCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -435,7 +436,7 @@ async def update_drop_off(
 async def patch_drop_off(
     drop_id: int,
     payload: DropOffPatch,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -445,7 +446,7 @@ async def patch_drop_off(
 @router.delete("/drop-off/{drop_id}", status_code=204)
 async def delete_drop_off(
     drop_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -457,7 +458,7 @@ async def delete_drop_off(
 
 @router.get("/settings", response_model=list[SettingResponse])
 async def list_settings(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     group: str = Query("", description="Filter by group"),
     q: str = Query("", description="Search by name"),
@@ -469,7 +470,7 @@ async def list_settings(
 @router.get("/settings/{setting_id}", response_model=SettingResponse)
 async def get_setting(
     setting_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -479,7 +480,7 @@ async def get_setting(
 @router.post("/settings", response_model=SettingResponse, status_code=201)
 async def create_setting(
     payload: SettingCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     background_tasks: BackgroundTasks,
 ):
@@ -493,7 +494,7 @@ async def create_setting(
 async def update_setting(
     setting_id: int,
     payload: SettingCreate,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     background_tasks: BackgroundTasks,
 ):
@@ -510,7 +511,7 @@ async def update_setting(
 async def patch_setting(
     setting_id: int,
     payload: SettingPatch,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     background_tasks: BackgroundTasks,
 ):
@@ -526,7 +527,7 @@ async def patch_setting(
 @router.delete("/settings/{setting_id}", status_code=204)
 async def delete_setting(
     setting_id: int,
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     background_tasks: BackgroundTasks,
 ):
