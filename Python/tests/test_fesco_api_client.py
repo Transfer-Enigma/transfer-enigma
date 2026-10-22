@@ -710,6 +710,11 @@ class TestGetDestinationPoints:
 
         assert len(result) == 1
         assert result[0]["id"] == "F3"
+        mock_session.get.assert_called_once()
+        url = mock_session.get.call_args.args[0]
+        assert "/fit/to" in url
+        assert "date=2024-06-15" in url
+        assert "from=F1" in url
 
     @pytest.mark.asyncio
     async def test_http_error(self):
