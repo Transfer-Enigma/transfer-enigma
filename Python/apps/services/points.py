@@ -1,9 +1,7 @@
 import asyncio
 import datetime
 
-from data.protocols import PointItem
-from data.sources.fesco import FescoSource
-from data.sources.internal import InternalSource
+from data.protocols import PointItem, get_fesco_source, get_internal_source
 from services.group_points import (
     GroupedPointWithPort,
     group_companies,
@@ -13,8 +11,8 @@ from services.group_points import (
 from shared.dto.errors import RouteError
 from shared.identifiers import ExternalId
 
-internal_source = InternalSource()
-fesco_source = FescoSource()
+internal_source = get_internal_source()
+fesco_source = get_fesco_source()
 
 
 async def _gather(*coros) -> list:

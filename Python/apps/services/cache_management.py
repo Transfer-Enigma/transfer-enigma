@@ -1,30 +1,24 @@
 import logging
 
 from data.cache.registry import get_cache_registry
-from data.repositories.cache_policies import list_policies
 from shared.cache import CacheEntity
-from shared.database import get_database
 
 logger = logging.getLogger(__name__)
 
 
 async def list_sources() -> list[dict]:
     """The sources that have a policy, with the policy of every entity."""
-    async with get_database().session_context() as session:
-        models = await list_policies(session)
+    registry = get_cache_registry()
 
     sources: dict[str, list[dict]] = {}
-    for model in models:
-        sources.setdefault(model.source, []).append({
-            "entity": model.entity,
-            "enabled": model.enabled,
-            "ttl": model.ttl,
-        })
+    for source in registry.sources():
+        entities = [
+            {"entity": entity.value, "enabled": policy.enabled, "ttl": policy.ttl}
+            for entity, policy in sorted(registry.policies(source).items(), key=lambda item: item[0].value)
+        ]
+        sources[source] = entities
 
-    return [
-        {"source": source, "entities": sorted(entities, key=lambda item: item["entity"])}
-        for source, entities in sorted(sources.items())
-    ]
+    return [{"source": source, "entities": entities} for source, entities in sorted(sources.items())]
 
 
 async def list_keys(source: str, entity: str | None = None, limit: int = 100) -> list[str]:

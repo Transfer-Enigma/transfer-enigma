@@ -3,9 +3,7 @@ import datetime
 import logging
 from collections.abc import Iterable
 
-from data.protocols import ContainerQuery, RouteQuery
-from data.sources.fesco import FescoSource
-from data.sources.internal import InternalSource
+from data.protocols import ContainerQuery, RouteQuery, get_fesco_source, get_internal_source
 from shared.dto.calculation import CalculationRequest
 from shared.dto.errors import RouteError
 from shared.dto.route import ContainerItem, RouteResult, RouteSegment
@@ -13,8 +11,8 @@ from shared.identifiers import ExternalId, InternalId, RouteIdentifier, SourceKi
 
 logger = logging.getLogger(__name__)
 
-internal_source = InternalSource()
-fesco_source = FescoSource()
+internal_source = get_internal_source()
+fesco_source = get_fesco_source()
 
 
 def search_containers(containers: list[ContainerItem], weight: float, size: int) -> list[ContainerItem]:
