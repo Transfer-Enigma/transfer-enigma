@@ -1,27 +1,20 @@
-import asyncio
 import datetime
-from collections.abc import Iterator
-from typing import Annotated, Any
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.params import Depends, Query
 
-from data.fesco import api_client
-from data.fesco.api_client.transformers.points import transform_points as map_fesco
-from data.internal import aggregators
-from data.internal.aggregators.transformers.points import transform_points as map_custom
 from entrypoints.user.dependencies.auth_context import bind_caller_context
 from entrypoints.user.schemas.get_points_responses import PointsDataResponse
 from services.demo_transforms import strip_demo_fields_from_points
-from services.group_points import (
-    group_companies,
-    group_transfers,
-    raw_point_from_dict,
+from services.points import (
+    get_departure_points,
+    get_destination_points,
+    get_truck_departure_points,
+    get_truck_destination_points,
 )
-from shared.context import CallerContext, ContextKind
+from shared.context import CallerContext
 from shared.dto.errors import RouteError
-from shared.orm.company import CompanyModel
-from shared.orm.point import PointModel
 
 router = APIRouter(prefix="/v2/points", tags=["v2", "points"])
 
@@ -43,29 +36,7 @@ def _parse_point_ids(departure_point_ids: Annotated[str, Query]) -> tuple[list[i
 
 @router.get("/departures", response_model=PointsDataResponse)
 async def all_departure_by_date(date: datetime.date, context: Annotated[CallerContext, Depends(bind_caller_context)]):
-    fesco_points: Iterator[dict[str, Any]]
-    custom_points: list[tuple[PointModel, CompanyModel]]
-
-    fesco_points, custom_points = await asyncio.gather(
-        api_client.get_departure_points_by_date(date),
-        aggregators.get_departure_points(date=date),
-        return_exceptions=True,
-    )
-
-    errors = []
-    data: list[dict[str, Any]] = []
-
-    if isinstance(fesco_points, BaseException):
-        errors.append(RouteError(error_type=str(type(fesco_points)), error_text=str(fesco_points), source="external"))
-    else:
-        data.extend(map_fesco(fesco_points))
-
-    if isinstance(custom_points, BaseException):
-        errors.append(RouteError(error_type=str(type(custom_points)), error_text=str(custom_points), source="internal"))
-    else:
-        data.extend(map_custom(custom_points))
-
-    result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
+    result, errors = await get_departure_points(date)
     strip_demo_fields_from_points(result, context)
 
     return {
@@ -80,40 +51,9 @@ async def all_destination_by_date(
     departure_point_ids: Annotated[tuple[list[int], list[str]], Depends(_parse_point_ids)],
     context: Annotated[CallerContext, Depends(bind_caller_context)],
 ):
-    coros = [aggregators.get_destination_points(date=date)]
-
     _, external_point_ids = departure_point_ids
 
-    for point_id in external_point_ids:
-        coros.append(api_client.get_destination_points_by_date(date, point_id))
-
-    results = await asyncio.gather(
-        *coros,
-        return_exceptions=True,
-    )
-
-    errors = []
-    data: list[dict[str, Any]] = []
-
-    if not results:
-        raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, detail="Unknown error: no results")
-
-    fesco_points_array: list[Iterator[dict[str, Any]] | BaseException]
-    custom_points, *fesco_points_array = results
-    if isinstance(custom_points, BaseException):
-        errors.append(RouteError(error_type=str(type(custom_points)), error_text=str(custom_points), source="internal"))
-    else:
-        data.extend(map_custom(custom_points))
-
-    for fesco_points in fesco_points_array:
-        if isinstance(fesco_points, BaseException):
-            errors.append(
-                RouteError(error_type=str(type(fesco_points)), error_text=str(fesco_points), source="external")
-            )
-        else:
-            data.extend(map_fesco(fesco_points))
-
-    result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
+    result, errors = await get_destination_points(date, external_point_ids)
     strip_demo_fields_from_points(result, context)
 
     return {
@@ -125,14 +65,12 @@ async def all_destination_by_date(
 @router.get("/truck-departures", response_model=PointsDataResponse)
 async def truck_departure_points(date: datetime.date, context: Annotated[CallerContext, Depends(bind_caller_context)]):
     try:
-        data: list[dict[str, Any]] = map_custom(await aggregators.get_truck_departure_points(date=date))
+        result = await get_truck_departure_points(date)
     except Exception as ex:
         return {
             "errors": [RouteError(error_type=str(type(ex)), error_text=str(ex), source="internal")],
             "data": [],
         }
-
-    result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
 
     strip_demo_fields_from_points(result, context)
 
@@ -148,14 +86,12 @@ async def truck_destination_points(
     context: Annotated[CallerContext, Depends(bind_caller_context)],
 ):
     try:
-        data: list[dict[str, Any]] = map_custom(await aggregators.get_truck_destination_points(date=date))
+        result = await get_truck_destination_points(date)
     except Exception as ex:
         return {
             "errors": [RouteError(error_type=str(type(ex)), error_text=str(ex), source="internal")],
             "data": [],
         }
-
-    result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
 
     strip_demo_fields_from_points(result, context)
 
