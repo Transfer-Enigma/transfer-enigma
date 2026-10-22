@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 
 import pandas as pd
-from entrypoints.admin.models.upoader_fields_config import UploaderFieldsConfig
+from data.routes_loading.fields_config import UploaderFieldsConfig
 from pandas import DataFrame
 <<<<<<< HEAD
 from shared.orm.company import CompanyModel

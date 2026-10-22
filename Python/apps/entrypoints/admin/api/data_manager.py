@@ -6,15 +6,15 @@ from fastapi.params import Depends, File
 from fastapi.responses import StreamingResponse
 from starlette.status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR
 
+from data.db_management.db_dumper import create_db_dump
+from data.db_management.db_eraser import clear_database_data
+from data.db_management.db_loader import load_db_dump
 from entrypoints.admin.dependencies.auth_context import bind_caller_context
 from entrypoints.admin.responses import DetailErrorResponse, ErrorDescriptor, MultiErrorResponse
 from entrypoints.admin.responses_fabric import (
     create_an_error_descriptor_from_an_exception,
     create_multi_error_response_from_an_array_of_exceptions,
 )
-from entrypoints.admin.service.db_management.db_dumper import create_db_dump
-from entrypoints.admin.service.db_management.db_eraser import clear_database_data
-from entrypoints.admin.service.db_management.db_loader import load_db_dump
 from shared.context import CallerContext
 from shared.database import Database, get_database
 
