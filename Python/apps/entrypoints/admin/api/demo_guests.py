@@ -5,12 +5,12 @@ from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from starlette.status import HTTP_404_NOT_FOUND
 
+from data.repositories.demo_guests import get_demo_guest_by_uid, list_demo_guests
 from entrypoints.admin.dependencies.auth_context import bind_caller_context
 from pydantic import BaseModel, Field
 from shared.context import CallerContext
 from shared.database import Database, get_database
 from shared.orm.demo_guest import DemoGuestModel
-from shared.repositories.demo_guest import get_demo_guest_by_uid, list_demo_guests
 
 router = APIRouter(prefix="/demo-guests", tags=["demo-guests"])
 

@@ -4,11 +4,11 @@ from typing import Annotated
 from fastapi import Depends, Request
 
 from data.cache.settings import get_setting_cached
+from data.repositories.demo_guests import get_demo_guest_by_uid
 from fastapi_another_jwt_auth import AuthJWT
 from shared.config import Settings, get_settings
 from shared.context import CallerContext, ContextKind, reset_context, set_context
 from shared.database import Database, get_database
-from shared.repositories.demo_guest import get_demo_guest_by_uid
 
 from .auth import request_auth
 
