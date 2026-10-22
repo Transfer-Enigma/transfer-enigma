@@ -65,7 +65,7 @@ async def test_get_containers(sqlite_db: Database):
         session.add_all([c1, c2])
         await session.commit()
 
-    with patch("data.internal.aggregators.containers.get_database", return_value=sqlite_db):
+    with patch("data.repositories.containers.get_database", return_value=sqlite_db):
         result = await get_containers(datetime.date(2024, 6, 15), "1", "2")
 
     result_list = list(result)
@@ -122,7 +122,11 @@ async def test_find_all_paths_rail(sqlite_db: Database):
         session.add(price)
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -156,7 +160,11 @@ async def test_find_all_paths_sea(sqlite_db: Database):
         session.add(price)
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -211,7 +219,11 @@ async def test_find_all_paths_sea_rail_same_company_coc(sqlite_db: Database):
         session.add(drop)
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -247,7 +259,11 @@ async def test_find_all_paths_expired_route(sqlite_db: Database):
         session.add(price)
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -273,7 +289,11 @@ async def test_find_all_paths_no_matching_container(sqlite_db: Database):
         session.add(route)
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -330,7 +350,11 @@ async def test_find_all_paths_sea_rail_different_company_soc(sqlite_db: Database
         session.add(drop)
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -391,7 +415,11 @@ async def test_find_all_paths_sea_rail_same_company_soc(sqlite_db: Database):
         session.add(drop)
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -414,7 +442,11 @@ async def test_find_all_paths_no_data(sqlite_db: Database):
         await _seed_basic_data(session)
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=999,
@@ -471,7 +503,11 @@ async def test_find_all_paths_sea_rail_with_drop_price(sqlite_db: Database):
         session.add(drop)
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -523,7 +559,11 @@ async def test_find_all_paths_with_dropp_off_point(sqlite_db: Database):
         session.add_all([price_sea, price_rail])
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -569,7 +609,11 @@ async def test_find_all_paths_with_services(sqlite_db: Database):
         session.add(sp)
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -650,7 +694,11 @@ async def test_find_all_paths_sea_rail_drop_valid_on_shipping_date(sqlite_db: Da
         session.add(drop)
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -702,7 +750,11 @@ async def test_find_all_paths_sea_rail_no_drop_filtered_out(sqlite_db: Database)
         session.add_all([price_sea, price_rail])
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -782,6 +834,7 @@ async def test_find_all_paths_sea_soc_shown_when_flag_off(sqlite_db: Database):
 
     with (
         patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
         patch("data.internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
     ):
         result = await find_all_paths(
@@ -842,6 +895,7 @@ async def test_find_all_paths_sea_soc_default_when_setting_missing(sqlite_db: Da
 
     with (
         patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
         patch("data.internal.aggregators.routes.get_setting_cached", return_value=None),
     ):
         result = await find_all_paths(
@@ -915,6 +969,7 @@ async def test_find_all_paths_sea_soc_hidden_by_flag(sqlite_db: Database):
 
     with (
         patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
         patch("data.internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
     ):
         result = await find_all_paths(
@@ -981,6 +1036,7 @@ async def test_find_all_paths_head_truck_rail_direct(sqlite_db: Database):
 
     with (
         patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
         patch("data.internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
     ):
         result = await find_all_paths(
@@ -1051,6 +1107,7 @@ async def test_find_all_paths_head_truck_sea_direct(sqlite_db: Database):
 
     with (
         patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
         patch("data.internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
     ):
         result = await find_all_paths(
@@ -1121,6 +1178,7 @@ async def test_find_all_paths_tail_truck_rail_direct(sqlite_db: Database):
 
     with (
         patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
         patch("data.internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
     ):
         result = await find_all_paths(
@@ -1191,6 +1249,7 @@ async def test_find_all_paths_tail_truck_sea_direct(sqlite_db: Database):
 
     with (
         patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
         patch("data.internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
     ):
         result = await find_all_paths(
@@ -1280,6 +1339,7 @@ async def test_find_all_paths_head_truck_sea_rail(sqlite_db: Database):
 
     with (
         patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
         patch("data.internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
     ):
         result = await find_all_paths(
@@ -1369,6 +1429,7 @@ async def test_find_all_paths_tail_truck_sea_rail(sqlite_db: Database):
 
     with (
         patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
         patch("data.internal.aggregators.routes.get_setting_cached", side_effect=_mock_setting),
     ):
         result = await find_all_paths(

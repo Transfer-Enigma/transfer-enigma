@@ -72,7 +72,11 @@ async def test_find_all_paths_dedup_preserves_distinct_routes(sqlite_db: Databas
         session.add_all([price1, price2])
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
@@ -110,7 +114,11 @@ async def test_find_all_paths_dedup_multiple_prices(sqlite_db: Database):
         session.add_all([price_20, price_40])
         await session.commit()
 
-    with patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db):
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
         result = await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
