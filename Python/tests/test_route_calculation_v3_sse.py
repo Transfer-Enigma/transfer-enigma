@@ -1,14 +1,14 @@
 import datetime
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi.sse import ServerSentEvent
 
 import pytest
 from entrypoints.user.api.v3.routes.post import _sse_generator
-from entrypoints.user.dependencies.auth_context import AuthContext
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from services.route_calculation import calculate_routes_stream
+from shared.context import CallerContext, ContextKind
 from shared.dto.route import ContainerItem, PriceItem, RouteResult, RouteSegment
 
 
@@ -85,7 +85,7 @@ class TestSSEGenerator:
 
             mock_stream.side_effect = mock_gen
 
-            auth = AuthContext(is_demo=False)
+            auth = CallerContext(kind=ContextKind.ADMIN)
             request = _make_request()
 
             events: list[ServerSentEvent] = []
@@ -110,7 +110,7 @@ class TestSSEGenerator:
 
             mock_stream.side_effect = mock_gen
 
-            auth = AuthContext(is_demo=False)
+            auth = CallerContext(kind=ContextKind.ADMIN)
             request = _make_request()
 
             events: list[ServerSentEvent] = []
@@ -133,7 +133,7 @@ class TestSSEGenerator:
 
             mock_stream.side_effect = mock_gen
 
-            auth = AuthContext(is_demo=False)
+            auth = CallerContext(kind=ContextKind.ADMIN)
             request = _make_request()
 
             events: list[ServerSentEvent] = []
@@ -158,7 +158,7 @@ class TestSSEGenerator:
 
             mock_stream.side_effect = mock_gen
 
-            auth = AuthContext(is_demo=False)
+            auth = CallerContext(kind=ContextKind.ADMIN)
             request = _make_request()
 
             events: list[ServerSentEvent] = []
@@ -169,11 +169,9 @@ class TestSSEGenerator:
             assert events[0].id == "6"
 
     @pytest.mark.asyncio
-    @patch("entrypoints.user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
-    async def test_sse_demo_transforms_strips_company(self, mock_get_setting):
-        mock_get_setting.return_value = Mock(value=["company"])
+    async def test_sse_demo_transforms_strips_company(self):
         route = _make_full_route(company="CompanyA")
-        auth = AuthContext(is_demo=True)
+        auth = CallerContext(kind=ContextKind.DEMO, excluded_fields=["company"])
 
         with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
@@ -191,7 +189,7 @@ class TestSSEGenerator:
     @pytest.mark.asyncio
     async def test_sse_demo_transforms_does_not_strip_for_non_demo(self):
         route = _make_full_route(company="CompanyA")
-        auth = AuthContext(is_demo=False)
+        auth = CallerContext(kind=ContextKind.ADMIN)
 
         with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
@@ -207,13 +205,16 @@ class TestSSEGenerator:
             assert events[0].data.segments[0].company == "CompanyA"
 
     @pytest.mark.asyncio
-    @patch("entrypoints.user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
     @patch("services.profit.get_rates", new_callable=AsyncMock)
-    async def test_sse_demo_transforms_with_profit(self, mock_rates, mock_get_setting):
-        mock_get_setting.return_value = Mock(value=["company"])
+    async def test_sse_demo_transforms_with_profit(self, mock_rates):
         mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
         route = _make_full_route(company="CompanyA", type="sea")
-        auth = AuthContext(is_demo=True, sea_profit=100.0, sea_profit_currency="USD")
+        auth = CallerContext(
+            kind=ContextKind.DEMO,
+            excluded_fields=["company"],
+            sea_profit=100.0,
+            sea_profit_currency="USD",
+        )
 
         with patch("entrypoints.user.api.v3.routes.post.calculate_routes_stream") as mock_stream:
             async def mock_gen(request):
@@ -239,7 +240,7 @@ class TestSSEGenerator:
 
             mock_stream.side_effect = mock_gen
 
-            auth = AuthContext(is_demo=False)
+            auth = CallerContext(kind=ContextKind.ADMIN)
             request = _make_request()
 
             events: list[ServerSentEvent] = []
