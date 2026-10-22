@@ -4,11 +4,11 @@ import logging
 
 from data.cache.settings import get_setting_cached
 from data.repositories.routes import build_queries, execute_query
+from data.repositories.settings_definitions import get_setting_definition
 from shared.database import Base, get_database
 from shared.dto.route import RouteResult
 from shared.orm.drop import DropModel
 from shared.orm.route import RouteModel
-from shared.setting_definitions import get_setting_definition
 
 from .transformers.routes import transform_routes
 
