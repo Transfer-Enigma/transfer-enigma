@@ -42,7 +42,7 @@ async def get_destination_points_by_date(date: datetime.date, departure_point_id
     if cached_data:
         return cached_data
 
-    data = await _fetch_departure_points_by_date(date)
+    data = await _fetch_destination_points_by_date(date, departure_point_id)
     backend.silent_set_async(CacheEntity.DESTINATIONS, *parts, data=data, ttl=get_points_ttl(date))
     return data
 
