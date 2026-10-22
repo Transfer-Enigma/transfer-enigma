@@ -35,7 +35,7 @@ Python/
 │   │   ├── dto/                # Pydantic domain models
 │   │   │   ├── route.py        # ContainerItem, PriceItem, ServiceItem, DropItem, RouteSegment, RouteResult
 │   │   │   ├── setting.py      # SettingItem + parse_setting_value
-│   │   │   ├── errors.py       # RouteError
+│   │   │   ├── errors.py       # RouteError + NotFoundError, ValidationError, ResourcePermissionError
 │   │   │   └── calculation.py  # CalculationRequest (the input of the calculation)
 │   │   ├── orm/                # SQLAlchemy ORM models
 │   │   │   ├── __init__.py     # re-exports Base, all ORM models + enums
@@ -49,20 +49,23 @@ Python/
 │   │   │   └── backend.py      # CacheBackend — the reads and the writes
 │   │   ├── concurrency/        # Locker, LocalLocker, RedisLocker
 │   │   ├── identifiers.py      # SourceKind, RouteIdentifier, InternalId, ExternalId
-│   │   ├── context.py          # ContextKind, CallerContext, get_context, permissions
+│   │   ├── context.py          # ContextKind, CallerContext, get_context, peek_context, permissions
 │   │   ├── auth.py             # require_token — the shared token check
 │   │   ├── config.py           # Settings — one class for every app
 │   │   ├── database.py         # Base, Database, get_database
-│   │   ├── logger.py, redis_client.py, jwt_error_handler.py
+│   │   ├── logger.py, redis_client.py, jwt_error_handler.py, domain_error_handler.py
 │   ├── data/                  # Data access
-│   │   ├── protocols.py        # RouteSource, PointSource, ContainerSource + the queries
+│   │   ├── protocols.py        # ContainerSource, RouteSource, PointSource, DataSource + the queries + the factories
 │   │   ├── sources/            # The adapters behind the protocols
 │   │   │   ├── internal.py     # Our own database
 │   │   │   └── fesco.py        # The FESCO API
 │   │   ├── repositories/       # All the database work
 │   │   │   ├── routes.py, points.py, containers.py, settings.py, demo_guests.py,
-│   │   │   ├── cache_policies.py
+│   │   │   ├── cache_policies.py, settings_definitions.py
 │   │   │   └── admin/          # The CRUD of the data browser
+│   │   │       ├── crud_base.py, crud_companies.py, crud_containers.py,
+│   │   │       ├── crud_drop_off.py, crud_points.py, crud_route_segments.py,
+│   │   │       ├── crud_services.py, crud_settings.py, schemas.py
 │   │   ├── cache/              # The cache of the sources
 │   │   │   ├── registry.py     # CacheRegistry — the policies from the database
 │   │   │   └── settings.py     # The cache of the settings
@@ -71,12 +74,13 @@ Python/
 │   │   │   └── query_domain/   # The declarative query builder
 │   │   ├── fesco/              # The FESCO API client
 │   │   │   ├── api_client/     # containers, points, routes
+│   │   │   ├── cache.py        # The cache of the FESCO API
 │   │   │   └── transformers/
 │   │   ├── routes_loading/     # The import of the routes from the sheets
 │   │   └── db_management/      # The dump, the erase and the load of the database
 │   ├── services/              # Business logic
 │   │   ├── route_calculation.py, points.py, profit.py, demo_transforms.py
-│   │   ├── group_points.py, rates.py, cache_management.py
+│   │   ├── group_points.py, get_rates.py, cache_management.py
 │   ├── entrypoints/           # The processes
 │   │   ├── user/              # Port 8080 — the user API
 │   │   │   ├── main.py, autodiscover.py, config.py
@@ -198,7 +202,7 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 
 | Data | Key pattern | TTL | Eviction |
 |------|-------------|-----|----------|
-| Currency rates | `backend_user:rates:latest` | 24h | — (not policy driven yet) |
+| Currency rates | `cbr:rates:latest` | from the policy | volatile-lru |
 | FESCO departures | `fesco:departures:{date}` | from the policy | volatile-lru |
 | FESCO destinations | `fesco:destinations:{date}:{dep_id}` | from the policy | volatile-lru |
 | FESCO containers | `fesco:containers:{date}:{dep}:{dest}` | from the policy | volatile-lru |
@@ -214,6 +218,7 @@ The TTL of the points of the FESCO API depends on the date (24h for today, 12h f
 ```sql
 INSERT INTO cache_policies (source, entity, enabled, ttl) VALUES
   ('internal', 'settings',    1, 43200),
+  ('cbr',      'rates',       1, 43200),
   ('fesco',    'departures',  1, 43200),
   ('fesco',    'destinations',1, 43200),
   ('fesco',    'containers',  1, 86400),
@@ -229,10 +234,10 @@ INSERT INTO cache_policies (source, entity, enabled, ttl) VALUES
 - `ensure_settings()` — the seeding of the settings, called by the lifespan of the user app
 - The admin CRUD of the settings updates the cache after the write, so the cache stays in sync
 
-**The rates cache** (`services/get_rates.py`):
+**The rates cache** (`services/get_rates.py`), it uses the same mechanism under the source `cbr`:
 1. Always try the CBR API first (`ExchangeRates`)
-2. On success: return `(rates, today)` + `asyncio.create_task()` writes to Redis
-3. On failure: fallback to Redis — return `(rates, cached_date)` from cache
+2. On success: return `(rates, today)` + a background write through the `CacheBackend` (`CacheEntity.RATES`)
+3. On failure: fallback to the cache — return `(rates, cached_date)` from the cache
 4. If both fail: `RuntimeError`
 
 **API endpoints:**
@@ -341,15 +346,17 @@ Module prefixes:
     - `test_auth_utils.py` — `strip_demo_fields`, `get_caller_context` with/without/invalid demo header, empty routes
     - `test_get_points.py` — `get_departure_points`, `get_destination_points`, no routes, multiple companies
     - `test_demo_guest_repo.py` — `get_demo_guest_by_uid` found/not found/profit overrides, `list_demo_guests` empty/multiple
-    - `test_get_rates.py` — `get_rates` returns dict, caching, with datetime, API failure fallback
+    - `test_get_rates.py` — `get_rates` returns dict, caching through the `CacheBackend`, with datetime, API failure fallback, the entity that has no policy
     - `test_setting_cache.py` — `get_setting_cached` cache hit/miss/not_found, and the entity that has no policy is not cached
     - `test_fesco_api_client.py` — FESCO API transformations, container search, points, routes, caching
     - `test_deduplication.py` — route deduplication preserves distinct routes, multiple prices
     - `test_route_calculation_v3_sse.py` — SSE streaming, demo transforms, error handling
+    - `test_context.py` — the caller context: `get_context` raises without a bound context, `permissions` allows the admin and rejects the others
+    - `test_identifiers.py` — the ids of a source: equality by hash, the source kind, the canonical form
     - `test_query_domain_expr.py` — ColumnRef, Condition, Connector
-    - `test_query_domain_segment.py` — Segment construction, column access, repr
-    - `test_query_domain_drop_off.py` — DropOff column access, exists(), repr
     - `test_query_domain_builder.py` — RouteBuilder API tests + DB-backed build tests
+    - `test_resources_base_path.py` — the resources of the apps are found from the base path
+    - `admin/data_sync/` — the admin data browser and the data manager
 - **Test DB**: SQLite in-memory (`sqlite+aiosqlite`). Tables created via `Base.metadata.create_all()`, **not** via Alembic migrations (migrations have MySQL-specific code).
 - **Auth mocks**: patch `get_demo_guest_by_uid`, `get_database`, and `request_auth` directly
 - **FESCO API mocks**: use `unittest.mock.patch` on `data.fesco.api_client` directly
@@ -373,14 +380,17 @@ The layers may only depend on each other downwards. `Python/tests/test_architect
 | The entrypoints do not import a concrete source | `test_entrypoints_do_not_import_a_concrete_source` |
 | No private symbol crosses a package | `test_no_private_symbol_is_imported_across_the_packages` |
 
+The private symbol rule is checked **per package** (not per layer): the package of an imported module is resolved from the file system, so `data.cache` and `data.protocols` are two different packages.
+
 ### The Caller Context
 One global context instead of the context passed through every signature — `shared/context.py`:
 
 - **`ContextKind`** — `SYSTEM` (a process, e.g. a scheduler), `ADMIN`, `DEMO`, `USER` (reserved for a future users and roles system)
 - **`CallerContext`** — the kind, the identity, the pricing overrides, the fields the caller must not see, the user id and the permissions
 - **`get_context()`** — the context of the current call; it **raises** when nothing is bound, so a use case never runs with the privileges of nobody by accident
+- **`peek_context()`** — the context of the current call, or `None` when nothing is bound
 - **`set_context()` / `reset_context()`** — bind and restore, over a `contextvars.ContextVar` (per task, so the requests do not see each other)
-- **`@permissions(ContextKind...)`** — a decorator for the services, it checks the kind of the caller
+- **`@permissions(ContextKind...)`** — a decorator that checks the kind of the caller; it is used **only in the `data/` layer**, on the operations that mutate the data or that are admin only. The services are not decorated — the user facing use cases are public
 
 The entrypoints bind the context: the user app resolves it from the request (JWT → `ADMIN`, `X-Demo-User-UID` → `DEMO`), the admin app binds `ADMIN`, a process binds `SYSTEM` explicitly. The services read it with `get_context()`.
 
@@ -428,6 +438,7 @@ The services never take the context as an argument — that is what makes them r
 - Demo link format: `/demo/<UID>`
 - All demo auth is in the user entrypoint — the auth app is NOT involved
 - Backend: the `bind_caller_context` dependency checks the `X-Demo-User-UID` header → looks up the `demo_guests` table → builds a `CallerContext` (kind `DEMO`, the profit overrides, the blurred fields). If no header, it falls through to the JWT via `request_auth` and binds `ADMIN`.
+- **An unknown demo UID also falls back to `ADMIN`** (the lookup returns nothing → the context is built as `ADMIN`), so a mistyped UID is not a demo guest and the caller is not blurred
 - The endpoints use `Depends(bind_caller_context)` (it supports both the JWT and the header)
 - Demo endpoints: `POST /api/v2/demo/validate` (validates UID), `GET /api/v2/demo/feature-flags` (returns blurred_fields list)
 - Frontend: `helpers/requests.ts` → `demoHeaders()` reads `useDemoAuth()` Pinia store → injects `X-Demo-User-UID` into every `fetchAsJSON()` call
@@ -448,6 +459,20 @@ The services never take the context as an argument — that is what makes them r
 - `immediate: true` ensures correct state on initial load
 - Feature flags are **not cleared explicitly** — the watcher auto-updates when `demoUid` changes (clearing demoUid → fetch without header → empty blurred_fields)
 
+### Source Contract
+
+**`data/protocols.py`** — the contract between the services and the data:
+- `ContainerQuery`, `RouteQuery` — the input of a query (a date, a departure, a destination, the containers)
+- `ContainerSource`, `RouteSource`, `PointSource` — the protocols a source implements
+- `DataSource` — all three at once, the type of the factories
+- `get_internal_source()` / `get_fesco_source()` — the factories; the adapter is imported **inside** the function, so the protocols and the adapters do not import each other in a cycle
+
+**The services never import a concrete source.** They call the factories of `data.protocols` and work with the protocol, the adapters live in `data/sources/`:
+- `data/sources/internal.py` — `InternalSource` — our own database
+- `data/sources/fesco.py` — `FescoSource` — the FESCO API
+
+The guard test checks this rule: `data.sources` and `data.repositories` are forbidden in the services.
+
 ### Domain Models
 
 **`shared/dto/route.py`** — Route entities (Pydantic V2 `BaseModel`):
@@ -464,9 +489,12 @@ The services never take the context as an argument — that is what makes them r
 - `from_model(model: SettingModel) -> SettingItem` — factory from ORM model
 - `parse_setting_value(value, value_type)` — standalone function used by both `_parse_value` and admin CRUD validation
 
-**`shared/dto/errors.py`** — Error model:
+**`shared/dto/errors.py`** — Error model and the domain errors:
 - `RouteError(error_type: str, error_text: str, source: str | None)`
 - Used in services (no source) and points handlers (`"internal"`/`"external"`)
+- `NotFoundError` — the entity was not found
+- `ValidationError` — the input data failed validation
+- `ResourcePermissionError(PermissionError)` — the caller is not allowed to perform the operation
 
 **`shared/dto/calculation.py`** — `CalculationRequest` — the input of the calculation service. The API model of the request (`CalculateFormRequest`) turns itself into it with `to_calculation_request()`, so the services do not depend on the shape of the API.
 
@@ -529,7 +557,7 @@ The services never take the context as an argument — that is what makes them r
 - `_connect_segments_reversed(curr, _next)` adds: `curr.end_point == _next.start_point` (uses `q.prepend_segment()`)
 - Head truck: `_attach_head_trucks` prepends truck segment before the first segment via `_connect_segments_reversed`
 - Tail truck: `_attach_tail_trucks` appends truck segment after the last segment via `_connect_segments`
-- **"Without delivery" button**: `build_queries` copies base queries before attaching truck segments, then returns `[base_queries + queries]`. The frontend filters out TRUCK segments to show non-truck routes.
+- **"Without delivery" button**: `build_queries` copies the base queries before attaching the truck segments, so the routes without the delivery are kept. The frontend filters out the TRUCK segments to show the non-truck routes.
 - `_connect_rail` requires either SOC container owner or matching company + COC for the rail connection
 
 ### CLI Tools (`Python/cli/`)
@@ -594,10 +622,12 @@ All output is JSON by default (for AI/script parsing).
 
 **Settings CRUD** (`crud_settings.py`) — value validation:
 - `parse_setting_value(value, value_type)` in `shared/dto/setting.py` is a standalone function (also used by `SettingItem._parse_value` validator)
-- `_validate_value()` static method wraps it, raising `HTTPException(422)` on parse failure
+- `_validate_value()` static method wraps it, raising `ValidationError` on parse failure
 - `_build_instance` / `_apply_update` validate against `data.value_type` (known from request)
-- For PATCH: `patch()` method is overridden — gets the model from DB first, validates `data.value` against the **model's existing** `value_type`, then calls `_apply_patch` (which does no value validation)
-- **Locked settings** (`model.locked`): PUT, DELETE, PATCH on group/name/type are blocked with `HTTP_403_FORBIDDEN`; only `value` is editable for locked settings
+- For PATCH: `patch()` method is overridden — gets the model from DB first, validates `data.value` against `data.value_type or model.value_type`, then calls `_apply_patch` (which does no value validation)
+- **Locked settings** (`model.locked`): PUT, DELETE, PATCH on group/name/type are blocked with `ValidationError`; only `value` is editable for locked settings
+
+**The CRUD owns its session:** every public method of `CRUDBase` opens `get_database().session_context()` itself, so the admin API hands over the data and gets the answer — no session in the signatures and no SQL in the entrypoints. The data layer raises the domain errors of `shared/dto/errors.py` (`NotFoundError`, `ValidationError`, `ResourcePermissionError`); `shared/domain_error_handler.py` translates them into HTTP responses (404, 422, 403) and both apps register it.
 
 ---
 
