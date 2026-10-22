@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from entrypoints.user.api.v2.routes.post import _apply_demo_transforms, _normalize_routes
-from entrypoints.user.dependencies.auth_context import AuthContext
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from services.route_calculation import _strip_demo_fields, calculate_routes
+from shared.context import CallerContext, ContextKind
 from shared.dto.route import ContainerItem, PriceItem, RouteResult, RouteSegment
 
 
@@ -336,13 +336,11 @@ async def test_container_fetch_fails_gracefully():
 
 
 @pytest.mark.asyncio
-@patch("entrypoints.user.api.v2.routes.post.get_setting_cached", new_callable=AsyncMock)
-async def test_apply_demo_transforms_strips_company(mock_get_setting):
-    mock_get_setting.return_value = Mock(value=["company"])
+async def test_apply_demo_transforms_strips_company():
     seg = _make_segment(company="CompanyA")
     route = RouteResult(segments=[seg])
     formatted = _normalize_routes([route])
-    auth = AuthContext(is_demo=True)
+    auth = CallerContext(kind=ContextKind.DEMO, excluded_fields=["company"])
     await _apply_demo_transforms(formatted, auth)
 
     assert not formatted[0][0][0].company
@@ -353,37 +351,43 @@ async def test_apply_demo_transforms_does_not_strip_for_non_demo():
     seg = _make_segment(company="CompanyA")
     route = RouteResult(segments=[seg])
     formatted = _normalize_routes([route])
-    auth = AuthContext(is_demo=False)
+    auth = CallerContext(kind=ContextKind.ADMIN)
     await _apply_demo_transforms(formatted, auth)
 
     assert formatted[0][0][0].company == "CompanyA"
 
 
 @pytest.mark.asyncio
-@patch("entrypoints.user.api.v2.routes.post.get_setting_cached", new_callable=AsyncMock)
 @patch("services.profit.get_rates", new_callable=AsyncMock)
-async def test_apply_demo_transforms_with_profit(mock_rates, mock_get_setting):
-    mock_get_setting.return_value = Mock(value=["company"])
+async def test_apply_demo_transforms_with_profit(mock_rates):
     mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
     seg = _make_segment(company="CompanyA", type="sea")
     route = RouteResult(segments=[seg])
     formatted = _normalize_routes([route])
-    auth = AuthContext(is_demo=True, sea_profit=100.0, sea_profit_currency="USD")
+    auth = CallerContext(
+        kind=ContextKind.DEMO,
+        excluded_fields=["company"],
+        sea_profit=100.0,
+        sea_profit_currency="USD",
+    )
     await _apply_demo_transforms(formatted, auth)
 
     assert formatted[0][0][0].company is None
 
 
 @pytest.mark.asyncio
-@patch("entrypoints.user.api.v2.routes.post.get_setting_cached", new_callable=AsyncMock)
 @patch("services.profit.get_rates", new_callable=AsyncMock)
-async def test_apply_demo_transforms_with_profit_and_rail(mock_rates, mock_get_setting):
-    mock_get_setting.return_value = Mock(value=["company"])
+async def test_apply_demo_transforms_with_profit_and_rail(mock_rates):
     mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
     seg = _make_segment(company="CompanyA", type="rail")
     route = RouteResult(segments=[seg])
     formatted = _normalize_routes([route])
-    auth = AuthContext(is_demo=True, rail_profit=50.0, rail_profit_currency="USD")
+    auth = CallerContext(
+        kind=ContextKind.DEMO,
+        excluded_fields=["company"],
+        rail_profit=50.0,
+        rail_profit_currency="USD",
+    )
     await _apply_demo_transforms(formatted, auth)
 
     assert formatted[0][0][0].company is None

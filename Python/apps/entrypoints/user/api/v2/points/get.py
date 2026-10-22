@@ -7,12 +7,11 @@ from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends, Query
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
-from data.cache.settings import get_setting_cached
 from data.fesco import api_client
 from data.fesco.api_client.transformers.points import transform_points as map_fesco
 from data.internal import aggregators
 from data.internal.aggregators.transformers.points import transform_points as map_custom
-from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
+from entrypoints.user.dependencies.auth_context import bind_caller_context
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.get_points_responses import PointsDataResponse
 from entrypoints.user.utils.group_points import (
@@ -20,17 +19,18 @@ from entrypoints.user.utils.group_points import (
     group_transfers,
     raw_point_from_dict,
 )
+from shared.context import CallerContext, ContextKind
 from shared.orm.company import CompanyModel
 from shared.orm.point import PointModel
 
 router = APIRouter(prefix="/v2/points", tags=["v2", "points"])
 
 
-def _strip_demo_fields_from_points(data: list, auth: AuthContext, excluded_fields: list[str] | None = None) -> None:
-    if not auth.is_demo:
+def _strip_demo_fields_from_points(data: list, context: CallerContext) -> None:
+    if context.kind != ContextKind.DEMO:
         return
 
-    if excluded_fields is None or "company" not in excluded_fields:
+    if "company" not in context.excluded_fields:
         return
 
     for point in data:
@@ -55,7 +55,7 @@ def _parse_point_ids(departure_point_ids: Annotated[str, Query]) -> tuple[list[i
 
 
 @router.get("/departures", response_model=PointsDataResponse)
-async def all_departure_by_date(date: datetime.date, auth: Annotated[AuthContext, Depends(get_auth_context)]):
+async def all_departure_by_date(date: datetime.date, context: Annotated[CallerContext, Depends(bind_caller_context)]):
     fesco_points: Iterator[dict[str, Any]]
     custom_points: list[tuple[PointModel, CompanyModel]]
 
@@ -79,9 +79,7 @@ async def all_departure_by_date(date: datetime.date, auth: Annotated[AuthContext
         data.extend(map_custom(custom_points))
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
-    setting = await get_setting_cached("feature-flag", "demo-excluded-fields")
-    excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
-    _strip_demo_fields_from_points(result, auth, excluded_fields)
+    _strip_demo_fields_from_points(result, context)
 
     return {
         "errors": errors,
@@ -93,7 +91,7 @@ async def all_departure_by_date(date: datetime.date, auth: Annotated[AuthContext
 async def all_destination_by_date(
     date: datetime.date,
     departure_point_ids: Annotated[tuple[list[int], list[str]], Depends(_parse_point_ids)],
-    auth: Annotated[AuthContext, Depends(get_auth_context)],
+    context: Annotated[CallerContext, Depends(bind_caller_context)],
 ):
     coros = [aggregators.get_destination_points(date=date)]
 
@@ -129,9 +127,7 @@ async def all_destination_by_date(
             data.extend(map_fesco(fesco_points))
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
-    setting = await get_setting_cached("feature-flag", "demo-excluded-fields")
-    excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
-    _strip_demo_fields_from_points(result, auth, excluded_fields)
+    _strip_demo_fields_from_points(result, context)
 
     return {
         "errors": errors,
@@ -140,7 +136,7 @@ async def all_destination_by_date(
 
 
 @router.get("/truck-departures", response_model=PointsDataResponse)
-async def truck_departure_points(date: datetime.date, auth: Annotated[AuthContext, Depends(get_auth_context)]):
+async def truck_departure_points(date: datetime.date, context: Annotated[CallerContext, Depends(bind_caller_context)]):
     try:
         data: list[dict[str, Any]] = map_custom(await aggregators.get_truck_departure_points(date=date))
     except Exception as ex:
@@ -151,10 +147,7 @@ async def truck_departure_points(date: datetime.date, auth: Annotated[AuthContex
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
 
-    setting = await get_setting_cached("feature-flag", "demo-excluded-fields")
-    excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
-
-    _strip_demo_fields_from_points(result, auth, excluded_fields)
+    _strip_demo_fields_from_points(result, context)
 
     return {
         "errors": [],
@@ -163,7 +156,10 @@ async def truck_departure_points(date: datetime.date, auth: Annotated[AuthContex
 
 
 @router.get("/truck-destinations", response_model=PointsDataResponse)
-async def truck_destination_points(date: datetime.date, auth: Annotated[AuthContext, Depends(get_auth_context)]):
+async def truck_destination_points(
+    date: datetime.date,
+    context: Annotated[CallerContext, Depends(bind_caller_context)],
+):
     try:
         data: list[dict[str, Any]] = map_custom(await aggregators.get_truck_destination_points(date=date))
     except Exception as ex:
@@ -174,10 +170,7 @@ async def truck_destination_points(date: datetime.date, auth: Annotated[AuthCont
 
     result = group_transfers(group_companies([raw_point_from_dict(point) for point in data], {"FESCO"}), {"FESCO"})
 
-    setting = await get_setting_cached("feature-flag", "demo-excluded-fields")
-    excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
-
-    _strip_demo_fields_from_points(result, auth, excluded_fields)
+    _strip_demo_fields_from_points(result, context)
 
     return {
         "errors": [],

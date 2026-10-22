@@ -5,45 +5,41 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Response
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 
-from data.cache.settings import get_setting_cached
-from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
+from entrypoints.user.dependencies.auth_context import bind_caller_context
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from services.profit import apply_demo_profit_to_route
 from services.route_calculation import calculate_routes_stream
+from shared.context import CallerContext, ContextKind
 from shared.dto.route import RouteResult
 
 router = APIRouter(prefix="/v3/routes", tags=["v3", "routes"])
 
 
-async def _apply_demo_transforms_to_route(route: RouteResult, auth: AuthContext) -> None:
-    if auth.sea_profit or auth.rail_profit:
+async def _apply_demo_transforms_to_route(route: RouteResult, context: CallerContext) -> None:
+    if context.sea_profit or context.rail_profit:
         await apply_demo_profit_to_route(
             route,
-            auth.sea_profit,
-            auth.sea_profit_currency,
-            auth.rail_profit,
-            auth.rail_profit_currency,
+            context.sea_profit,
+            context.sea_profit_currency,
+            context.rail_profit,
+            context.rail_profit_currency,
         )
 
-    setting = await get_setting_cached("feature-flag", "demo-excluded-fields")
-    excluded_fields = setting.value if setting and isinstance(setting.value, list) else []
-
     for segment in route.segments:
-        for field in excluded_fields:
+        for field in context.excluded_fields:
             with suppress(ValueError):
                 setattr(segment, field, None)
 
 
 async def _sse_generator(
     request: CalculateFormRequest,
-    auth: AuthContext,
     last_event_id: int | None = None,
 ) -> AsyncGenerator[ServerSentEvent]:
     current_id = last_event_id + 1 if last_event_id is not None else 0
 
     async for item in calculate_routes_stream(request):
-        if isinstance(item, RouteResult) and auth.is_demo:
-            await _apply_demo_transforms_to_route(item, auth)
+        if isinstance(item, RouteResult) and context.kind == ContextKind.DEMO:
+            await _apply_demo_transforms_to_route(item, context)
 
         event_type = "route" if isinstance(item, RouteResult) else "error"
         yield ServerSentEvent(data=item, event=event_type, id=str(current_id))
@@ -77,7 +73,7 @@ async def _sse_generator(
 )
 async def calculate_sse(
     request: CalculateFormRequest,
-    auth: Annotated[AuthContext, Depends(get_auth_context)],
+    context: Annotated[CallerContext, Depends(bind_caller_context)],
     last_event_id: Annotated[int | None, Header()] = None,
     response: Response = None,
 ) -> AsyncGenerator[ServerSentEvent]:
@@ -85,5 +81,5 @@ async def calculate_sse(
         response.headers["Cache-Control"] = "no-cache"
         response.headers["X-Accel-Buffering"] = "no"
 
-    async for event in _sse_generator(request, auth, last_event_id):
+    async for event in _sse_generator(request, last_event_id):
         yield event

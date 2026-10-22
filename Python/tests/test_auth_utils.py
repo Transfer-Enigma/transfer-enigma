@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from services.route_calculation import _strip_demo_fields
+from shared.context import ContextKind
 from shared.dto.route import RouteSegment
 
 
@@ -49,8 +50,8 @@ def _make_segment(company: str = "CompanyA", **kwargs) -> RouteSegment:
 
 
 @pytest.mark.asyncio
-async def test_get_auth_context_with_demo_header(sqlite_db):
-    from entrypoints.user.dependencies.auth_context import get_auth_context
+async def test_get_caller_context_with_demo_header(sqlite_db):
+    from entrypoints.user.dependencies.auth_context import get_caller_context
 
     demo_guest = AsyncMock()
     demo_guest.sea_profit = 50.0
@@ -61,6 +62,7 @@ async def test_get_auth_context_with_demo_header(sqlite_db):
     with (
         patch("entrypoints.user.dependencies.auth_context.get_demo_guest_by_uid", return_value=demo_guest),
         patch("entrypoints.user.dependencies.auth_context.get_database", return_value=sqlite_db),
+        patch("entrypoints.user.dependencies.auth_context.get_setting_cached", return_value=None),
     ):
         mock_request = AsyncMock()
         mock_request.headers.get = lambda key, default=None: "demo-uid-123" if key == "X-Demo-User-UID" else default
@@ -69,22 +71,22 @@ async def test_get_auth_context_with_demo_header(sqlite_db):
         settings = AsyncMock()
         settings.DISABLE_USER_AUTH_CHECK = True
 
-        result = await get_auth_context(
+        result = await get_caller_context(
             request=mock_request,
             authorization=mock_auth,
             db=sqlite_db,
             settings=settings,
         )
 
-    assert result.is_demo is True
-    assert result.demo_uid == "demo-uid-123"
+    assert result.kind == ContextKind.DEMO
+    assert result.identity == "demo-uid-123"
     assert result.sea_profit == 50.0
     assert result.rail_profit == 30.0
 
 
 @pytest.mark.asyncio
-async def test_get_auth_context_without_demo_header(sqlite_db):
-    from entrypoints.user.dependencies.auth_context import get_auth_context
+async def test_get_caller_context_without_demo_header(sqlite_db):
+    from entrypoints.user.dependencies.auth_context import get_caller_context
 
     with (
         patch("entrypoints.user.dependencies.auth_context.request_auth", return_value=None),
@@ -96,22 +98,22 @@ async def test_get_auth_context_without_demo_header(sqlite_db):
         settings = AsyncMock()
         settings.DISABLE_USER_AUTH_CHECK = True
 
-        result = await get_auth_context(
+        result = await get_caller_context(
             request=mock_request,
             authorization=mock_auth,
             db=sqlite_db,
             settings=settings,
         )
 
-    assert result.is_demo is False
-    assert result.demo_uid is None
+    assert result.kind == ContextKind.ADMIN
+    assert result.identity is None
     assert result.sea_profit == 0.0
     assert result.rail_profit == 0.0
 
 
 @pytest.mark.asyncio
-async def test_get_auth_context_invalid_demo_uid(sqlite_db):
-    from entrypoints.user.dependencies.auth_context import get_auth_context
+async def test_get_caller_context_invalid_demo_uid(sqlite_db):
+    from entrypoints.user.dependencies.auth_context import get_caller_context
 
     with (
         patch("entrypoints.user.dependencies.auth_context.get_demo_guest_by_uid", return_value=None),
@@ -124,15 +126,15 @@ async def test_get_auth_context_invalid_demo_uid(sqlite_db):
         settings = AsyncMock()
         settings.DISABLE_USER_AUTH_CHECK = True
 
-        result = await get_auth_context(
+        result = await get_caller_context(
             request=mock_request,
             authorization=mock_auth,
             db=sqlite_db,
             settings=settings,
         )
 
-    assert result.is_demo is False
-    assert result.demo_uid is None
+    assert result.kind == ContextKind.ADMIN
+    assert result.identity is None
 
 
 @pytest.mark.asyncio
