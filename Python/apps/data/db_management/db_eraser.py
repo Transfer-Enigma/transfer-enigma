@@ -1,9 +1,11 @@
+from shared.context import ContextKind, permissions
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 TABLES = {"drop", "service_prices", "prices", "routes", "companies", "containers", "points", "services"}
 
 
+@permissions(ContextKind.ADMIN)
 async def clear_database_data(session: AsyncSession):
     await session.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
 

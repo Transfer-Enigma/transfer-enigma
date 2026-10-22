@@ -5,6 +5,7 @@ from typing import Any
 import pandas as pd
 from data.routes_loading.fields_config import UploaderFieldsConfig
 from pandas import DataFrame
+from shared.context import ContextKind, permissions
 from shared.orm.route import (
     ContainerOwner,
     ContainerShipmentTerms,
@@ -365,6 +366,7 @@ def points_city_concat_terminal(points_df_merged_with_terminal: DataFrame, field
     )]
 
 
+@permissions(ContextKind.ADMIN)
 async def load_data(  # noqa: C901
     db_session,
     sea_routes_df: DataFrame,
