@@ -1,6 +1,5 @@
 import logging
 
-from entrypoints.user.schemas.routes import NormalizedRoutes
 from services.get_rates import get_rates
 <<<<<<< HEAD
 from shared.dto.route import RouteResult, RouteSegment
@@ -52,26 +51,6 @@ def _apply_profit_to_segments(
             segment_currency = price.currency
             converted_profit = _get_converted_profit(profit, profit_currency, segment_currency, rates)
             price.value = float(price.value) + converted_profit
-
-
-async def apply_demo_profit_to_routes(
-    routes: NormalizedRoutes,
-    sea_profit: float,
-    sea_profit_currency: str,
-    rail_profit: float,
-    rail_profit_currency: str,
-):
-    if not sea_profit and not rail_profit:
-        return
-
-    logger.info(
-        "Applying profit: sea=%.2f %s, rail=%.2f %s",
-        sea_profit, sea_profit_currency, rail_profit, rail_profit_currency,
-    )
-    rates, _ = await get_rates()
-
-    for route in routes:
-        _apply_profit_to_segments(route[0], sea_profit, sea_profit_currency, rail_profit, rail_profit_currency, rates)
 
 
 async def apply_demo_profit_to_route(

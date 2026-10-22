@@ -6,9 +6,9 @@ from services.profit import (
     _apply_profit_to_segments,
     _convert_currency,
     _get_converted_profit,
-    apply_demo_profit_to_routes,
+    apply_demo_profit_to_route,
 )
-from shared.dto.route import PriceItem, RouteSegment
+from shared.dto.route import PriceItem, RouteResult, RouteSegment
 
 _CB_RATES = {"USD": 90.0, "RUB": 1.0, "EUR": 100.0}
 
@@ -45,63 +45,63 @@ class TestGetConvertedProfit:
         assert result == round(100.37 * 90.0 / 1.0, 2)
 
 
-class TestApplyDemoProfitToRoutes:
-    async def _apply(self, routes, **kwargs):
+class TestApplyDemoProfitToRoute:
+    async def _apply(self, route, **kwargs):
         with patch("services.profit.get_rates", return_value=(_CB_RATES, datetime.date.today())):
-            await apply_demo_profit_to_routes(routes, **kwargs)
+            await apply_demo_profit_to_route(route, **kwargs)
 
-    def _segment_price(self, routes, route_index=0, segment_index=0, price_index=0):
-        return routes[route_index][0][segment_index].prices[price_index].value
+    def _segment_price(self, route, segment_index=0, price_index=0):
+        return route.segments[segment_index].prices[price_index].value
 
     @pytest.mark.asyncio
     async def test_sea_profit_added_to_sea_segment(self):
-        routes = [([_make_segment(seg_type="sea")], None, False, [])]
+        route = RouteResult(segments=[_make_segment(seg_type="sea")])
         await self._apply(
-            routes, sea_profit=50.0, sea_profit_currency="USD", rail_profit=0.0, rail_profit_currency="USD"
+            route, sea_profit=50.0, sea_profit_currency="USD", rail_profit=0.0, rail_profit_currency="USD"
         )
 
-        assert self._segment_price(routes) == 1050.0
+        assert self._segment_price(route) == 1050.0
 
     @pytest.mark.asyncio
     async def test_rail_profit_added_to_rail_segment(self):
-        routes = [([_make_segment(seg_type="rail")], None, False, [])]
+        route = RouteResult(segments=[_make_segment(seg_type="rail")])
         await self._apply(
-            routes, sea_profit=0.0, sea_profit_currency="USD", rail_profit=30.0, rail_profit_currency="USD"
+            route, sea_profit=0.0, sea_profit_currency="USD", rail_profit=30.0, rail_profit_currency="USD"
         )
 
-        assert self._segment_price(routes) == 1030.0
+        assert self._segment_price(route) == 1030.0
 
     @pytest.mark.asyncio
     async def test_no_profit_when_all_zero(self):
-        routes = [([_make_segment(seg_type="sea")], None, False, [])]
+        route = RouteResult(segments=[_make_segment(seg_type="sea")])
 
-        await apply_demo_profit_to_routes(
-            routes,
+        await apply_demo_profit_to_route(
+            route,
             sea_profit=0.0,
             sea_profit_currency="USD",
             rail_profit=0.0,
             rail_profit_currency="USD",
         )
 
-        assert self._segment_price(routes) == 1000.0
+        assert self._segment_price(route) == 1000.0
 
     @pytest.mark.asyncio
     async def test_sea_profit_not_added_to_rail_segment(self):
-        routes = [([_make_segment(seg_type="rail")], None, False, [])]
+        route = RouteResult(segments=[_make_segment(seg_type="rail")])
         await self._apply(
-            routes, sea_profit=50.0, sea_profit_currency="USD", rail_profit=0.0, rail_profit_currency="USD"
+            route, sea_profit=50.0, sea_profit_currency="USD", rail_profit=0.0, rail_profit_currency="USD"
         )
 
-        assert self._segment_price(routes) == 1000.0
+        assert self._segment_price(route) == 1000.0
 
     @pytest.mark.asyncio
     async def test_unknown_segment_type_skipped(self):
-        routes = [([_make_segment(seg_type="truck")], None, False, [])]
+        route = RouteResult(segments=[_make_segment(seg_type="truck")])
         await self._apply(
-            routes, sea_profit=50.0, sea_profit_currency="USD", rail_profit=30.0, rail_profit_currency="USD"
+            route, sea_profit=50.0, sea_profit_currency="USD", rail_profit=30.0, rail_profit_currency="USD"
         )
 
-        assert self._segment_price(routes) == 1000.0
+        assert self._segment_price(route) == 1000.0
 
     @pytest.mark.asyncio
     async def test_mixed_segments(self):
@@ -109,10 +109,10 @@ class TestApplyDemoProfitToRoutes:
             _make_segment(seg_type="sea"),
             _make_segment(seg_type="rail", price_value=500.0),
         ]
-        routes = [(segments, None, False, [])]
+        route = RouteResult(segments=segments)
 
         await self._apply(
-            routes, sea_profit=100.0, sea_profit_currency="USD", rail_profit=50.0, rail_profit_currency="USD"
+            route, sea_profit=100.0, sea_profit_currency="USD", rail_profit=50.0, rail_profit_currency="USD"
         )
 
         assert segments[0].prices[0].value == 1100.0
@@ -121,10 +121,10 @@ class TestApplyDemoProfitToRoutes:
     @pytest.mark.asyncio
     async def test_currency_conversion(self):
         segment = _make_segment(seg_type="sea", price_value=1000.0, currency="RUB")
-        routes = [([segment], None, False, [])]
+        route = RouteResult(segments=[segment])
 
         await self._apply(
-            routes, sea_profit=100.0, sea_profit_currency="USD", rail_profit=0.0, rail_profit_currency="USD"
+            route, sea_profit=100.0, sea_profit_currency="USD", rail_profit=0.0, rail_profit_currency="USD"
         )
 
         assert segment.prices[0].value == 10000.0
