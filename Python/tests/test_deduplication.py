@@ -2,12 +2,13 @@ import datetime
 from unittest.mock import patch
 
 import pytest
-from module_data_internal.aggregators.routes import find_all_paths
-from module_shared.database import Database
-from module_shared.schemas.container import ContainerType
-from module_shared.schemas.route import ContainerOwner, RouteType
+from data.internal.aggregators.routes import find_all_paths
+from services.route_calculation import deduplicate_routes
+from shared.database import Database
+from shared.orm.container import ContainerType
+from shared.orm.route import ContainerOwner, RouteType
 
-from .data import CompanyFactory, ContainerFactory, PointFactory, PriceFactory, RouteFactory
+from .factories import CompanyFactory, ContainerFactory, PointFactory, PriceFactory, RouteFactory
 
 
 def _id_counter():
@@ -67,13 +68,16 @@ async def test_find_all_paths_dedup_preserves_distinct_routes(sqlite_db: Databas
         session.add_all([price1, price2])
         await session.commit()
 
-    with patch("module_data_internal.aggregators.routes.get_database", return_value=sqlite_db):
-        result = await find_all_paths(
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
+        result = deduplicate_routes(await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
             end_point_id=point_b.id,
             container_ids=[container.id],
-        )
+        ))
 
     assert len(result) == 2
     owners = {s.container_owner for r in result for s in r.segments}
@@ -105,13 +109,16 @@ async def test_find_all_paths_dedup_multiple_prices(sqlite_db: Database):
         session.add_all([price_20, price_40])
         await session.commit()
 
-    with patch("module_data_internal.aggregators.routes.get_database", return_value=sqlite_db):
-        result = await find_all_paths(
+    with (
+        patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
+        patch("data.repositories.routes.get_database", return_value=sqlite_db),
+    ):
+        result = deduplicate_routes(await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
             end_point_id=point_b.id,
             container_ids=[container_20.id, container_40.id],
-        )
+        ))
 
     assert len(result) == 1
     route_result = result[0]

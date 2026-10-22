@@ -31,14 +31,15 @@ services:
       service: calculator
       file: docker-compose.yml
     volumes:
-      - "./Python/apps/backend_user/:/workspace/backend_user/:ro"
-      - "./Python/apps/module_data_fesco_api_adapter/:/workspace/module_data_fesco_api_adapter/:ro"
-      - "./Python/apps/module_data_internal/:/workspace/module_data_internal/:ro"
-      - "./Python/apps/module_shared/:/workspace/module_shared/:ro"
+      - "./Python/apps/entrypoints/user/:/workspace/entrypoints/user/:ro"
+      - "./Python/apps/data/:/workspace/data/:ro"
+      - "./Python/apps/shared/:/workspace/shared/:ro"
+      - "./Python/apps/services/:/workspace/services/:ro"
+      - "./Python/apps/entrypoints/admin/:/workspace/entrypoints/admin/:ro"
       - "./resources/:/workspace/resources/:rw"
       - "./logs/:/var/log/app/:rw"
     command:
-      - "backend_user.main:app"
+      - "entrypoints.user.main:app"
       - "--host"
       - "0.0.0.0"
       - "--port"
@@ -49,12 +50,12 @@ services:
       service: auth
       file: docker-compose.yml
     volumes:
-      - "./Python/apps/backend_auth/:/workspace/backend_auth/:ro"
-      - "./Python/apps/module_shared/:/workspace/module_shared/:ro"
+      - "./Python/apps/entrypoints/auth/:/workspace/entrypoints/auth/:ro"
+      - "./Python/apps/shared/:/workspace/shared/:ro"
       - "./resources/:/workspace/resources/:rw"
       - "./logs/:/var/log/app/:rw"
     command:
-      - "backend_auth.main:app"
+      - "entrypoints.auth.main:app"
       - "--host"
       - "0.0.0.0"
       - "--port"
@@ -65,14 +66,14 @@ services:
       service: backadmin
       file: docker-compose.yml
     volumes:
-      - "./Python/apps/backend_admin/:/workspace/backend_admin/:ro"
-      - "./Python/apps/module_data_fesco_api_adapter/:/workspace/module_data_fesco_api_adapter/:ro"
-      - "./Python/apps/module_data_internal/:/workspace/module_data_internal/:ro"
-      - "./Python/apps/module_shared/:/workspace/module_shared/:ro"
+      - "./Python/apps/entrypoints/admin/:/workspace/entrypoints/admin/:ro"
+      - "./Python/apps/data/:/workspace/data/:ro"
+      - "./Python/apps/shared/:/workspace/shared/:ro"
+      - "./Python/apps/services/:/workspace/services/:ro"
       - "./resources/:/workspace/resources/:rw"
       - "./logs/:/workspace/logs/:rw"
     command:
-      - "backend_admin.main:app"
+      - "entrypoints.admin.main:app"
       - "--host"
       - "0.0.0.0"
       - "--port"

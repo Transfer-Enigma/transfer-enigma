@@ -1,5 +1,5 @@
-from module_data_internal.query_domain import Segment
-from module_data_internal.query_domain.expr import ColumnRef, Condition, Connector
+from data.internal.query_domain import Segment
+from data.internal.query_domain.expr import ColumnRef, Condition, Connector
 
 
 class _MockOwner(Segment):

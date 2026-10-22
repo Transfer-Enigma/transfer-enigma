@@ -9,3 +9,4 @@ venv
 !.env.cli.example
 .python-version
 logs/
+session-*.md

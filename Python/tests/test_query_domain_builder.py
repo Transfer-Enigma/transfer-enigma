@@ -1,7 +1,7 @@
 import datetime
 
 import pytest
-from module_data_internal.query_domain import DropOff, RouteBuilder, Segment
+from data.internal.query_domain import DropOff, RouteBuilder, Segment
 
 
 class TestRouteBuilderAPI:
@@ -123,7 +123,7 @@ class TestRouteBuilderAPI:
         assert len(rb._global_conditions) == 1
 
     def test_prepend_segment_single(self) -> None:
-        from module_shared.schemas.route import RouteType
+        from shared.orm.route import RouteType
 
         s1 = Segment(_type=RouteType.RAIL)
         s0 = Segment(_type=RouteType.SEA)
@@ -139,7 +139,7 @@ class TestRouteBuilderAPI:
         assert rb._connections[0][0].op == "eq"
 
     def test_prepend_segment_no_conditions(self) -> None:
-        from module_shared.schemas.route import RouteType
+        from shared.orm.route import RouteType
 
         s1 = Segment(_type=RouteType.RAIL)
         s0 = Segment(_type=RouteType.SEA)
@@ -154,7 +154,7 @@ class TestRouteBuilderAPI:
         assert rb._connections == deque([[]])
 
     def test_prepend_segment_multiple(self) -> None:
-        from module_shared.schemas.route import RouteType
+        from shared.orm.route import RouteType
 
         s1 = Segment(_type=RouteType.SEA)
         s0 = Segment(_type=RouteType.RAIL)
@@ -180,7 +180,7 @@ class TestRouteBuilderAPI:
         assert rb.prepend_segment(s0) is rb
 
     def test_prepend_then_add(self) -> None:
-        from module_shared.schemas.route import RouteType
+        from shared.orm.route import RouteType
 
         s1 = Segment(_type=RouteType.RAIL)
         s2 = Segment(_type=RouteType.SEA)
@@ -205,7 +205,7 @@ class TestRouteBuilderBuild:
         return result.unique().all()
 
     async def test_build_single_segment(self, sqlite_session) -> None:
-        from tests.data import (
+        from .factories import (
             CompanyFactory,
             ContainerFactory,
             PointFactory,
@@ -236,7 +236,7 @@ class TestRouteBuilderBuild:
         assert len(rows) == 1
 
     async def test_build_two_segments_connected(self, sqlite_session) -> None:
-        from tests.data import (
+        from .factories import (
             CompanyFactory,
             ContainerFactory,
             PointFactory,
@@ -272,7 +272,7 @@ class TestRouteBuilderBuild:
         assert len(rows) >= 1
 
     async def test_build_with_drop_off(self, sqlite_session) -> None:
-        from tests.data import (
+        from .factories import (
             CompanyFactory,
             ContainerFactory,
             DropFactory,
@@ -310,7 +310,7 @@ class TestRouteBuilderBuild:
         assert len(rows) >= 1
 
     async def test_build_type_filter(self, sqlite_session) -> None:
-        from tests.data import (
+        from .factories import (
             CompanyFactory,
             ContainerFactory,
             PointFactory,
@@ -345,7 +345,7 @@ class TestRouteBuilderBuild:
         assert all(t.value == "RAIL" for t in route_types)
 
     async def test_build_multiple_containers(self, sqlite_session) -> None:
-        from tests.data import (
+        from .factories import (
             CompanyFactory,
             ContainerFactory,
             PointFactory,
@@ -380,7 +380,7 @@ class TestRouteBuilderBuild:
         assert len(route.prices) == 2
 
     async def test_build_company_filter(self, sqlite_session) -> None:
-        from tests.data import (
+        from .factories import (
             CompanyFactory,
             ContainerFactory,
             PointFactory,
@@ -417,7 +417,7 @@ class TestRouteBuilderBuild:
         assert route.company_id == 1
 
     async def test_build_date_filtering(self, sqlite_session) -> None:
-        from tests.data import (
+        from .factories import (
             CompanyFactory,
             ContainerFactory,
             PointFactory,
@@ -456,7 +456,7 @@ class TestRouteBuilderBuild:
         assert route.id == 1
 
     async def test_build_eager_loads_relationships(self, sqlite_session) -> None:
-        from tests.data import (
+        from .factories import (
             CompanyFactory,
             ContainerFactory,
             PointFactory,
@@ -496,7 +496,7 @@ class TestRouteBuilderBuild:
         assert route_entity.prices[0].container is not None
 
     async def test_build_prepend_segment(self, sqlite_session) -> None:
-        from tests.data import (
+        from .factories import (
             CompanyFactory,
             ContainerFactory,
             PointFactory,

@@ -2,16 +2,16 @@ import datetime
 from unittest.mock import patch
 
 import pytest
-from module_data_internal.aggregators.points import (
+from data.internal.aggregators.points import (
     get_departure_points,
     get_destination_points,
     get_truck_departure_points,
     get_truck_destination_points,
 )
-from module_shared.database import Database
-from module_shared.schemas.route import RouteType
+from shared.database import Database
+from shared.orm.route import RouteType
 
-from .data import CompanyFactory, PointFactory, RouteFactory
+from .factories import CompanyFactory, PointFactory, RouteFactory
 
 
 def _unique_point(prefix: str, counter: list) -> dict:
@@ -47,7 +47,7 @@ async def test_get_departure_points(sqlite_db: Database):
         session.add(route)
         await session.commit()
 
-    with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
+    with patch("data.repositories.points.get_database", return_value=sqlite_db):
         results = await get_departure_points(date=effective_to)
 
     assert len(results) >= 1
@@ -78,7 +78,7 @@ async def test_get_destination_points(sqlite_db: Database):
         session.add(route)
         await session.commit()
 
-    with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
+    with patch("data.repositories.points.get_database", return_value=sqlite_db):
         results = await get_destination_points(date=effective_to)
 
     assert len(results) >= 1
@@ -96,7 +96,7 @@ async def test_get_points_no_routes(sqlite_db: Database):
         await session.commit()
 
     date = datetime.date(2025, 12, 31)
-    with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
+    with patch("data.repositories.points.get_database", return_value=sqlite_db):
         dep_results = await get_departure_points(date=date)
         dest_results = await get_destination_points(date=date)
 
@@ -130,7 +130,7 @@ async def test_get_points_multiple_companies(sqlite_db: Database):
         session.add_all([route_a, route_b])
         await session.commit()
 
-    with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
+    with patch("data.repositories.points.get_database", return_value=sqlite_db):
         dep_results = await get_departure_points(date=datetime.date(2025, 12, 31))
 
     assert len(dep_results) == 2
@@ -163,7 +163,7 @@ async def test_truck_routes_excluded_from_departures(sqlite_db: Database):
         session.add_all([truck_route, rail_route])
         await session.commit()
 
-    with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
+    with patch("data.repositories.points.get_database", return_value=sqlite_db):
         dep_results = await get_departure_points(date=datetime.date(2025, 12, 31))
 
     dep_point_ids = [p.id for p, _ in dep_results]
@@ -196,7 +196,7 @@ async def test_truck_routes_excluded_from_destinations(sqlite_db: Database):
         session.add_all([truck_route, rail_route])
         await session.commit()
 
-    with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
+    with patch("data.repositories.points.get_database", return_value=sqlite_db):
         dest_results = await get_destination_points(date=datetime.date(2025, 12, 31))
 
     dest_point_ids = [p.id for p, _ in dest_results]
@@ -229,7 +229,7 @@ async def test_get_truck_departure_points(sqlite_db: Database):
         session.add_all([truck_route, rail_route])
         await session.commit()
 
-    with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
+    with patch("data.repositories.points.get_database", return_value=sqlite_db):
         results = await get_truck_departure_points(date=datetime.date(2025, 12, 31))
 
     point_ids = [p.id for p, _ in results]
@@ -262,7 +262,7 @@ async def test_get_truck_destination_points(sqlite_db: Database):
         session.add_all([truck_route, rail_route])
         await session.commit()
 
-    with patch("module_data_internal.aggregators.points.get_database", return_value=sqlite_db):
+    with patch("data.repositories.points.get_database", return_value=sqlite_db):
         results = await get_truck_destination_points(date=datetime.date(2025, 12, 31))
 
     point_ids = [p.id for p, _ in results]

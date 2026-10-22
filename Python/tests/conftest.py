@@ -1,7 +1,8 @@
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 
 import pytest_asyncio
+from shared.context import CallerContext, peek_context, set_context
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 os.environ["ENVIRONMENT"] = "test"
@@ -19,8 +20,15 @@ os.environ["AUTHJWT_SECRET_KEY"] = "test-secret-key"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
 os.environ["REFRESH_TOKEN_EXPIRE_MINUTES"] = "4320"
 os.environ["FESCO_API_KEY"] = "test-key"
+os.environ["DEFAULT_GSHEETS_URL"] = "https://sheets.example.com"
+os.environ["DEFAULT_SEA_ROUTES_WS"] = "sea"
+os.environ["DEFAULT_RAIL_ROUTES_WS"] = "rail"
+os.environ["DEFAULT_TRUCK_ROUTES_WS"] = "truck"
+os.environ["DEFAULT_DROPP_ROUTES_WS"] = "dropp"
+os.environ["DEFAULT_POINTS_WS"] = "points"
+os.environ["DEFAULT_SERVICES_WS"] = "services"
 
-from module_shared.database import Base, Database  # noqa: E402
+from shared.database import Base, Database  # noqa: E402
 
 
 @pytest_asyncio.fixture
@@ -44,3 +52,19 @@ async def sqlite_db() -> AsyncGenerator[Database]:
 async def sqlite_session(sqlite_db: Database) -> AsyncGenerator[AsyncSession]:
     async with sqlite_db.session_context() as session:
         yield session
+
+
+@pytest_asyncio.fixture
+async def caller_context() -> AsyncGenerator[Callable[[CallerContext], CallerContext]]:
+    """Bind the caller context of the test, restore the previous one after."""
+    previous = []
+
+    def bind(context: CallerContext) -> CallerContext:
+        previous.append(peek_context())
+        set_context(context)
+        return context
+
+    yield bind
+
+    for context in reversed(previous):
+        set_context(context)
