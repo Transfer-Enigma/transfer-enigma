@@ -213,6 +213,9 @@ class CRUDRouteSegment(CRUDBase):
             select(RouteModel)
             .options(selectinload(RouteModel.prices), selectinload(RouteModel.services))
             .where(RouteModel.id == id)
+            # The collections of a model that is already in the session are
+            # refreshed, otherwise the deleted prices would still be there.
+            .execution_options(populate_existing=True)
         )
         result = await session.execute(stmt)
         model = result.scalar_one_or_none()
@@ -221,7 +224,8 @@ class CRUDRouteSegment(CRUDBase):
         return model
 
     async def _reload_response(self, session: AsyncSession, id: int) -> RouteSegmentResponse:  # noqa: A002
-        return await self.get(session, id)
+        model = await self._load_with_relations(session, id)
+        return RouteSegmentResponse.from_model(model)
 
 
 crud_route_segments = CRUDRouteSegment()
