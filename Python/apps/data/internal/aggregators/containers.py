@@ -1,19 +1,14 @@
 import datetime
 
-from shared.database import get_database
-from shared.orm.container import ContainerModel
-from sqlalchemy import select
+from data.repositories.containers import get_containers as load_containers
+from shared.dto.route import ContainerItem
 
 from .transformers.containers import transform_containers
 
 
-async def get_containers(date: datetime.date, departure_id: str, destination_id: str):
-    async with get_database().session_context() as session:
-        res = await session.execute(
-            select(ContainerModel).order_by(ContainerModel.size)
-        )
-    orm_containers = res.scalars().all()
-    return transform_containers(orm_containers)
+async def get_containers(date: datetime.date, departure_id: str, destination_id: str) -> list[ContainerItem]:
+    containers = await load_containers()
+    return transform_containers(containers)
 
 
 def search_container_ids(containers: list, weight: int, size: int):
