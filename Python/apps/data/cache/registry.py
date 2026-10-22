@@ -2,10 +2,10 @@ import logging
 from collections.abc import Iterable
 from functools import cache
 
+from data.repositories import cache_policies
 from shared.cache import CacheBackend, CacheEntity, CachePolicy, CacheStorage, RedisStorage
+from shared.context import ContextKind, permissions
 from shared.database import get_database
-from shared.orm.cache_policy import CachePolicyModel
-from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,7 @@ class CacheRegistry:
     async def load(self) -> None:
         """Read the policies from the database and drop the built backends."""
         async with get_database().session_context() as session:
-            result = await session.execute(select(CachePolicyModel))
-            models = list(result.scalars().all())
+            models = await cache_policies.list_policies(session)
 
         policies: dict[str, dict[CacheEntity, CachePolicy]] = {}
         for model in models:
@@ -53,6 +52,29 @@ class CacheRegistry:
             backend = CacheBackend(self._storage, source, self._policies.get(source, {}))
             self._backends[source] = backend
         return backend
+
+    @permissions(ContextKind.ADMIN)
+    async def flush(self, source: str) -> int:
+        """Remove every cached value of a source, return how many."""
+        backend = self.backend(source)
+        return await backend.flush()
+
+    @permissions(ContextKind.ADMIN)
+    async def save_policy(self, source: str, entity: str, *, enabled: bool, ttl: int) -> None:
+        """Store the policy of an entity of a source and apply it right away."""
+        async with get_database().session_context() as session:
+            await cache_policies.save_policy(session, source, entity, enabled=enabled, ttl=ttl)
+        self.load()
+        logger.info("Cache policy updated: %s:%s enabled=%s ttl=%s", source, entity, enabled, ttl)
+
+    @permissions(ContextKind.ADMIN)
+    async def remove_policies(self, source: str) -> int:
+        """Remove the policies of a source and its cached values."""
+        async with get_database().session_context() as session:
+            removed = await cache_policies.delete_policies(session, source)
+        self.load()
+        logger.info("Cache source removed: %s (%s policies)", source, removed)
+        return removed
 
     def add_policies(self, policies: Iterable[CachePolicy]) -> None:
         """Add policies to the registry, replacing the ones of the same entity."""
