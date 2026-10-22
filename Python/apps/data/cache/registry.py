@@ -64,7 +64,7 @@ class CacheRegistry:
         """Store the policy of an entity of a source and apply it right away."""
         async with get_database().session_context() as session:
             await cache_policies.save_policy(session, source, entity, enabled=enabled, ttl=ttl)
-        self.load()
+        await self.load()
         logger.info("Cache policy updated: %s:%s enabled=%s ttl=%s", source, entity, enabled, ttl)
 
     @permissions(ContextKind.ADMIN)
@@ -72,7 +72,7 @@ class CacheRegistry:
         """Remove the policies of a source and its cached values."""
         async with get_database().session_context() as session:
             removed = await cache_policies.delete_policies(session, source)
-        self.load()
+        await self.load()
         logger.info("Cache source removed: %s (%s policies)", source, removed)
         return removed
 
