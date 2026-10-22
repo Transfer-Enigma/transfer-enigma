@@ -11,6 +11,7 @@ from data.repositories.admin.schemas import (
     RouteSegmentStatsResponse,
 )
 from shared.context import ContextKind, permissions
+from shared.database import get_database
 from shared.dto.errors import NotFoundError
 from shared.orm.company import CompanyModel
 from shared.orm.route import (
@@ -103,46 +104,45 @@ class CRUDRouteSegment(CRUDBase):
             stmt = stmt.where(RouteModel.type == RouteType(type_filter.upper()))
         return stmt
 
-    async def stats(
-        self, session: AsyncSession
-    ) -> RouteSegmentStatsResponse:
+    async def stats(self) -> RouteSegmentStatsResponse:
         # Total
-        total_result = await session.execute(select(func.count(RouteModel.id)))
-        total = total_result.scalar() or 0
+        async with get_database().session_context() as session:
+            total_result = await session.execute(select(func.count(RouteModel.id)))
+            total = total_result.scalar() or 0
 
-        # By type
-        type_result = await session.execute(
-            select(RouteModel.type, func.count(RouteModel.id))
-            .group_by(RouteModel.type)
-        )
-        by_type: dict[str, int] = {str(r[0].value): r[1] for r in type_result}
+            # By type
+            type_result = await session.execute(
+                select(RouteModel.type, func.count(RouteModel.id))
+                .group_by(RouteModel.type)
+            )
+            by_type: dict[str, int] = {str(r[0].value): r[1] for r in type_result}
 
-        # By is_through
-        through_result = await session.execute(
-            select(RouteModel.is_through, func.count(RouteModel.id))
-            .group_by(RouteModel.is_through)
-        )
-        by_is_through: dict[str, int] = {str(r[0]).lower(): r[1] for r in through_result}
+            # By is_through
+            through_result = await session.execute(
+                select(RouteModel.is_through, func.count(RouteModel.id))
+                .group_by(RouteModel.is_through)
+            )
+            by_is_through: dict[str, int] = {str(r[0]).lower(): r[1] for r in through_result}
 
-        # By container_owner
-        owner_result = await session.execute(
-            select(RouteModel.container_owner, func.count(RouteModel.id))
-            .group_by(RouteModel.container_owner)
-        )
-        by_container_owner: dict[str, int] = {str(r[0].value): r[1] for r in owner_result}
+            # By container_owner
+            owner_result = await session.execute(
+                select(RouteModel.container_owner, func.count(RouteModel.id))
+                .group_by(RouteModel.container_owner)
+            )
+            by_container_owner: dict[str, int] = {str(r[0].value): r[1] for r in owner_result}
 
-        # Top companies (limit 20)
-        cnt_col = func.count(RouteModel.id).label("cnt")
-        sq = select(RouteModel.company_id, CompanyModel.name, cnt_col)
-        sq = sq.join(CompanyModel, RouteModel.company_id == CompanyModel.id)
-        sq = sq.group_by(RouteModel.company_id, CompanyModel.name)
-        sq = sq.order_by(cnt_col.desc())
-        sq = sq.limit(20)
-        companies_result = await session.execute(sq)
-        top_companies = [
-            {"company_id": r[0], "name": r[1], "count": r[2]}
-            for r in companies_result
-        ]
+            # Top companies (limit 20)
+            cnt_col = func.count(RouteModel.id).label("cnt")
+            sq = select(RouteModel.company_id, CompanyModel.name, cnt_col)
+            sq = sq.join(CompanyModel, RouteModel.company_id == CompanyModel.id)
+            sq = sq.group_by(RouteModel.company_id, CompanyModel.name)
+            sq = sq.order_by(cnt_col.desc())
+            sq = sq.limit(20)
+            companies_result = await session.execute(sq)
+            top_companies = [
+                {"company_id": r[0], "name": r[1], "count": r[2]}
+                for r in companies_result
+            ]
 
         return RouteSegmentStatsResponse(
             total_segments=total,
@@ -153,61 +153,60 @@ class CRUDRouteSegment(CRUDBase):
         )
 
     @permissions(ContextKind.ADMIN)
-    async def create(
-        self, session: AsyncSession, data: RouteSegmentCreate
-    ) -> RouteSegmentResponse:
-        model = self._build_instance(data)
-        session.add(model)
-        await session.flush()
+    async def create(self, data: RouteSegmentCreate) -> RouteSegmentResponse:
+        async with get_database().session_context() as session:
+            model = self._build_instance(data)
+            session.add(model)
+            await session.flush()
 
-        for p in data.prices:
-            session.add(PriceModel(route_id=model.id, **p.model_dump()))
-        for s in data.services:
-            session.add(ServicePriceModel(route_id=model.id, **s.model_dump()))
+            for p in data.prices:
+                session.add(PriceModel(route_id=model.id, **p.model_dump()))
+            for s in data.services:
+                session.add(ServicePriceModel(route_id=model.id, **s.model_dump()))
 
-        await session.flush()
-        return await self._reload_response(session, model.id)
-
-    @permissions(ContextKind.ADMIN)
-    async def update(
-        self, session: AsyncSession, id: int, data: RouteSegmentCreate  # noqa: A002
-    ) -> RouteSegmentResponse:
-        model = await self._load_with_relations(session, id)
-        self._apply_update(model, data)
-
-        for old_price in model.prices:
-            await session.delete(old_price)
-        for p in data.prices:
-            session.add(PriceModel(route_id=model.id, **p.model_dump()))
-
-        for old_service in model.services:
-            await session.delete(old_service)
-        for s in data.services:
-            session.add(ServicePriceModel(route_id=model.id, **s.model_dump()))
-
-        await session.flush()
-        return await self._reload_response(session, id)
+            await session.flush()
+            return await self._reload_response(session, model.id)
 
     @permissions(ContextKind.ADMIN)
-    async def patch(
-        self, session: AsyncSession, id: int, data: RouteSegmentPatch  # noqa: A002
-    ) -> RouteSegmentResponse:
-        model = await self._load_with_relations(session, id)
-        self._apply_patch(model, data)
-        await session.flush()
-        return await self._reload_response(session, id)
+    async def update(self, id: int, data: RouteSegmentCreate) -> RouteSegmentResponse:  # noqa: A002
+        async with get_database().session_context() as session:
+            model = await self._load_with_relations(session, id)
+            self._apply_update(model, data)
 
-    async def get(self, session: AsyncSession, id: int) -> RouteSegmentResponse:  # noqa: A002
-        model = await self._load_with_relations(session, id)
-        return RouteSegmentResponse.from_model(model)
+            for old_price in model.prices:
+                await session.delete(old_price)
+            for p in data.prices:
+                session.add(PriceModel(route_id=model.id, **p.model_dump()))
+
+            for old_service in model.services:
+                await session.delete(old_service)
+            for s in data.services:
+                session.add(ServicePriceModel(route_id=model.id, **s.model_dump()))
+
+            await session.flush()
+            return await self._reload_response(session, id)
+
+    @permissions(ContextKind.ADMIN)
+    async def patch(self, id: int, data: RouteSegmentPatch) -> RouteSegmentResponse:  # noqa: A002
+        async with get_database().session_context() as session:
+            model = await self._load_with_relations(session, id)
+            self._apply_patch(model, data)
+            await session.flush()
+            return await self._reload_response(session, id)
+
+    async def get(self, id: int) -> RouteSegmentResponse:  # noqa: A002
+        async with get_database().session_context() as session:
+            model = await self._load_with_relations(session, id)
+            return RouteSegmentResponse.from_model(model)
 
     async def list(  # noqa: A003
-        self, session: AsyncSession, **filters: Any
+        self, **filters: Any
     ) -> list[RouteSegmentListResponse]:
-        stmt = select(RouteModel)
-        stmt = self._apply_list_filters(stmt, **filters)
-        result = await session.execute(stmt.order_by(RouteModel.id))
-        return [RouteSegmentListResponse.from_model(m) for m in result.scalars()]
+        async with get_database().session_context() as session:
+            stmt = select(RouteModel)
+            stmt = self._apply_list_filters(stmt, **filters)
+            result = await session.execute(stmt.order_by(RouteModel.id))
+            return [RouteSegmentListResponse.from_model(m) for m in result.scalars()]
 
     async def _load_with_relations(self, session: AsyncSession, id: int) -> RouteModel:  # noqa: A002
         stmt = (

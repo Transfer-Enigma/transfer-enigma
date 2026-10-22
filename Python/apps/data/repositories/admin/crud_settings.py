@@ -1,10 +1,10 @@
 from data.repositories.admin.crud_base import CRUDBase, FilterDef
 from data.repositories.admin.schemas import SettingCreate, SettingPatch, SettingResponse
 from shared.context import ContextKind, permissions
+from shared.database import get_database
 from shared.dto.errors import ValidationError
 from shared.dto.setting import parse_setting_value
 from shared.orm.setting import SettingModel, SettingType
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class CRUDSetting(CRUDBase):
@@ -76,32 +76,36 @@ class CRUDSetting(CRUDBase):
             model.value = data.value.strip() if data.value else None
 
     @permissions(ContextKind.ADMIN)
-    async def update(self, session: AsyncSession, id: int, data: SettingCreate) -> SettingResponse:  # noqa: A002
-        model = await self._get_or_404(session, id)
-        self._check_locked_update(model, data)
-        self._apply_update(model, data)
-        await session.flush()
-        await session.refresh(model)
-        return self.response_schema.from_model(model)
+    async def update(self, id: int, data: SettingCreate) -> SettingResponse:  # noqa: A002
+        async with get_database().session_context() as session:
+            model = await self._get_or_404(session, id)
+            self._check_locked_update(model, data)
+            self._apply_update(model, data)
+            await session.flush()
+            await session.refresh(model)
+            return self.response_schema.from_model(model)
 
     @permissions(ContextKind.ADMIN)
-    async def patch(self, session: AsyncSession, id: int, data: SettingPatch) -> SettingResponse:  # noqa: A002
-        model = await self._get_or_404(session, id)
-        self._check_locked_patch(model, data)
-        if data.value is not None:
-            self._validate_value(data.value, data.value_type or model.value_type)
-        self._apply_patch(model, data)
-        await session.flush()
-        await session.refresh(model)
-        return self.response_schema.from_model(model)
+    async def patch(self, id: int, data: SettingPatch) -> SettingResponse:  # noqa: A002
+        async with get_database().session_context() as session:
+            model = await self._get_or_404(session, id)
+            self._check_locked_patch(model, data)
+            if data.value is not None:
+                self._validate_value(data.value, data.value_type or model.value_type)
+            self._apply_patch(model, data)
+            await session.flush()
+            await session.refresh(model)
+            return self.response_schema.from_model(model)
 
     @permissions(ContextKind.ADMIN)
-    async def delete(self, session: AsyncSession, id: int) -> None:  # noqa: A002
-        model = await self._get_or_404(session, id)
-        if model.locked:
-            raise ValidationError("Cannot delete locked setting")
-        await session.delete(model)
-        await session.flush()
+    async def delete(self, id: int) -> SettingResponse:  # noqa: A002
+        async with get_database().session_context() as session:
+            model = await self._get_or_404(session, id)
+            if model.locked:
+                raise ValidationError("Cannot delete locked setting")
+            await session.delete(model)
+            await session.flush()
+            return self.response_schema.from_model(model)
 
 
 crud_settings = CRUDSetting()
