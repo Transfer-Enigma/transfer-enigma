@@ -48,17 +48,3 @@ async def _fetch_containers(date: datetime.date, departure_id: str, destination_
         data_to = await resp.json()
 
     return transform_containers(data_to.get("data"))
-
-
-def search_container_ids(containers: list, weight: int, container_type: int):
-    needle = []
-
-    for container in containers:
-        if container.size == container_type:
-            if container.weight_to:
-                if container.weight_from <= weight <= container.weight_to:
-                    needle.append(container.id)
-            else:
-                needle.append(container.id)
-
-    return needle

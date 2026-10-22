@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pytest
 from data.internal.aggregators.routes import find_all_paths
+from services.route_calculation import deduplicate_routes
 from shared.database import Database
 <<<<<<< HEAD
 from shared.orm.container import ContainerType
@@ -75,14 +76,13 @@ async def test_find_all_paths_dedup_preserves_distinct_routes(sqlite_db: Databas
     with (
         patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
         patch("data.repositories.routes.get_database", return_value=sqlite_db),
-        patch("data.repositories.routes.get_database", return_value=sqlite_db),
     ):
-        result = await find_all_paths(
+        result = deduplicate_routes(await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
             end_point_id=point_b.id,
             container_ids=[container.id],
-        )
+        ))
 
     assert len(result) == 2
     owners = {s.container_owner for r in result for s in r.segments}
@@ -117,14 +117,13 @@ async def test_find_all_paths_dedup_multiple_prices(sqlite_db: Database):
     with (
         patch("data.internal.aggregators.routes.get_database", return_value=sqlite_db),
         patch("data.repositories.routes.get_database", return_value=sqlite_db),
-        patch("data.repositories.routes.get_database", return_value=sqlite_db),
     ):
-        result = await find_all_paths(
+        result = deduplicate_routes(await find_all_paths(
             date=datetime.date(2024, 6, 15),
             start_point_id=point_a.id,
             end_point_id=point_b.id,
             container_ids=[container_20.id, container_40.id],
-        )
+        ))
 
     assert len(result) == 1
     route_result = result[0]
