@@ -2,15 +2,37 @@ import asyncio
 import datetime
 import logging
 from collections.abc import Iterable
+from typing import Protocol
 
-from data.fesco import api_client
-from data.internal import aggregators
+from data.protocols import (
+    ContainerQuery,
+    ContainerSource,
+    RouteQuery,
+    RouteSource,
+    get_fesco_source,
+    get_internal_source,
+)
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from entrypoints.user.schemas.routes import NormalizedRoutes
-from shared.dto.route import RouteResult
+from shared.dto.route import ContainerItem, RouteResult
+from shared.identifiers import ExternalId, InternalId, RouteIdentifier
 
 logger = logging.getLogger(__name__)
+
+
+def _source_id(value: int | str) -> RouteIdentifier:
+    """Wrap a raw departure/destination id as the identifier of its source."""
+    return InternalId(value) if isinstance(value, int) else ExternalId(str(value))
+
+
+class _RouteContainerSource(ContainerSource, RouteSource, Protocol):
+    """A source that can list containers and find routes."""
+
+    def search_container_ids(
+        self, containers: list[ContainerItem], weight: float, container_type: int
+    ) -> list:
+        ...
 
 
 def _strip_demo_fields(routes: NormalizedRoutes, excluded_fields: Iterable[str] | None = None) -> None:
@@ -25,29 +47,25 @@ def _strip_demo_fields(routes: NormalizedRoutes, excluded_fields: Iterable[str] 
 
 
 async def _get_routes(
-    modul,
+    source: _RouteContainerSource,
     date: datetime.date,
-    departure: str | int,
-    destination: str | int,
+    departure: int | str,
+    destination: int | str,
     container_weight: float,
     container_type: int,
     *,
     head_truck: bool = False,
     tail_truck: bool = False,
 ) -> Iterable[RouteResult]:
-    containers = await modul.get_containers(date, departure, destination)
-    container_ids = modul.search_container_ids(
-        containers,
-        container_weight,
-        container_type,
-    )
+    dep = _source_id(departure)
+    dest = _source_id(destination)
+    containers = await source.get_containers(ContainerQuery(date, dep, dest))
+    container_ids = source.search_container_ids(containers, container_weight, container_type)
     if not container_ids:
         logger.warning("No matching containers for %s-%s", departure, destination)
         return []
-    return await modul.find_all_paths(
-        date, departure, destination, container_ids,
-        head_truck=head_truck,
-        tail_truck=tail_truck,
+    return await source.find_paths(
+        RouteQuery(date, dep, dest, container_ids, head_truck=head_truck, tail_truck=tail_truck)
     )
 
 
@@ -55,9 +73,12 @@ def _build_calculation_coros(request: CalculateFormRequest):
     head_truck = request.headTruck
     tail_truck = request.tailTruck
 
+    internal_source = get_internal_source()
+    external_source = get_fesco_source()
+
     internal_coros = [
         _get_routes(
-            aggregators,
+            internal_source,
             request.dispatchDate,
             departure_id,
             destination_id,
@@ -71,7 +92,7 @@ def _build_calculation_coros(request: CalculateFormRequest):
     ]
     external_coros = [
         _get_routes(
-            api_client,
+            external_source,
             request.dispatchDate,
             departure_id,
             destination_id,
