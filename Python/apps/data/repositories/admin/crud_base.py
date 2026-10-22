@@ -1,10 +1,9 @@
 from abc import ABC
 from typing import Any, ClassVar
 
-from fastapi import HTTPException
-from starlette.status import HTTP_404_NOT_FOUND
-
 from pydantic import BaseModel
+from shared.context import ContextKind, permissions
+from shared.dto.errors import NotFoundError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,6 +50,7 @@ class CRUDBase(ABC):
         model = await self._get_or_404(session, id)
         return self.response_schema.from_model(model)
 
+    @permissions(ContextKind.ADMIN)
     async def create(self, session: AsyncSession, data: BaseModel) -> BaseModel:
         model = self._build_instance(data)
         session.add(model)
@@ -58,6 +58,7 @@ class CRUDBase(ABC):
         await session.refresh(model)
         return self.response_schema.from_model(model)
 
+    @permissions(ContextKind.ADMIN)
     async def update(self, session: AsyncSession, id: int, data: BaseModel) -> BaseModel:  # noqa: A002
         model = await self._get_or_404(session, id)
         self._apply_update(model, data)
@@ -65,6 +66,7 @@ class CRUDBase(ABC):
         await session.refresh(model)
         return self.response_schema.from_model(model)
 
+    @permissions(ContextKind.ADMIN)
     async def patch(self, session: AsyncSession, id: int, data: BaseModel) -> BaseModel:  # noqa: A002
         model = await self._get_or_404(session, id)
         self._apply_patch(model, data)
@@ -72,6 +74,7 @@ class CRUDBase(ABC):
         await session.refresh(model)
         return self.response_schema.from_model(model)
 
+    @permissions(ContextKind.ADMIN)
     async def delete(self, session: AsyncSession, id: int) -> None:  # noqa: A002
         model = await self._get_or_404(session, id)
         await session.delete(model)
@@ -79,10 +82,7 @@ class CRUDBase(ABC):
     async def _get_or_404(self, session: AsyncSession, id: int) -> Any:  # noqa: A002
         model = await session.get(self.model, id)
         if not model:
-            raise HTTPException(
-                status_code=HTTP_404_NOT_FOUND,
-                detail=f"{self.model.__name__} not found",
-            )
+            raise NotFoundError(f"{self.model.__name__} not found")
         return model
 
     def _build_instance(self, data: BaseModel) -> Any:
