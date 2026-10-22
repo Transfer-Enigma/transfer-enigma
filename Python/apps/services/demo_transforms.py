@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from contextlib import suppress
 
 from services.group_points import GroupedPointWithPort
-from shared.context import CallerContext, ContextKind, get_context
+from shared.context import ContextKind, get_context
 from shared.dto.route import RouteResult, RouteSegment
 
 from .profit import apply_demo_profit_to_route
@@ -16,8 +16,9 @@ def strip_demo_fields(segments: Iterable[RouteSegment], excluded_fields: Iterabl
                 setattr(segment, field, None)
 
 
-def strip_demo_fields_from_points(data: list[GroupedPointWithPort], context: CallerContext) -> None:
+def strip_demo_fields_from_points(data: list[GroupedPointWithPort]) -> None:
     """Hide the companies of the points from a demo guest."""
+    context = get_context()
     if context.kind != ContextKind.DEMO:
         return
 

@@ -37,7 +37,7 @@ def _parse_point_ids(departure_point_ids: Annotated[str, Query]) -> tuple[list[i
 @router.get("/departures", response_model=PointsDataResponse)
 async def all_departure_by_date(date: datetime.date, context: Annotated[CallerContext, Depends(bind_caller_context)]):
     result, errors = await get_departure_points(date)
-    strip_demo_fields_from_points(result, context)
+    strip_demo_fields_from_points(result)
 
     return {
         "errors": errors,
@@ -54,7 +54,7 @@ async def all_destination_by_date(
     _, external_point_ids = departure_point_ids
 
     result, errors = await get_destination_points(date, external_point_ids)
-    strip_demo_fields_from_points(result, context)
+    strip_demo_fields_from_points(result)
 
     return {
         "errors": errors,
@@ -72,7 +72,7 @@ async def truck_departure_points(date: datetime.date, context: Annotated[CallerC
             "data": [],
         }
 
-    strip_demo_fields_from_points(result, context)
+    strip_demo_fields_from_points(result)
 
     return {
         "errors": [],
@@ -93,7 +93,7 @@ async def truck_destination_points(
             "data": [],
         }
 
-    strip_demo_fields_from_points(result, context)
+    strip_demo_fields_from_points(result)
 
     return {
         "errors": [],
