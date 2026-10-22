@@ -11,7 +11,7 @@ from starlette.status import (
 
 import gspread
 import pandas
-from entrypoints.admin.dependencies.auth import request_auth
+from entrypoints.admin.dependencies.auth_context import bind_caller_context
 from entrypoints.admin.models.upoader_fields_config import UploaderFieldsConfig
 <<<<<<< HEAD
 =======
@@ -29,6 +29,7 @@ from entrypoints.admin.service.routes_loading.errors import (
 from entrypoints.admin.service.routes_loading.processor import load_data
 from gspread_dataframe import get_as_dataframe
 from shared.config import get_settings
+from shared.context import CallerContext
 from shared.database import get_database
 <<<<<<< HEAD
 from shared.orm.route import RouteType
@@ -50,7 +51,7 @@ def get_fields_config_from_file():
 
 @router.post("/update-from-gsheets")
 async def update_from_gsheets(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     fields_config: Annotated[UploaderFieldsConfig, Depends(get_fields_config_from_file)],
     db_session: Annotated[AsyncSession, Depends(get_database().session)],
     gsheets_url: str = settings.DEFAULT_GSHEETS_URL,

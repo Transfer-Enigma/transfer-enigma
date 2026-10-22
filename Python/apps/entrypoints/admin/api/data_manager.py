@@ -6,7 +6,7 @@ from fastapi.params import Depends, File
 from fastapi.responses import StreamingResponse
 from starlette.status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR
 
-from entrypoints.admin.dependencies.auth import request_auth
+from entrypoints.admin.dependencies.auth_context import bind_caller_context
 from entrypoints.admin.responses import DetailErrorResponse, ErrorDescriptor, MultiErrorResponse
 from entrypoints.admin.responses_fabric import (
     create_an_error_descriptor_from_an_exception,
@@ -15,6 +15,7 @@ from entrypoints.admin.responses_fabric import (
 from entrypoints.admin.service.db_management.db_dumper import create_db_dump
 from entrypoints.admin.service.db_management.db_eraser import clear_database_data
 from entrypoints.admin.service.db_management.db_loader import load_db_dump
+from shared.context import CallerContext
 from shared.database import Database, get_database
 
 router = APIRouter(prefix="/db")
@@ -34,7 +35,7 @@ router = APIRouter(prefix="/db")
     HTTP_500_INTERNAL_SERVER_ERROR: {"model": DetailErrorResponse[ErrorDescriptor]},
 })
 async def make_db_dump(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
     structure: bool = True,
 ):
@@ -57,7 +58,7 @@ async def make_db_dump(
     HTTP_500_INTERNAL_SERVER_ERROR: {"model": DetailErrorResponse[ErrorDescriptor]},
 })
 async def erase_all_data(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     db: Annotated[Database, Depends(get_database)],
 ):
     async with db.session_context() as session:
@@ -77,7 +78,7 @@ async def erase_all_data(
     },
 })
 async def load_dump(
-    _: Annotated[None, Depends(request_auth)],
+    _: Annotated[CallerContext, Depends(bind_caller_context)],
     dump_file: Annotated[bytes, File()],
     db: Annotated[Database, Depends(get_database)],
 ):
