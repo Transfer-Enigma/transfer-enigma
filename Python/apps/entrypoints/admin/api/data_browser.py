@@ -418,8 +418,11 @@ async def update_setting(
     _: Annotated[CallerContext, Depends(bind_caller_context)],
     background_tasks: BackgroundTasks,
 ):
+    old = await crud_settings.get(setting_id)
     result = await crud_settings.update(setting_id, payload)
     background_tasks.add_task(set_settings_cache, SettingItem(**result.model_dump()))
+    if old.group != result.group or old.name != result.name:
+        background_tasks.add_task(delete_settings_cache, old.group, old.name)
     return result
 
 
@@ -430,8 +433,11 @@ async def patch_setting(
     _: Annotated[CallerContext, Depends(bind_caller_context)],
     background_tasks: BackgroundTasks,
 ):
+    old = await crud_settings.get(setting_id)
     result = await crud_settings.patch(setting_id, payload)
     background_tasks.add_task(set_settings_cache, SettingItem(**result.model_dump()))
+    if old.group != result.group or old.name != result.name:
+        background_tasks.add_task(delete_settings_cache, old.group, old.name)
     return result
 
 
