@@ -54,7 +54,7 @@ class CRUDBase(ABC):
             return self.response_schema.from_model(model)
 
     @permissions(ContextKind.ADMIN)
-    async def create(self, data: BaseModel) -> BaseModel:
+    async def create(self, data: Any) -> BaseModel:
         async with get_database().session_context() as session:
             model = self._build_instance(data)
             session.add(model)
@@ -63,7 +63,7 @@ class CRUDBase(ABC):
             return self.response_schema.from_model(model)
 
     @permissions(ContextKind.ADMIN)
-    async def update(self, id: int, data: BaseModel) -> BaseModel:  # noqa: A002
+    async def update(self, id: int, data: Any) -> BaseModel:  # noqa: A002
         async with get_database().session_context() as session:
             model = await self._get_or_404(session, id)
             self._apply_update(model, data)
@@ -72,7 +72,7 @@ class CRUDBase(ABC):
             return self.response_schema.from_model(model)
 
     @permissions(ContextKind.ADMIN)
-    async def patch(self, id: int, data: BaseModel) -> BaseModel:  # noqa: A002
+    async def patch(self, id: int, data: Any) -> BaseModel:  # noqa: A002
         async with get_database().session_context() as session:
             model = await self._get_or_404(session, id)
             self._apply_patch(model, data)
@@ -81,10 +81,11 @@ class CRUDBase(ABC):
             return self.response_schema.from_model(model)
 
     @permissions(ContextKind.ADMIN)
-    async def delete(self, id: int) -> None:  # noqa: A002
+    async def delete(self, id: int) -> BaseModel | None:  # noqa: A002
         async with get_database().session_context() as session:
             model = await self._get_or_404(session, id)
             await session.delete(model)
+        return None
 
     async def _get_or_404(self, session: AsyncSession, id: int) -> Any:  # noqa: A002
         model = await session.get(self.model, id)
