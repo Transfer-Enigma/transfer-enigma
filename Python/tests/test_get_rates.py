@@ -1,9 +1,11 @@
+import asyncio
 import datetime
-import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
-from services.get_rates import get_rates
+from data.cache.registry import CacheRegistry
+from services.get_rates import CBR_SOURCE, RATES_CACHE_PART, _set_rates_cache, get_rates
+from shared.cache import CacheEntity, CachePolicy, LocalStorage
 
 
 class MockCurrency:
@@ -21,19 +23,21 @@ class MockExchangeRates:
         ]
 
 
-def _mock_redis(get_return=None):
-    mock_redis = AsyncMock()
-    mock_redis.get = AsyncMock(return_value=get_return)
-    mock_redis.set = AsyncMock()
-    return mock_redis
+def _registry(*, enabled=True, ttl=60) -> CacheRegistry:
+    """A registry with the rates policy of the CBR source."""
+    registry = CacheRegistry(storage=LocalStorage())
+    registry.add_policies([
+        CachePolicy(source=CBR_SOURCE, entity=CacheEntity.RATES, enabled=enabled, ttl=ttl),
+    ])
+    return registry
 
 
 @pytest.mark.asyncio
 async def test_get_rates_returns_tuple():
-    redis = _mock_redis()
+    registry = _registry()
     with (
         patch("services.get_rates.ExchangeRates", return_value=MockExchangeRates(None)),
-        patch("services.get_rates.get_redis", return_value=redis),
+        patch("services.get_rates.get_cache_registry", return_value=registry),
     ):
         rates, dt = await get_rates()
 
@@ -48,10 +52,10 @@ async def test_get_rates_returns_tuple():
 @pytest.mark.asyncio
 async def test_get_rates_with_passed_datetime():
     dt = datetime.datetime(2024, 6, 15, 12, 0, 0)
-    redis = _mock_redis()
+    registry = _registry()
     with (
         patch("services.get_rates.ExchangeRates", return_value=MockExchangeRates(None)),
-        patch("services.get_rates.get_redis", return_value=redis),
+        patch("services.get_rates.get_cache_registry", return_value=registry),
     ):
         rates, updated_at = await get_rates(dt)
 
@@ -60,12 +64,17 @@ async def test_get_rates_with_passed_datetime():
 
 
 @pytest.mark.asyncio
-async def test_get_rates_api_failure_fallback_to_redis():
-    cached = json.dumps({"rates": {"USD": 85.0}, "date": "2024-06-14"})
-    redis = _mock_redis(get_return=cached)
+async def test_get_rates_api_failure_fallback_to_cache():
+    registry = _registry()
+    await registry.backend(CBR_SOURCE).set(
+        CacheEntity.RATES,
+        RATES_CACHE_PART,
+        data={"rates": {"USD": 85.0}, "date": "2024-06-14"},
+        dump=True,
+    )
     with (
         patch("services.get_rates.ExchangeRates", side_effect=ConnectionError("API unavailable")),
-        patch("services.get_rates.get_redis", return_value=redis),
+        patch("services.get_rates.get_cache_registry", return_value=registry),
     ):
         rates, cached_date = await get_rates(datetime.datetime(2020, 1, 1))
 
@@ -75,10 +84,53 @@ async def test_get_rates_api_failure_fallback_to_redis():
 
 @pytest.mark.asyncio
 async def test_get_rates_api_failure_no_cache_raises():
-    redis = _mock_redis()
+    registry = _registry()
     with (
         patch("services.get_rates.ExchangeRates", side_effect=ConnectionError("API unavailable")),
-        patch("services.get_rates.get_redis", return_value=redis),
+        patch("services.get_rates.get_cache_registry", return_value=registry),
         pytest.raises(RuntimeError, match="No rates available"),
     ):
         await get_rates(datetime.datetime(2020, 1, 1))
+
+
+@pytest.mark.asyncio
+async def test_get_rates_without_a_policy_does_not_raise():
+    """Without a policy row the entity is not cached, the API is the only source."""
+    registry = CacheRegistry(storage=LocalStorage())
+    with (
+        patch("services.get_rates.ExchangeRates", side_effect=ConnectionError("API unavailable")),
+        patch("services.get_rates.get_cache_registry", return_value=registry),
+        pytest.raises(RuntimeError, match="No rates available"),
+    ):
+        await get_rates(datetime.datetime(2020, 1, 1))
+
+
+@pytest.mark.asyncio
+async def test_set_rates_cache_stores_the_rates_and_the_date():
+    registry = _registry()
+    with patch("services.get_rates.get_cache_registry", return_value=registry):
+        await _set_rates_cache({"USD": 90.0}, datetime.date(2024, 6, 15))
+
+    cached = await registry.backend(CBR_SOURCE).get(CacheEntity.RATES, RATES_CACHE_PART)
+    assert cached == {"rates": {"USD": 90.0}, "date": "2024-06-15"}
+
+
+@pytest.mark.asyncio
+async def test_get_rates_caches_the_rates():
+    registry = _registry()
+    with (
+        patch("services.get_rates.ExchangeRates", return_value=MockExchangeRates(None)),
+        patch("services.get_rates.get_cache_registry", return_value=registry),
+    ):
+        await get_rates(datetime.datetime(2024, 6, 15, 12, 0, 0))
+
+        cached = None
+        for _ in range(50):
+            cached = await registry.backend(CBR_SOURCE).get(CacheEntity.RATES, RATES_CACHE_PART)
+            if cached is not None:
+                break
+            await asyncio.sleep(0.01)
+
+    assert cached is not None
+    assert cached["rates"]["USD"] == 90.0
+    assert cached["date"] == "2024-06-15"
