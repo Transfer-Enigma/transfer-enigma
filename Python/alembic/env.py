@@ -20,10 +20,8 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 
-from apps.module_shared.config import get_settings
-
-import apps.module_shared.schemas  # noqa: F401
-from apps.module_data_internal.schemas import Base
+from shared.config import get_settings
+from shared.orm import Base
 
 
 # this is the Alembic Config object, which provides

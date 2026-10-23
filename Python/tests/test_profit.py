@@ -2,13 +2,13 @@ import datetime
 from unittest.mock import patch
 
 import pytest
-from backend_user.services.profit import (
+from services.profit import (
     _apply_profit_to_segments,
     _convert_currency,
     _get_converted_profit,
     apply_demo_profit_to_routes,
 )
-from module_shared.models.route import PriceItem, RouteSegment
+from shared.dto.route import PriceItem, RouteSegment
 
 _CB_RATES = {"USD": 90.0, "RUB": 1.0, "EUR": 100.0}
 
@@ -47,7 +47,7 @@ class TestGetConvertedProfit:
 
 class TestApplyDemoProfitToRoutes:
     async def _apply(self, routes, **kwargs):
-        with patch("backend_user.services.profit.get_rates", return_value=(_CB_RATES, datetime.date.today())):
+        with patch("services.profit.get_rates", return_value=(_CB_RATES, datetime.date.today())):
             await apply_demo_profit_to_routes(routes, **kwargs)
 
     def _segment_price(self, routes, route_index=0, segment_index=0, price_index=0):
