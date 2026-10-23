@@ -4,9 +4,9 @@ from importlib.util import find_spec
 from fastapi import FastAPI
 
 from data.cache.registry import get_cache_registry
+from data.cache.settings import ensure_settings
 from fastapi_another_jwt_auth import AuthJWT
 from fastapi_another_jwt_auth.exceptions import AuthJWTException
-from shared.cache_settings import ensure_settings
 from shared.config import get_settings
 from shared.database import get_database
 from shared.jwt_error_handler import authjwt_exception_handler

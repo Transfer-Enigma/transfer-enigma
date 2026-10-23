@@ -156,3 +156,7 @@ class CacheBackend:
         """Write a value in the background, ignoring a write already running."""
         with suppress(TaskAlreadyRunningError):
             return self.set_async(*parts, data=data, ttl=ttl, dump=dump)
+
+    async def delete(self, *parts: str) -> None:
+        """Remove a single cached value."""
+        await self._storage.delete(self.key(*parts))

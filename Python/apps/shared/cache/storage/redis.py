@@ -10,6 +10,9 @@ class RedisStorage:
     async def set(self, key: str, value: str, *, ttl: int | None = None) -> None:  # noqa: A003
         await get_redis().set(key, value, ex=ttl)
 
+    async def delete(self, key: str) -> None:
+        await get_redis().delete(key)
+
     async def delete_prefix(self, prefix: str) -> int:
         deleted = 0
         async for key in get_redis().scan_iter(match=f"{prefix}*", count=100):
