@@ -1,37 +1,30 @@
 import logging
-from functools import cache
 
+from shared.cache import CacheEntity
+from shared.database import get_database
+from shared.dto.setting import SettingItem, parse_setting_value
+from shared.orm.setting import SettingModel
+from shared.repositories import setting as rsettings
+from shared.setting_definitions import get_setting_definitions
+from shared.settings import get_setting as _get_setting
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .cache_controller import CacheController
-from .database import get_database
-from .dto.setting import SettingItem, parse_setting_value
-from .orm.setting import SettingModel
-from .redis_client import get_redis
-from .repositories import setting as rsettings
-from .setting_definitions import get_setting_definitions
-from .settings import get_setting as _get_setting
+from .registry import get_cache_registry
 
 logger = logging.getLogger(__name__)
 
-SETTINGS_CACHE_TTL = 43200  # 12 hours
-SETTINGS_CACHE_PREFIX = "backend_user:settings"
+# The settings are read from our own database.
+SETTINGS_SOURCE = "internal"
 
 
-@cache
-def get_cache_controller():
-    return CacheController(logger)
-
-
-def _settings_cache_key(group: str, name: str) -> str:
-    return f"{SETTINGS_CACHE_PREFIX}:{group}:{name}"
+def _settings_backend():
+    return get_cache_registry().backend(SETTINGS_SOURCE)
 
 
 async def get_setting_cached(group: str, name: str, *, session: AsyncSession | None = None) -> SettingItem | None:
-    key = _settings_cache_key(group, name)
-    cache_controller = get_cache_controller()
-    cached = await cache_controller.get_cached(key, SettingItem, False)
+    backend = _settings_backend()
+    cached = await backend.get(CacheEntity.SETTINGS, group, name, model=SettingItem, many=False)
     if cached:
         return cached
 
@@ -41,25 +34,20 @@ async def get_setting_cached(group: str, name: str, *, session: AsyncSession | N
         item = await _get_setting(group, name)
 
     if item is not None:
-        cache_controller.silent_set_cache_async(key, item, SETTINGS_CACHE_TTL)
+        backend.silent_set_async(CacheEntity.SETTINGS, group, name, data=item, dump=True)
 
     return item
 
 
 async def set_settings_cache(item: SettingItem) -> None:
-    key = _settings_cache_key(item.group, item.name)
-    cache_controller = get_cache_controller()
-    await cache_controller.set_cache(key, item, SETTINGS_CACHE_TTL, True)
+    backend = _settings_backend()
+    await backend.set(CacheEntity.SETTINGS, item.group, item.name, data=item, dump=True)
 
 
 async def delete_settings_cache(group: str, name: str) -> None:
-    key = _settings_cache_key(group, name)
-    try:
-        redis = get_redis()
-        await redis.delete(key)
-        logger.debug("Settings cache deleted: %s", key)
-    except Exception:
-        logger.exception("Failed to delete settings cache: %s", key)
+    backend = _settings_backend()
+    await backend.delete(CacheEntity.SETTINGS, group, name)
+    logger.debug("Settings cache deleted: %s:%s", group, name)
 
 
 async def ensure_settings() -> None:
