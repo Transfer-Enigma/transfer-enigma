@@ -1,5 +1,4 @@
 import datetime
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -22,14 +21,18 @@ from data.fesco.api_client.transformers.routes import (
     transform_routes,
     transform_service,
 )
+from data.fesco.cache import containers_parts, routes_parts
+from shared.cache import CacheBackend, CacheEntity, CachePolicy, LocalStorage
 from shared.dto.route import ContainerItem
 
 
-def _mock_redis(get_return=None):
-    mock_redis = AsyncMock()
-    mock_redis.get = AsyncMock(return_value=get_return)
-    mock_redis.set = AsyncMock()
-    return mock_redis
+def _fesco_backend(storage, *entities: CacheEntity) -> CacheBackend:
+    """A backend of the FESCO source with an enabled policy for the entities."""
+    entity = entities[0]
+    policies = {
+        entity: CachePolicy(source="fesco", entity=entity, enabled=True, ttl=60)
+    }
+    return CacheBackend(storage, entity, policies)
 
 
 # ============================================================
@@ -557,14 +560,12 @@ class TestGetContainers:
             {"ContainerCode": "40DC1", "ContainerNameEng": "(40'DC) 0-28t"},
         ]
         mock_session = _mock_aiohttp_session({"data": raw_data})
-        mock_redis = _mock_redis()
 
         with (
             patch(
                 "data.fesco.api_client.containers.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await get_containers(
                 datetime.date(2024, 6, 15), "dep1", "dest1"
@@ -577,14 +578,12 @@ class TestGetContainers:
     @pytest.mark.asyncio
     async def test_empty_data(self):
         mock_session = _mock_aiohttp_session({"data": []})
-        mock_redis = _mock_redis()
 
         with (
             patch(
                 "data.fesco.api_client.containers.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await get_containers(
                 datetime.date(2024, 6, 15), "dep1", "dest1"
@@ -595,31 +594,35 @@ class TestGetContainers:
     @pytest.mark.asyncio
     async def test_http_error_raised(self):
         mock_session = _mock_aiohttp_session({}, status_ok=False)
-        mock_redis = _mock_redis()
 
         with (
             patch(
                 "data.fesco.api_client.containers.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
             pytest.raises(Exception, match="HTTP 500"),
         ):
             await get_containers(datetime.date(2024, 6, 15), "dep1", "dest1")
 
     @pytest.mark.asyncio
     async def test_cache_hit(self):
-        cached_data = json.dumps([
-            {"id": "20DC1", "type": "DC", "size": 20, "weight_from": 0, "weight_to": 28000, "name": "20'DC 0-28t"},
-            {"id": "40DC1", "type": "DC", "size": 40, "weight_from": 0, "weight_to": 28000, "name": "40'DC 0-28t"},
-        ])
-        mock_redis = _mock_redis(get_return=cached_data)
+        storage = LocalStorage()
+        backend = _fesco_backend(storage, CacheEntity.CONTAINERS)
+        date = datetime.date(2024, 6, 15)
+        await backend.set(
+            *containers_parts(date, "dep1", "dest1"),
+            data=[
+                {"id": "20DC1", "type": "DC", "size": 20, "weight_from": 0, "weight_to": 28000, "name": "20'DC 0-28t"},
+                {"id": "40DC1", "type": "DC", "size": 40, "weight_from": 0, "weight_to": 28000, "name": "40'DC 0-28t"},
+            ],
+            dump=True,
+        )
 
         with patch(
-            "data.fesco.cache.get_redis",
-            return_value=mock_redis,
+            "data.fesco.api_client.containers.get_containers_backend",
+            return_value=backend,
         ):
-            result = await get_containers(datetime.date(2024, 6, 15), "dep1", "dest1")
+            result = await get_containers(date, "dep1", "dest1")
 
         assert len(result) == 2
         assert result[0].size == 20
@@ -628,7 +631,14 @@ class TestGetContainers:
 
     @pytest.mark.asyncio
     async def test_cache_hit_corrupt(self):
-        mock_redis = _mock_redis(get_return="not-valid-json")
+        storage = LocalStorage()
+        backend = _fesco_backend(storage, CacheEntity.CONTAINERS)
+        date = datetime.date(2024, 6, 15)
+        await storage.set(
+            backend.key(*containers_parts(date, "dep1", "dest1")),
+            "not-valid-json",
+            ttl=60,
+        )
 
         mock_session = _mock_aiohttp_session({"data": []})
         with (
@@ -637,11 +647,11 @@ class TestGetContainers:
                 return_value=mock_session,
             ),
             patch(
-                "data.fesco.cache.get_redis",
-                return_value=mock_redis,
+                "data.fesco.api_client.containers.get_containers_backend",
+                return_value=backend,
             ),
         ):
-            result = await get_containers(datetime.date(2024, 6, 15), "dep1", "dest1")
+            result = await get_containers(date, "dep1", "dest1")
 
         assert result == []
 
@@ -683,14 +693,12 @@ class TestGetDeparturePoints:
             {"id": "F2", "name": "Владивосток", "country": "Россия"},
         ]
         mock_session = _mock_aiohttp_session({"data": raw_data})
-        mock_redis = _mock_redis()
 
         with (
             patch(
                 "data.fesco.api_client.points.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await get_departure_points_by_date(datetime.date(2024, 6, 15))
 
@@ -700,14 +708,12 @@ class TestGetDeparturePoints:
     @pytest.mark.asyncio
     async def test_http_error(self):
         mock_session = _mock_aiohttp_session({}, status_ok=False)
-        mock_redis = _mock_redis()
 
         with (
             patch(
                 "data.fesco.api_client.points.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
             pytest.raises(Exception, match="HTTP 500"),
         ):
             await get_departure_points_by_date(datetime.date(2024, 6, 15))
@@ -720,14 +726,12 @@ class TestGetDestinationPoints:
             {"id": "F3", "name": "Шанхай", "country": "Китай"},
         ]
         mock_session = _mock_aiohttp_session({"data": raw_data})
-        mock_redis = _mock_redis()
 
         with (
             patch(
                 "data.fesco.api_client.points.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await get_destination_points_by_date(
                 datetime.date(2024, 6, 15), "F1"
@@ -739,14 +743,12 @@ class TestGetDestinationPoints:
     @pytest.mark.asyncio
     async def test_http_error(self):
         mock_session = _mock_aiohttp_session({}, status_ok=False)
-        mock_redis = _mock_redis()
 
         with (
             patch(
                 "data.fesco.api_client.points.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
             pytest.raises(Exception, match="HTTP 500"),
         ):
             await get_destination_points_by_date(
@@ -780,13 +782,11 @@ class TestFindAllPaths:
         }
         mock_session = _mock_aiohttp_session({"data": [raw_route]})
 
-        mock_redis = _mock_redis()
         with (
             patch(
                 "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15),
@@ -824,13 +824,11 @@ class TestFindAllPaths:
         }
         mock_session = _mock_aiohttp_session({"data": [raw_route]})
 
-        mock_redis = _mock_redis()
         with (
             patch(
                 "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15),
@@ -877,13 +875,11 @@ class TestFindAllPaths:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        mock_redis = _mock_redis()
         with (
             patch(
                 "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15),
@@ -899,13 +895,11 @@ class TestFindAllPaths:
     async def test_empty_response(self):
         mock_session = _mock_aiohttp_session({"data": []})
 
-        mock_redis = _mock_redis()
         with (
             patch(
                 "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15),
@@ -927,13 +921,11 @@ class TestFindAllPaths:
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        mock_redis = _mock_redis()
         with (
             patch(
                 "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
         ):
             result = await find_all_paths(
                 datetime.date(2024, 6, 15),
@@ -976,12 +968,20 @@ class TestFindAllPaths:
             "may_be_invalid": False,
             "services": [],
         }
-        mock_redis = _mock_redis(get_return=json.dumps([cached_route]))
+        storage = LocalStorage()
+        backend = _fesco_backend(storage, CacheEntity.ROUTES)
+        date = datetime.date(2024, 6, 15)
+        await backend.set(
+            *routes_parts(date, "dep1", "dest1", ["wte1"]),
+            data=[cached_route],
+            dump=True,
+        )
 
-        with patch("data.fesco.cache.get_redis", return_value=mock_redis):
-            result = await find_all_paths(
-                datetime.date(2024, 6, 15), "dep1", "dest1", ["wte1"]
-            )
+        with patch(
+            "data.fesco.api_client.routes.get_routes_backend",
+            return_value=backend,
+        ):
+            result = await find_all_paths(date, "dep1", "dest1", ["wte1"])
 
         result_list = list(result)
         assert len(result_list) == 1
@@ -990,7 +990,14 @@ class TestFindAllPaths:
 
     @pytest.mark.asyncio
     async def test_cache_hit_corrupt(self):
-        mock_redis = _mock_redis(get_return="not-valid-route-json")
+        storage = LocalStorage()
+        backend = _fesco_backend(storage, CacheEntity.ROUTES)
+        date = datetime.date(2024, 6, 15)
+        await storage.set(
+            backend.key(*routes_parts(date, "dep1", "dest1", ["wte1"])),
+            "not-valid-route-json",
+            ttl=60,
+        )
 
         mock_session = _mock_aiohttp_session({"data": []})
         with (
@@ -998,11 +1005,12 @@ class TestFindAllPaths:
                 "data.fesco.api_client.routes.aiohttp.ClientSession",
                 return_value=mock_session,
             ),
-            patch("data.fesco.cache.get_redis", return_value=mock_redis),
+            patch(
+                "data.fesco.api_client.routes.get_routes_backend",
+                return_value=backend,
+            ),
         ):
-            result = await find_all_paths(
-                datetime.date(2024, 6, 15), "dep1", "dest1", ["wte1"]
-            )
+            result = await find_all_paths(date, "dep1", "dest1", ["wte1"])
 
         result_list = list(result)
         assert len(result_list) == 0
