@@ -26,7 +26,7 @@ test:
 	docker compose -f docker-compose.test.yml run --rm test-runner $(ARGS);
 
 lint:
-	uv run --frozen --group dev pre-commit run --all-files $(ARGS);
+	uv run --frozen --directory Python --group dev pre-commit run --all-files $(ARGS);
 	cd Node/apps/user-frontend && npm run lint && npm run build;
 	cd Node/apps/admin-frontend && npm run lint;
 
@@ -35,10 +35,10 @@ lint-frontend:
 	cd Node/apps/admin-frontend && npm run lint;
 
 lint-backend:
-	uv run --frozen --group dev pre-commit run --all-files $(ARGS);
+	uv run --frozen --directory Python --group dev pre-commit run --all-files $(ARGS);
 
 alembic:
-	uv run --frozen alembic $(ARGS);
+	uv run --frozen --directory Python alembic $(ARGS);
 
 %:
 	@true
