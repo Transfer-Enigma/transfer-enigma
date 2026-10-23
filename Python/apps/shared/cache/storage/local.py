@@ -23,6 +23,9 @@ class LocalStorage:
     async def set(self, key: str, value: str, *, ttl: int | None = None) -> None:  # noqa: A003
         self._values[key] = (value, None if ttl is None else time.monotonic() + ttl)
 
+    async def delete(self, key: str) -> None:
+        self._values.pop(key, None)
+
     async def delete_prefix(self, prefix: str) -> int:
         keys = [key for key in self._values if key.startswith(prefix)]
         for key in keys:

@@ -12,6 +12,10 @@ class CacheStorage(Protocol):
         """Store a raw value under a key for the given number of seconds."""
         ...
 
+    async def delete(self, key: str) -> None:
+        """Remove a single key."""
+        ...
+
     async def delete_prefix(self, prefix: str) -> int:
         """Remove every key starting with the prefix, return how many."""
         ...

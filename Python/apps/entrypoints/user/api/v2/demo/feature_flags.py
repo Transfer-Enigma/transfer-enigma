@@ -2,8 +2,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+from data.cache.settings import get_setting_cached
 from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
-from shared.cache_settings import get_setting_cached
 
 router = APIRouter(prefix="/v2/demo", tags=["v2", "demo"])
 
