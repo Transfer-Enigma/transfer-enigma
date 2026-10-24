@@ -161,16 +161,18 @@ def create_route_service(
     if not service:
         return
 
-    currency = row[currency_column]
+    currency = nan_to_none_mapper(row[currency_column])
     price = nan_to_none_mapper(row[price_column])
     if not price:
         return
+
+    currency = str(currency or "").strip().upper() or "USD"
 
     return ServicePriceModel(
         route=route,
         service=service,
         container=container,
-        currency=nan_to_none_mapper(currency) or "USD",
+        currency=currency,
         price=float(price),
     )
 
