@@ -516,6 +516,7 @@ All output is JSON by default (for AI/script parsing).
 | Services | `GET/POST /db/services`, `GET/PUT/PATCH/DELETE /db/services/{id}` | `name, internal_name, description, hint?, mandatory, default` |
 | Drop-off | `GET/POST /db/drop-off`, `GET/PUT/PATCH/DELETE /db/drop-off/{id}` | `container_id, company_id, dates, price, currency` |
 | Settings | `GET/POST /db/settings`, `GET/PUT/PATCH/DELETE /db/settings/{id}` | `group, name, description?, value_type, value?` |
+| Cache Policies | `GET/POST/PATCH/DELETE /admin/api/cache/policies`, `GET /admin/api/cache/policies/{id}`, `POST /admin/api/cache/policies/invalidate[/{source}]` | `source, entity, enabled, ttl` — cache policy management; write triggers `registry.load()` so changes take effect immediately |
 
 **Architecture:**
 - `api/data_browser.py` — thin route definitions only (delegates to service layer)
@@ -533,6 +534,8 @@ All output is JSON by default (for AI/script parsing).
 - `_build_instance` / `_apply_update` validate against `data.value_type` (known from request)
 - For PATCH: `patch()` method is overridden — gets the model from DB first, validates `data.value` against the **model's existing** `value_type`, then calls `_apply_patch` (which does no value validation)
 - **Locked settings** (`model.locked`): PUT, DELETE, PATCH on group/name/type are blocked with `HTTP_403_FORBIDDEN`; only `value` is editable for locked settings
+
+**Cache management page** (admin frontend): `Node/apps/admin-frontend/src/pages/CachePolicies.tsx` — lists cache policies (source, entity, enabled, ttl), allows creating/editing/deleting policies and invalidating the cache per source or entirely. Wired at route `ROUTES.CACHE` (`/cache`) with a sidebar nav link. API client: `src/api/CachePolicies.ts`, interfaces: `src/interfaces/CachePolicy.ts`.
 
 ---
 
