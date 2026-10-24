@@ -167,6 +167,8 @@ scripts/                  # Dev workflow scripts (run, stop, rebuild, migrate)
 
 The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/workspace/tests/`, and uses hardcoded `/workspace` paths in CMD (JSON exec form, no `ENV`/shell expansion needed). `APP_DIR` is a build-time `ARG` only (default `/workspace`), never used at runtime.
 
+**Hot-dev bind mounts** (`docker-compose.hot-dev.yml`, `docker-compose.hot-dev.backend.yml`): sources are mounted per-directory over the image (mounting all of `apps/` would hide `/workspace/.venv`). When adding a new top-level package under `Python/apps/` (e.g. `data/cache`), add an `:ro` bind mount to the affected services in **both** hot-dev files — otherwise the container imports the stale image copy and fails with `ModuleNotFoundError` for new packages. Currently mounted: `entrypoints/{user,admin,auth}`, `data/{cache,fesco,internal}`, `shared`, `services` (`services/` only for `calculator`). Alembic files are **not** mounted — rebuild `db-migration` (`docker buildx bake db-migration`) and run `docker compose -f docker-compose.migrate.yml run --rm dbmigrator upgrade head` for new migrations.
+
 ### Redis Caching
 
 **Status:** Active — Redis service available in all environments (prod, dev, test).
@@ -175,36 +177,51 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 - `decode_responses=True` — all values are strings (JSON serialized)
 - Config: `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, `REDIS_PASSWORD` from `shared/config.py`
 
-**Shared `CacheController`** (`shared/cache_controller.py`):
-- `get_cached(key, pydantic_class?, iterable?)` — Redis GET → JSON → optional Pydantic `model_validate`
-- `set_cache(key, data, ttl, model_dump?)` — Redis SET with optional automatic `model_dump(mode="json")`, returns `bool`
-- `set_cache_async(key, data, ttl, model_dump?)` — fire-and-forget async write, guarded by `LocalLocker` to prevent duplicate concurrent writes for the same cache key
-- `silent_set_cache_async(...)` — same as above, suppresses `TaskAlreadyRunningError`
+**Shared cache package** (`Python/apps/shared/cache/`):
+- `storage/protocol.py` — `CacheStorage` Protocol (`get`/`set`/`delete`/`delete_prefix`)
+- `storage/local.py` — `LocalStorage` — in-process storage; `set(key, value, ttl=None)` — `ttl=None` means no expiry, invalidated explicitly
+- `storage/redis.py` — `RedisStorage` — Redis-backed storage
+- `backend.py` — `CacheBackend(storage, entity, policies)` — per-entity cache access with `get`/`set`/`delete`; keys built as ``[source:]entity:parts`` where source comes from the policy (None for single-source entities). Also exports `cache_prefix(entity, source)` and `flush_cache(storage, entity, source)` for explicit invalidation
+- `entries(limit)` on the backend (backed by `CacheStorage.keys(prefix, limit)` in `storage/`) reads back up to `limit` key/value pairs of one policy — used by the admin `GET /{id}/entries` endpoint
+- `entity.py` — `CacheEntity` StrEnum (departures, destinations, containers, routes, points, rates, settings) + `MULTI_SOURCE_ENTITIES` (departures, destinations, containers, routes, points require source) + `is_multi_source(entity)`
+- `policy.py` — `CachePolicy(source: str | None, entity, enabled, ttl)` — source is None for single-source entities
+- `__init__.py` — re-exports all above
 
-**FESCO cache** (`data/fesco/cache.py`):
-- `CacheKeys` — static methods for key generation (`get_departures_cache_key`, `get_destinations_cache_key`, `get_wte_cache_key`, `get_routes_cache_key`)
-- `get_points_ttl(date)` — returns TTL (24h for today, 12h for other dates)
-- `get_cache_controller()` — singleton, returns `CacheController(logger)`
-- API clients (`containers.py`, `points.py`, `routes.py`) use `CacheController` directly for cache-aside pattern
+**Cache registry** (`Python/apps/data/cache/registry.py`):
+- `CacheRegistry` — loads policies from the `cache_policies` table and builds per-entity `CacheBackend` instances; there is no local policy cache
+- `registry.load()` — reads policies from DB, validates source/entity combinations, rebuilds backends **only when the policy set changed** (returns `True` then, `False` otherwise, so an unchanged refresh keeps in-flight `silent_set_async` writes)
+- `registry.backend(entity, source=None)` — returns or builds a `CacheBackend` for the entity
+- `get_cache_registry()` — per-process cached singleton
+- `data/cache/refresh.py` — `refresh_policies(interval)`, `start_policy_refresh()` and the `policy_refresh()` context manager; **both** user and admin reload policies every `CACHE_POLICIES_REFRESH_INTERVAL_SECONDS` (default `10`, `0` disables). Admin also reloads its registry immediately after cache policy writes, so the calculator is the only process that waits for the periodic refresh
 
-**Cache key scheme:**
+**Cache key scheme** (storage key = ``[source:]entity:parts``):
 
-| Data | Key pattern | TTL | Eviction |
-|------|-------------|-----|----------|
-| Currency rates | `backend_user:rates:latest` | 24h | — |
-| FESCO departures | `backend_user:fesco:departures:{date}` | 24h (today) / 12h (other) | volatile-lru |
-| FESCO destinations | `backend_user:fesco:destinations:{date}:{dep_id}` | 24h (today) / 12h (other) | volatile-lru |
-| FESCO routes | `backend_user:fesco:routes:{date}:{dep}:{dest}:{wte_ids}` | 12h | volatile-lru |
-| Settings | `backend_user:settings:{group}:{name}` | 12h | volatile-lru |
+| Data | Source | Entity | Key pattern | TTL | Eviction |
+|------|--------|--------|-------------|-----|----------|
+| Currency rates | (none) | rates | `rates:latest` | from policy | volatile-lru |
+| FESCO departures | fesco | departures | `fesco:departures:{date}` | from policy | volatile-lru |
+| FESCO destinations | fesco | destinations | `fesco:destinations:{date}:{dep_id}` | from policy | volatile-lru |
+| FESCO routes | fesco | routes | `fesco:routes:{date}:{dep}:{dest}:{wte_ids}` | from policy | volatile-lru |
+| FESCO containers | fesco | containers | `fesco:containers:{date}:{dep_id}:{dest_id}` | from policy | volatile-lru |
+| FESCO departures (today) | fesco | departures_today | `fesco:departures_today:{date}` | from policy | volatile-lru |
+| FESCO destinations (today) | fesco | destinations_today | `fesco:destinations_today:{date}:{dep_id}` | from policy | volatile-lru |
+| FESCO routes (today) | fesco | routes_today | `fesco:routes_today:{date}:{dep}:{dest}:{wte_ids}` | from policy | volatile-lru |
+| FESCO containers (today) | fesco | containers_today | `fesco:containers_today:{date}:{dep_id}:{dest_id}` | from policy | volatile-lru |
+| Settings | (none) | settings | `settings:{group}:{name}` | from policy | volatile-lru |
 
-**Settings cache — transparent:** `shared/cache_settings.py` implements cache-aside for DB-backed settings:
+**Today-policy fallback** (`data/fesco/cache.py` `get_*_backend(date)`): when `date` is today but the `*_today` policy is missing or disabled, the base-entity backend is used instead (base keys, base TTL). To turn caching off entirely, disable the base policy.
+
+**Settings cache — transparent:** `Python/apps/data/cache/settings.py` implements cache-aside for DB-backed settings:
 - `get_setting_cached(group, name, *, session=None)` — Redis → DB → fire-and-forget write
 - `set_settings_cache(item)` — write single setting to Redis
 - `delete_settings_cache(group, name)` — remove single setting from Redis
-- `backend_admin` lifespan includes `get_redis_client().init()` / `.close()`
-- Admin CRUD endpoints (`POST/PUT/PATCH/DELETE /db/settings`) use `BackgroundTasks` to update/delete Redis after DB write so cache stays in sync
+- `backend_user` lifespan calls `get_redis_client().init()`, `get_cache_registry().load()`, `ensure_settings()` and runs the policy refresh loop
+- `backend_admin` lifespan calls `get_redis_client().init()`, `get_cache_registry().load()` and runs the same policy refresh loop
+- Admin settings CRUD endpoints use `BackgroundTasks` to set/delete Redis values after the DB write, so settings changes are visible immediately
+
+**Rates flow:**
 1. Always try CBR API first (`ExchangeRates`)
-2. On success: return `(rates, today)` + `asyncio.create_task()` writes to Redis
+2. On success: return `(rates, today)` + `asyncio.create_task()` writes to Redis via `CacheBackend(CacheEntity.RATES)` (source=None)
 3. On failure: fallback to Redis — return `(rates, cached_date)` from cache
 4. If both fail: `RuntimeError`
 
@@ -216,6 +233,18 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 - `docker-compose.yml`: `valkey/valkey:alpine`, AOF+RDB persistence, `volatile-lru` (512mb maxmemory)
 - `docker-compose.hot-dev.backend.yml`: extends redis from base
 - `docker-compose.test.yml`: redis with 128mb maxmemory, `test` profile
+
+**Admin cache policies API** (`/admin/api/cache/policies`):
+- `GET` — list policies (filter by source, entity)
+- `GET /{id}` — get single policy
+- `POST` — create policy (validates source/entity combination); flushes the cache of that entity/source so stale data does not survive
+- `PATCH /{id}` — update `enabled` and `ttl` only (`source`/`entity` are rejected, `ttl >= 1`); changing `enabled` does not delete cached data
+- `DELETE /{id}` — delete policy; flushes the cache of that entity/source
+- `POST /{id}/invalidate` — remove every cached value of one policy, returns `{deleted: N}`
+- `POST /invalidate` — remove every cached value of every configured policy, returns `{deleted: N}`
+- `GET /{id}/entries?limit=50` — read-only listing of what one policy holds right now; returns `{policy_id, prefix, count, entries: [{key, value}]}` with `limit` in `1..500` (values exactly as stored)
+
+Every policy write calls `registry.load()` in the admin process (so its settings-cache writes honour the new policy immediately). Other processes pick changes up via their periodic refresh; a disabled policy stops reads/writes in the calculator at the next refresh, while its keys expire by TTL.
 
 ### Locker System
 
@@ -548,6 +577,7 @@ All output is JSON by default (for AI/script parsing).
 | Services | `GET/POST /db/services`, `GET/PUT/PATCH/DELETE /db/services/{id}` | `name, internal_name, description, hint?, mandatory, default` |
 | Drop-off | `GET/POST /db/drop-off`, `GET/PUT/PATCH/DELETE /db/drop-off/{id}` | `container_id, company_id, dates, price, currency` |
 | Settings | `GET/POST /db/settings`, `GET/PUT/PATCH/DELETE /db/settings/{id}` | `group, name, description?, value_type, value?` |
+| Cache Policies | `GET/POST /admin/api/cache/policies`, `GET/PATCH/DELETE /admin/api/cache/policies/{id}`, `POST /admin/api/cache/policies/{id}/invalidate`, `POST /admin/api/cache/policies/invalidate` | `source, entity, enabled, ttl` — CRUD; PATCH only `enabled`/`ttl`; create/delete flush the cache and every write reloads the admin registry; invalidation returns `{deleted: N}` |
 
 **Architecture:**
 - `api/data_browser.py` — thin route definitions only (delegates to service layer)
@@ -559,12 +589,15 @@ All output is JSON by default (for AI/script parsing).
 - `RouteSegmentListResponse` includes `is_through` and `container_owner`
 - `RouteSegmentStatsResponse` is returned by `GET /db/route-segments/stats`: totals, type/through/owner distribution, top 20 companies
 
-**Settings CRUD** (`crud_settings.py`) — value validation:
+**Settings CRUD** (`crud_settings.py`) — value validation and cache sync:
 - `parse_setting_value(value, value_type)` in `shared/dto/setting.py` is a standalone function (also used by `SettingItem._parse_value` validator)
 - `_validate_value()` static method wraps it, raising `HTTPException(422)` on parse failure
 - `_build_instance` / `_apply_update` validate against `data.value_type` (known from request)
 - For PATCH: `patch()` method is overridden — gets the model from DB first, validates `data.value` against the **model's existing** `value_type`, then calls `_apply_patch` (which does no value validation)
 - **Locked settings** (`model.locked`): PUT, DELETE, PATCH on group/name/type are blocked with `HTTP_403_FORBIDDEN`; only `value` is editable for locked settings
+- Settings endpoints update/delete the Redis value via `BackgroundTasks` (`set_settings_cache`/`delete_settings_cache`), including deleting the old key after a group/name rename
+
+**Cache management page** (admin frontend): `Node/apps/admin-frontend/src/pages/CachePolicies.tsx` — lists cache policies (source, entity, enabled, ttl), allows creating/deleting policies, editing only `enabled`/`ttl`, and invalidating one policy or all policies. Source field is shown only for multi-source entities and is a select of `CACHE_SOURCES` (`fesco`, `internal`) from `src/interfaces/CachePolicy.ts`. Wired at route `ROUTES.CACHE` (`/cache`) with a sidebar nav link. API client: `src/api/CachePolicies.ts`, interfaces: `src/interfaces/CachePolicy.ts`.
 
 ---
 
