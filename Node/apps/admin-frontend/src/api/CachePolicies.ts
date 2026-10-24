@@ -41,9 +41,9 @@ export const deleteCachePolicy = async (id: number): Promise<void> =>
         withCredentials: true,
     });
 
-export const invalidateCachePolicies = async (source?: string): Promise<void> => {
-    const url = source
-        ? API_ENDPOINTS.CACHE_POLICIES.invalidateSource(source)
+export const invalidateCachePolicies = async (entity?: string): Promise<void> => {
+    const url = entity
+        ? API_ENDPOINTS.CACHE_POLICIES.invalidateEntity(entity)
         : API_ENDPOINTS.CACHE_POLICIES.invalidate();
     await axios.post(url, null, { withCredentials: true });
 };

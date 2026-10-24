@@ -21,7 +21,7 @@ export const API_ENDPOINTS = {
         ROOT: "/admin/api/cache/policies",
         byId: (id: number) => `/admin/api/cache/policies/${id}`,
         invalidate: () => "/admin/api/cache/policies/invalidate",
-        invalidateSource: (source: string) =>
-            `/admin/api/cache/policies/invalidate/${encodeURIComponent(source)}`,
+        invalidateEntity: (entity: string) =>
+            `/admin/api/cache/policies/invalidate/${encodeURIComponent(entity)}`,
     },
 };

@@ -6,12 +6,16 @@ import {
     updateCachePolicy,
 } from "@/api/CachePolicies";
 import type { ICachePolicy, ICachePolicyPatch } from "@/interfaces/CachePolicy";
-import { CACHE_ENTITIES } from "@/interfaces/CachePolicy";
+import {
+    MULTI_SOURCE_ENTITIES,
+    SINGLE_SOURCE_ENTITIES,
+    requiresSource,
+} from "@/interfaces/CachePolicy";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 
 const emptyForm = {
     id: null as number | null,
-    source: "",
+    source: null as string | null,
     entity: "rates",
     enabled: true,
     ttl: 3600,
@@ -47,20 +51,32 @@ export default function CachePolicies() {
         setForm(emptyForm);
     };
 
+    const handleEntityChange = (value: string) => {
+        setForm((prev) => ({
+            ...prev,
+            entity: value,
+            source: requiresSource(value) ? prev.source ?? "" : null,
+        }));
+    };
+
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault();
         setMessage(null);
         setError(null);
 
         const payload = {
-            source: form.source.trim(),
+            source: form.source,
             entity: form.entity.trim(),
             enabled: form.enabled,
             ttl: form.ttl,
         };
 
-        if (!payload.source || !payload.entity) {
-            setError("Source и Entity обязательны");
+        if (!payload.entity) {
+            setError("Entity обязателен");
+            return;
+        }
+        if (requiresSource(payload.entity) && !payload.source) {
+            setError("Source обязателен для этой сущности");
             return;
         }
         if (payload.ttl <= 0) {
@@ -95,8 +111,8 @@ export default function CachePolicies() {
 
     const handleEditChange = (
         policy: ICachePolicy,
-        field: "enabled" | "ttl",
-        value: boolean | number,
+        field: "source" | "entity" | "enabled" | "ttl",
+        value: string | boolean | number,
     ) => {
         setError(null);
         setMessage(null);
@@ -119,6 +135,7 @@ export default function CachePolicies() {
         setError(null);
         try {
             const patch: ICachePolicyPatch = {};
+            if (draft.source !== policy.source) patch.source = draft.source;
             if (draft.entity !== policy.entity) patch.entity = draft.entity;
             if (draft.enabled !== policy.enabled) patch.enabled = draft.enabled;
             if (draft.ttl !== policy.ttl) patch.ttl = draft.ttl;
@@ -150,7 +167,8 @@ export default function CachePolicies() {
     };
 
     const handleDelete = async (policy: ICachePolicy) => {
-        if (!window.confirm(`Удалить политику кэша ${policy.source}.${policy.entity}?`))
+        const label = policy.source ? `${policy.source}.${policy.entity}` : policy.entity;
+        if (!window.confirm(`Удалить политику кэша ${label}?`))
             return;
         setError(null);
         setDeleting((prev) => {
@@ -173,11 +191,11 @@ export default function CachePolicies() {
         }
     };
 
-    const handleInvalidateSource = async (policy: ICachePolicy) => {
+    const handleInvalidateEntity = async (policy: ICachePolicy) => {
         setError(null);
         try {
-            await invalidateCachePolicies(policy.source);
-            setMessage(`Кэш источника ${policy.source} инвалидирован`);
+            await invalidateCachePolicies(policy.entity);
+            setMessage(`Кэш сущности ${policy.entity} инвалидирован`);
         } catch (e) {
             setError((e as Error).message || "Ошибка инвалидации");
         }
@@ -199,10 +217,16 @@ export default function CachePolicies() {
     };
 
     const filtered = policies.filter(
-        (p) => !sourceFilter || p.source.toLowerCase().includes(sourceFilter.toLowerCase()),
+        (p) =>
+            !sourceFilter ||
+            (p.source ?? "").toLowerCase().includes(sourceFilter.toLowerCase()) ||
+            p.entity.toLowerCase().includes(sourceFilter.toLowerCase()),
     );
     const isEditing = form.id != null;
     const editingPolicy = isEditing ? filtered.find((p) => p.id === form.id) : null;
+    const sourceVisible = isEditing
+        ? requiresSource(editingPolicy?.entity ?? form.entity)
+        : requiresSource(form.entity);
 
     return (
         <div className="cache-page">
@@ -217,7 +241,7 @@ export default function CachePolicies() {
                     Инвалидировать весь кэш
                 </button>
                 <input
-                    placeholder="Фильтр по source"
+                    placeholder="Фильтр по source или entity"
                     value={ sourceFilter }
                     onChange={ handleSearch }
                 />
@@ -243,7 +267,7 @@ export default function CachePolicies() {
                         return (
                             <tr key={ policy.id }>
                                 <td>{ policy.id }</td>
-                                <td>{ policy.source }</td>
+                                <td>{ policy.source ?? "—" }</td>
                                 <td>{ policy.entity }</td>
                                 <td>
                                     {isEditingThis ? (
@@ -286,7 +310,7 @@ export default function CachePolicies() {
                                 <td>
                                     <button
                                         type="button"
-                                        onClick={ () => void handleInvalidateSource(policy) }
+                                        onClick={ () => void handleInvalidateEntity(policy) }
                                         disabled={ isSaving || isDeleting || loading }
                                     >
                                         Инвалидировать
@@ -336,23 +360,26 @@ export default function CachePolicies() {
             </table>
 
             <form onSubmit={ handleSubmit } className="button-group" style={ { marginTop: "1rem" } }>
-                <label>
-                    Source
-                    <input
-                        value={ form.source }
-                        onChange={ (e) => setForm({ ...form, source: e.target.value }) }
-                        placeholder="cbr"
-                        disabled={ isEditing }
-                    />
-                </label>
+                { sourceVisible && (
+                    <label>
+                        Source
+                        <input
+                            value={ form.source ?? "" }
+                            onChange={ (e) =>
+                                setForm({ ...form, source: e.target.value || null }) }
+                            placeholder="cbr"
+                            disabled={ isEditing }
+                        />
+                    </label>
+                ) }
                 <label>
                     Entity
                     <select
                         value={ form.entity }
-                        onChange={ (e) => setForm({ ...form, entity: e.target.value }) }
+                        onChange={ (e) => handleEntityChange(e.target.value) }
                         disabled={ isEditing }
                     >
-                        { CACHE_ENTITIES.map((e) => (
+                        { [ ...MULTI_SOURCE_ENTITIES, ...SINGLE_SOURCE_ENTITIES ].map((e) => (
                             <option key={ e.value } value={ e.value }>
                                 { e.label }
                             </option>
@@ -378,8 +405,7 @@ export default function CachePolicies() {
                         min="1"
                         value={ form.ttl }
                         onChange={ (e) =>
-                            setForm({ ...form, ttl: Number(e.target.value) || 3600 })
-                        }
+                            setForm({ ...form, ttl: Number(e.target.value) || 3600 }) }
                         disabled={ isEditing }
                     />
                 </label>
