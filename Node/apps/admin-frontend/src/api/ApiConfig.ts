@@ -17,4 +17,8 @@ export const API_ENDPOINTS = {
         ROOT: "/admin/api/db/settings",
         byId: (id: number) => `/admin/api/db/settings/${id}`,
     },
+    CACHE_POLICIES: {
+        ROOT: "/admin/api/cache/policies",
+        byId: (id: number) => `/admin/api/cache/policies/${id}`,
+    },
 };

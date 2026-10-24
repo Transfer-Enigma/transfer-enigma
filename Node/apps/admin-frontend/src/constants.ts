@@ -7,5 +7,6 @@ export const ROUTES = {
     DATA_IMPORT: `${import.meta.env.VITE_PUBLIC_URL || ""}/data-import`,
     DEMO_GUESTS: `${import.meta.env.VITE_PUBLIC_URL || ""}/demo-guests`,
     SETTINGS: `${import.meta.env.VITE_PUBLIC_URL || ""}/settings`,
+    CACHE: `${import.meta.env.VITE_PUBLIC_URL || ""}/cache`,
     MAIN_SITE: import.meta.env.VITE_REACT_ROUTING_MAIN_SITE || "/",
 };
