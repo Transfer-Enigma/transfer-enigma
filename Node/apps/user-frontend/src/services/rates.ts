@@ -43,13 +43,13 @@ export async function updateRates() {
 export const lockRates = async (coro: Promise<void>) => useRates().setLocker(coro);
 
 export const isConversationNeeded = (currency: string) =>
-    ["RUB", "RUR", "РУБ"].indexOf(currency) === -1;
+    ["RUB", "RUR", "РУБ"].indexOf(currency.toUpperCase()) === -1;
 
 export function convertToCurrentRate(value: number, fromCurrency: string, percents?: number): [number, number] {
     const { rates, currentRateValue } = useRates();
     if (!currentRateValue) throw new Error("No current rate selected!");
 
-    const fromRate = rates.get(fromCurrency);
+    const fromRate = rates.get(fromCurrency.toUpperCase());
     if (!fromRate) throw new Error(`Invalid currency: ${fromCurrency}`);
 
     const result = value / currentRateValue * fromRate;

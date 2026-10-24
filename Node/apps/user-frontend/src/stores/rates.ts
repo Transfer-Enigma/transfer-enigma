@@ -12,15 +12,17 @@ export const useRates = defineStore("rates", () => {
     const setRates = (newRates: RatesObject) => {
         rates.clear();
         for (const [currency, value] of Object.entries(newRates))
-            rates.set(currency, value);
+            rates.set(currency.toUpperCase(), value);
     };
 
     const setCurrentRate = (newCurrentRate: string) => {
         if (!rates.size) throw new Error("Rates are not set");
 
-        if (!rates.get(newCurrentRate)) throw new Error(`Undefined rate: "${newCurrentRate}"`);
+        const normalized = newCurrentRate.toUpperCase();
 
-        currentRate.value = newCurrentRate;
+        if (!rates.get(normalized)) throw new Error(`Undefined rate: "${newCurrentRate}"`);
+
+        currentRate.value = normalized;
     };
 
     const setLocker = (newLocker: Promise<void>) => { locker = newLocker };
