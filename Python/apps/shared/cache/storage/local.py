@@ -31,3 +31,6 @@ class LocalStorage:
         for key in keys:
             del self._values[key]
         return len(keys)
+
+    async def keys(self, prefix: str, limit: int) -> list[str]:
+        return [key for key in self._values if key.startswith(prefix)][:limit]
