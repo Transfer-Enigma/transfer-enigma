@@ -1,34 +1,52 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from shared.cache_settings import get_setting_cached
+from data.cache.registry import CacheRegistry
+from data.cache.settings import get_setting_cached
+from shared.cache import CacheEntity, LocalStorage
 from shared.dto.setting import SettingItem
+from shared.orm.cache_policy import CachePolicyModel
 from shared.orm.setting import SettingModel, SettingType
 
-
-def _mock_cache_controller(get_return=None):
-    mock_cc = AsyncMock()
-    mock_cc.get_cached = AsyncMock(return_value=get_return)
-    mock_cc.set_cache = AsyncMock(return_value=True)
-    mock_cc.silent_set_cache_async = MagicMock()
-    return mock_cc
+SETTINGS_CACHE_SOURCE = None
 
 
 def _mock_setting(**overrides) -> SettingItem:
     data = {
-        "id": 1, "group": "test_group", "name": "test_key",
-        "description": None, "value_type": SettingType.STRING, "value": "test_val",
+        "group": "test_group", "name": "test_key",
+        "value_type": SettingType.STRING, "value": "test_val",
     }
     data.update(overrides)
     return SettingItem(**data)
 
 
-@pytest.mark.asyncio
-async def test_get_setting_cached_cache_hit(sqlite_session):
-    setting = _mock_setting()
-    mock_cc = _mock_cache_controller(get_return=setting)
+async def _registry(sqlite_db, sqlite_session, *, enabled=True, ttl=60) -> CacheRegistry:
+    """A registry with the settings policy stored in the database."""
+    sqlite_session.add(
+        CachePolicyModel(
+            source=SETTINGS_CACHE_SOURCE,
+            entity=CacheEntity.SETTINGS.value,
+            enabled=enabled,
+            ttl=ttl,
+        ),
+    )
+    await sqlite_session.commit()
 
-    with patch("shared.cache_settings.get_cache_controller", return_value=mock_cc):
+    registry = CacheRegistry(storage=LocalStorage())
+    with patch("data.cache.registry.get_database", return_value=sqlite_db):
+        await registry.load()
+    return registry
+
+
+@pytest.mark.asyncio
+async def test_get_setting_cached_cache_hit(sqlite_db, sqlite_session):
+    registry = await _registry(sqlite_db, sqlite_session)
+    await registry.backend(CacheEntity.SETTINGS).set(
+        "test_group", "test_key",
+        data=_mock_setting(), dump=True,
+    )
+
+    with patch("data.cache.settings.get_cache_registry", return_value=registry):
         result = await get_setting_cached("test_group", "test_key", session=sqlite_session)
 
     assert result is not None
@@ -38,14 +56,14 @@ async def test_get_setting_cached_cache_hit(sqlite_session):
 
 
 @pytest.mark.asyncio
-async def test_get_setting_cached_cache_miss_db_found(sqlite_session):
+async def test_get_setting_cached_cache_miss_db_found(sqlite_db, sqlite_session):
     setting = SettingModel(group="test_group", name="test_key", value_type=SettingType.STRING, value="test_val")
     sqlite_session.add(setting)
     await sqlite_session.commit()
 
-    mock_cc = _mock_cache_controller()
+    registry = await _registry(sqlite_db, sqlite_session)
 
-    with patch("shared.cache_settings.get_cache_controller", return_value=mock_cc):
+    with patch("data.cache.settings.get_cache_registry", return_value=registry):
         result = await get_setting_cached("test_group", "test_key", session=sqlite_session)
 
     assert result is not None
@@ -55,10 +73,29 @@ async def test_get_setting_cached_cache_miss_db_found(sqlite_session):
 
 
 @pytest.mark.asyncio
-async def test_get_setting_cached_not_found(sqlite_session):
-    mock_cc = _mock_cache_controller()
+async def test_get_setting_cached_not_found(sqlite_db, sqlite_session):
+    registry = await _registry(sqlite_db, sqlite_session)
 
-    with patch("shared.cache_settings.get_cache_controller", return_value=mock_cc):
+    with patch("data.cache.settings.get_cache_registry", return_value=registry):
         result = await get_setting_cached("nonexistent", "key", session=sqlite_session)
 
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_setting_cached_without_policy_is_not_cached(sqlite_db, sqlite_session):
+    """Without a policy the value is read from the database and not cached."""
+    setting = SettingModel(group="test_group", name="test_key", value_type=SettingType.STRING, value="test_val")
+    sqlite_session.add(setting)
+    await sqlite_session.commit()
+
+    registry = CacheRegistry(storage=LocalStorage())
+
+    with patch("data.cache.settings.get_cache_registry", return_value=registry):
+        result = await get_setting_cached("test_group", "test_key", session=sqlite_session)
+
+    assert result is not None
+    assert result.value == "test_val"
+
+    backend = registry.backend(CacheEntity.SETTINGS)
+    assert await backend.keys() == []
