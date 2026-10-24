@@ -1,5 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from shared.cache import CacheEntity, is_multi_source
 from shared.orm import SettingType
+from shared.orm.cache_policy import CachePolicyModel
 from shared.orm.company import CompanyModel
 from shared.orm.container import ContainerModel
 from shared.orm.drop import DropModel
@@ -403,4 +405,60 @@ class SettingResponse(BaseModel):
             value_type=model.value_type,
             value=model.value,
             locked=model.locked,
+        )
+
+
+# ─── Cache Policies ────────────────────────────────────────────────────────
+
+
+class CachePolicyCreate(BaseModel):
+    source: str | None = None
+    entity: str
+    enabled: bool = True
+    ttl: int = Field(default=3600, ge=1)
+
+    @model_validator(mode="after")
+    def _validate_source(self) -> CachePolicyCreate:
+        entity = CacheEntity(self.entity)
+        if is_multi_source(entity) and not self.source:
+            raise ValueError(f"Entity {self.entity} requires a source")
+        if not is_multi_source(entity) and self.source:
+            raise ValueError(f"Entity {self.entity} is single-source, source must be None")
+        return self
+
+
+class CachePolicyPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool | None = None
+    ttl: int | None = Field(default=None, ge=1)
+
+
+class CacheEntryItem(BaseModel):
+    key: str
+    value: str
+
+
+class CacheEntriesResponse(BaseModel):
+    policy_id: int
+    prefix: str
+    count: int
+    entries: list[CacheEntryItem]
+
+
+class CachePolicyResponse(BaseModel):
+    id: int  # noqa: A003
+    source: str | None
+    entity: str
+    enabled: bool
+    ttl: int
+
+    @classmethod
+    def from_model(cls, model: CachePolicyModel) -> CachePolicyResponse:
+        return cls(
+            id=model.id,
+            source=model.source,
+            entity=model.entity,
+            enabled=model.enabled,
+            ttl=model.ttl,
         )

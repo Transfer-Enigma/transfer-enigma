@@ -19,3 +19,7 @@ class CacheStorage(Protocol):
     async def delete_prefix(self, prefix: str) -> int:
         """Remove every key starting with the prefix, return how many."""
         ...
+
+    async def keys(self, prefix: str, limit: int) -> list[str]:
+        """Return up to ``limit`` keys starting with the prefix."""
+        ...

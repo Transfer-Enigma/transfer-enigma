@@ -119,7 +119,6 @@ class CacheBackend:
         self,
         *parts: str,
         data,
-        ttl: int | None = None,
         dump: bool = False,
     ) -> bool:
         """Write a value, unless the entity is not cached."""
@@ -129,7 +128,7 @@ class CacheBackend:
 
         key = self.key(*parts)
         try:
-            await self._storage.set(key, json.dumps(_prepare(data, dump=dump)), ttl=ttl or policy_ttl)
+            await self._storage.set(key, json.dumps(_prepare(data, dump=dump)), ttl=policy_ttl)
             return True
         except Exception:
             logger.exception("Failed to set cache for %s", key)
@@ -140,23 +139,52 @@ class CacheBackend:
         self,
         *parts: str,
         data,
-        ttl: int | None = None,
         dump: bool = False,
     ):
         """Write a value in the background, without waiting for the storage."""
-        return asyncio.create_task(self.set(*parts, data=data, ttl=ttl, dump=dump))
+        return asyncio.create_task(self.set(*parts, data=data, dump=dump))
 
     def silent_set_async(
         self,
         *parts: str,
         data,
-        ttl: int | None = None,
         dump: bool = False,
     ):
         """Write a value in the background, ignoring a write already running."""
         with suppress(TaskAlreadyRunningError):
-            return self.set_async(*parts, data=data, ttl=ttl, dump=dump)
+            return self.set_async(*parts, data=data, dump=dump)
 
     async def delete(self, *parts: str) -> None:
         """Remove a single cached value."""
         await self._storage.delete(self.key(*parts))
+
+    async def entries(self, limit: int = 50) -> list[tuple[str, str]]:
+        """The stored keys and values of this backend's policy, up to ``limit``.
+
+        Values are returned as stored, so the caller decides how to show them.
+        """
+        policy = self.policy()
+        if policy is None:
+            return []
+
+        prefix = cache_prefix(self._entity, policy.source)
+        keys = await self._storage.keys(prefix, limit)
+
+        found: list[tuple[str, str]] = []
+        for key in keys:
+            value = await self._storage.get(key)
+            if value is not None:
+                found.append((key, value))
+        return found
+
+
+def cache_prefix(entity: CacheEntity, source: str | None = None) -> str:
+    """Storage key prefix of an entity: ``[source:]entity:``."""
+    if source is not None:
+        return f"{source}:{entity.value}:"
+    return f"{entity.value}:"
+
+
+async def flush_cache(storage: CacheStorage, entity: CacheEntity, source: str | None = None) -> int:
+    """Remove every cached value of an entity, return how many."""
+    return await storage.delete_prefix(cache_prefix(entity, source))

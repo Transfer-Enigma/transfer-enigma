@@ -19,3 +19,11 @@ class RedisStorage:
             await get_redis().delete(key)
             deleted += 1
         return deleted
+
+    async def keys(self, prefix: str, limit: int) -> list[str]:
+        found: list[str] = []
+        async for key in get_redis().scan_iter(match=f"{prefix}*", count=100):
+            found.append(key)
+            if len(found) >= limit:
+                break
+        return found
