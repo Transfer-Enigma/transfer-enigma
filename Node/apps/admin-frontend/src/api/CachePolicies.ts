@@ -40,3 +40,17 @@ export const deleteCachePolicy = async (id: number): Promise<void> =>
     await axios.delete(API_ENDPOINTS.CACHE_POLICIES.byId(id), {
         withCredentials: true,
     });
+
+export const invalidateCachePolicy = async (id: number): Promise<number> =>
+    (await axios.post(
+        API_ENDPOINTS.CACHE_POLICIES.invalidateById(id),
+        null,
+        { withCredentials: true },
+    )).data.deleted;
+
+export const invalidateAllCachePolicies = async (): Promise<number> =>
+    (await axios.post(
+        API_ENDPOINTS.CACHE_POLICIES.invalidate(),
+        null,
+        { withCredentials: true },
+    )).data.deleted;
