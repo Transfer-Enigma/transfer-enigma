@@ -1,6 +1,7 @@
 from functools import cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -47,6 +48,9 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
     REDIS_PASSWORD: str | None = None
+
+    # CACHE
+    CACHE_POLICIES_REFRESH_INTERVAL_SECONDS: int = Field(default=10, ge=0)
 
     # FESCO API
     FESCO_API_KEY: str
