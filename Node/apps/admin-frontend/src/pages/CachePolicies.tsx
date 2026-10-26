@@ -1,6 +1,8 @@
 import {
     createCachePolicy,
     deleteCachePolicy,
+    invalidateAllCachePolicies,
+    invalidateCachePolicy,
     listCachePolicies,
     updateCachePolicy,
 } from "@/api/CachePolicies";
@@ -27,6 +29,7 @@ export default function CachePolicies() {
     const [ loading, setLoading ] = useState(false);
     const [ saving, setSaving ] = useState<Set<number>>(new Set());
     const [ deleting, setDeleting ] = useState<Set<number>>(new Set());
+    const [ invalidating, setInvalidating ] = useState<Set<number>>(new Set());
     const [ message, setMessage ] = useState<string | null>(null);
     const [ error, setError ] = useState<string | null>(null);
     const [ sourceFilter, setSourceFilter ] = useState("");
@@ -190,6 +193,42 @@ export default function CachePolicies() {
         }
     };
 
+    const handleInvalidatePolicy = async (policy: ICachePolicy) => {
+        const label = policy.source ? `${policy.source}.${policy.entity}` : policy.entity;
+        if (!window.confirm(`Очистить кэш политики ${label}?`))
+            return;
+        setError(null);
+        setInvalidating((prev) => {
+            const next = new Set(prev);
+            next.add(policy.id);
+            return next;
+        });
+        try {
+            const deleted = await invalidateCachePolicy(policy.id);
+            setMessage(`Кэш политики ${label} очищен (${deleted} ключей)`);
+        } catch (e) {
+            setError((e as Error).message || "Ошибка инвалидации");
+        } finally {
+            setInvalidating((prev) => {
+                const next = new Set(prev);
+                next.delete(policy.id);
+                return next;
+            });
+        }
+    };
+
+    const handleInvalidateAll = async () => {
+        if (!window.confirm("Очистить кэш всех политик?"))
+            return;
+        setError(null);
+        try {
+            const deleted = await invalidateAllCachePolicies();
+            setMessage(`Весь кэш очищен (${deleted} ключей)`);
+        } catch (e) {
+            setError((e as Error).message || "Ошибка инвалидации");
+        }
+    };
+
     const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
         setSourceFilter(event.target.value);
     };
@@ -215,6 +254,9 @@ export default function CachePolicies() {
             {error && <div className="message error">{error}</div>}
 
             <div className="button-group" style={ { marginBottom: "1rem", gap: "0.5rem" } }>
+                <button type="button" onClick={ () => void handleInvalidateAll() } disabled={ loading }>
+                    Инвалидировать весь кэш
+                </button>
                 <input
                     placeholder="Фильтр по source или entity"
                     value={ sourceFilter }
@@ -230,6 +272,7 @@ export default function CachePolicies() {
                         <th>Entity</th>
                         <th>Enabled</th>
                         <th>TTL (сек)</th>
+                        <th>Инвалидация</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -237,6 +280,7 @@ export default function CachePolicies() {
                     {filtered.map((policy) => {
                         const isSaving = saving.has(policy.id);
                         const isDeleting = deleting.has(policy.id);
+                        const isInvalidating = invalidating.has(policy.id);
                         const isEditingThis = isEditing && editingPolicy?.id === policy.id;
                         return (
                             <tr key={ policy.id }>
@@ -280,6 +324,15 @@ export default function CachePolicies() {
                                     ) : (
                                         policy.ttl
                                     )}
+                                </td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        onClick={ () => void handleInvalidatePolicy(policy) }
+                                        disabled={ isSaving || isDeleting || isInvalidating || loading }
+                                    >
+                                        Инвалидировать
+                                    </button>
                                 </td>
                                 <td>
                                     {isEditingThis ? (
