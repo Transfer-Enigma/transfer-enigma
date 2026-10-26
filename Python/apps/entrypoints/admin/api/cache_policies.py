@@ -7,6 +7,7 @@ from entrypoints.admin.dependencies.auth import request_auth
 from entrypoints.admin.schemas.data_browser import (
     CacheEntriesResponse,
     CacheEntryItem,
+    CacheInvalidateResponse,
     CachePolicyCreate,
     CachePolicyPatch,
     CachePolicyResponse,
@@ -108,3 +109,33 @@ async def delete_cache_policy(
         await crud_cache_policies.delete(session, policy_id)
 
     await get_cache_registry().load()
+
+
+@router.post("/invalidate", response_model=CacheInvalidateResponse)
+async def invalidate_all_cache(
+    _: Annotated[None, Depends(request_auth)],
+    db: Annotated[Database, Depends(get_database)],
+):
+    """Remove every cached value of every configured policy."""
+    async with db.session_context() as session:
+        policies = await crud_cache_policies.list(session, source="", entity="")
+
+    storage = RedisStorage()
+    deleted = 0
+    for policy in policies:
+        deleted += await flush_cache(storage, CacheEntity(policy.entity), policy.source)
+    return CacheInvalidateResponse(deleted=deleted)
+
+
+@router.post("/{policy_id}/invalidate", response_model=CacheInvalidateResponse)
+async def invalidate_cache_policy(
+    policy_id: int,
+    _: Annotated[None, Depends(request_auth)],
+    db: Annotated[Database, Depends(get_database)],
+):
+    """Remove every cached value of a single policy."""
+    async with db.session_context() as session:
+        policy = await crud_cache_policies.get(session, policy_id)
+
+    deleted = await flush_cache(RedisStorage(), CacheEntity(policy.entity), policy.source)
+    return CacheInvalidateResponse(deleted=deleted)
