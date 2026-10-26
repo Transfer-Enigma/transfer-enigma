@@ -434,6 +434,10 @@ class CachePolicyPatch(BaseModel):
     ttl: int | None = Field(default=None, ge=1)
 
 
+class CacheInvalidateResponse(BaseModel):
+    deleted: int
+
+
 class CacheEntryItem(BaseModel):
     key: str
     value: str
