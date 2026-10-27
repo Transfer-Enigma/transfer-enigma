@@ -63,6 +63,15 @@ services:
       - "--port"
       - "8082"
       - "--reload"
+  dbseeder:
+    image: danielgreen1806/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
+    entrypoint:
+      - "python3"
+      - "-m"
+      - "data.cache.seed"
+    volumes:
+      - "./Python/apps/data/cache/:/workspace/data/cache/:ro"
+      - "./Python/apps/shared/:/workspace/shared/:ro"
 
   ### FRONT
   frontend:

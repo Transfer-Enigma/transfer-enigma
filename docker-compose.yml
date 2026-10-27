@@ -114,6 +114,8 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      dbseeder:
+        condition: service_completed_successfully
     restart: always
     cap_drop:
       - ALL
@@ -166,6 +168,9 @@ services:
       - ".env"
     environment:
       - "RESOURCES_BASE_PATH=/workspace"
+    depends_on:
+      dbseeder:
+        condition: service_completed_successfully
     restart: always
     cap_drop:
       - ALL
@@ -186,6 +191,23 @@ services:
       - "0.0.0.0"
       - "--port"
       - "8082"
+
+  ### SEEDER (one-shot: seeds cache defaults, backends wait for it)
+  dbseeder:
+    image: danielgreen1806/calculator-db-seeder:${DOCKER_PROD_IMAGES_TAG}
+    env_file:
+      - ".env"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: no
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges
+    user: 1000:1000
+    networks:
+      db:
 
   ### PROXY
   reverseproxy:

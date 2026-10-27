@@ -3,7 +3,7 @@ variable "TAG" {
 }
 
 group "default" {
-  targets = ["python-apps", "db-migration", "reverseproxy"]
+  targets = ["python-apps", "db-migration", "db-seeder", "reverseproxy"]
 }
 
 target "python-apps" {
@@ -16,6 +16,12 @@ target "db-migration" {
   context = "./Python/"
   target = "db-migration"
   tags = ["danielgreen1806/calculator-db-migration:${TAG}"]
+}
+
+target "db-seeder" {
+  context = "./Python/"
+  target = "db-seeder"
+  tags = ["danielgreen1806/calculator-db-seeder:${TAG}"]
 }
 
 target "frontend-builder" {

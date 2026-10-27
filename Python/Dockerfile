@@ -72,6 +72,20 @@ COPY ./apps/ ./apps/
 ENTRYPOINT ["python3", "-m", "alembic"]
 
 
+FROM python-base AS db-seeder
+
+ARG USER_UID=1000
+ARG USER_GID=1000
+ARG APP_DIR="/workspace"
+
+COPY --from=builder --chown=${USER_UID}:${USER_GID} ${APP_DIR}/.venv ${APP_DIR}/.venv
+ENV PATH="${APP_DIR}/.venv/bin:$PATH"
+
+COPY ./apps/ ./
+
+ENTRYPOINT ["python3", "-m", "data.cache.seed"]
+
+
 FROM python-base AS test-runner
 
 ARG USER_UID=1000
