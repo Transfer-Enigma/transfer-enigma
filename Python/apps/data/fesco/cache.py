@@ -13,29 +13,43 @@ def get_backend(entity: CacheEntity) -> CacheBackend:
     return get_cache_registry().backend(entity, source=FESCO_SOURCE)
 
 
+def _today_or_base(today_entity: CacheEntity, base_entity: CacheEntity) -> CacheBackend:
+    """Today backend if it is enabled, otherwise the base one.
+
+    A missing or disabled today-policy falls back to the base policy, so
+    to turn caching off entirely, disable the base policy.
+    """
+    backend = get_backend(today_entity)
+    if backend.is_enabled():
+        return backend
+    return get_backend(base_entity)
+
+
 def get_routes_backend(date: datetime.date) -> CacheBackend:
     """Routes backend that uses a longer TTL policy for today's date."""
     if date == datetime.date.today():
-        return get_backend(CacheEntity.ROUTES_TODAY)
+        return _today_or_base(CacheEntity.ROUTES_TODAY, CacheEntity.ROUTES)
     return get_backend(CacheEntity.ROUTES)
 
 
 def get_containers_backend(date: datetime.date) -> CacheBackend:
     """Containers backend that uses a longer TTL policy for today's date."""
     if date == datetime.date.today():
-        return get_backend(CacheEntity.CONTAINERS_TODAY)
+        return _today_or_base(CacheEntity.CONTAINERS_TODAY, CacheEntity.CONTAINERS)
     return get_backend(CacheEntity.CONTAINERS)
 
 
 def get_departures_backend(date: datetime.date) -> CacheBackend:
+    """Departures backend that uses a longer TTL policy for today's date."""
     if date == datetime.date.today():
-        return get_backend(CacheEntity.DEPARTURES_TODAY)
+        return _today_or_base(CacheEntity.DEPARTURES_TODAY, CacheEntity.DEPARTURES)
     return get_backend(CacheEntity.DEPARTURES)
 
 
 def get_destinations_backend(date: datetime.date) -> CacheBackend:
+    """Destinations backend that uses a longer TTL policy for today's date."""
     if date == datetime.date.today():
-        return get_backend(CacheEntity.DESTINATIONS_TODAY)
+        return _today_or_base(CacheEntity.DESTINATIONS_TODAY, CacheEntity.DESTINATIONS)
     return get_backend(CacheEntity.DESTINATIONS)
 
 
