@@ -8,7 +8,6 @@ from entrypoints.admin.schemas.data_browser import (
     CacheEntriesResponse,
     CacheEntryItem,
     CacheInvalidateResponse,
-    CachePolicyCreate,
     CachePolicyPatch,
     CachePolicyResponse,
 )
@@ -69,20 +68,6 @@ async def list_cache_policy_entries(
     )
 
 
-@router.post("", response_model=CachePolicyResponse, status_code=status.HTTP_201_CREATED)
-async def create_cache_policy(
-    payload: CachePolicyCreate,
-    _: Annotated[None, Depends(request_auth)],
-    db: Annotated[Database, Depends(get_database)],
-):
-    async with db.session_context() as session:
-        result = await crud_cache_policies.create(session, payload)
-
-    await flush_cache(RedisStorage(), CacheEntity(result.entity), result.source)
-    await get_cache_registry().load()
-    return result
-
-
 @router.patch("/{policy_id}", response_model=CachePolicyResponse)
 async def update_cache_policy(
     policy_id: int,
@@ -95,20 +80,6 @@ async def update_cache_policy(
 
     await get_cache_registry().load()
     return result
-
-
-@router.delete("/{policy_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_cache_policy(
-    policy_id: int,
-    _: Annotated[None, Depends(request_auth)],
-    db: Annotated[Database, Depends(get_database)],
-):
-    async with db.session_context() as session:
-        policy = await crud_cache_policies.get(session, policy_id)
-        await flush_cache(RedisStorage(), CacheEntity(policy.entity), policy.source)
-        await crud_cache_policies.delete(session, policy_id)
-
-    await get_cache_registry().load()
 
 
 @router.post("/invalidate", response_model=CacheInvalidateResponse)
