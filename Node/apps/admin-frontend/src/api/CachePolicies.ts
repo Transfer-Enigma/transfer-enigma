@@ -2,7 +2,6 @@ import { API_ENDPOINTS } from "./ApiConfig";
 import type {
     ICachePolicy,
     ICachePolicyPatch,
-    ICachePolicyPayload,
 } from "@/interfaces/CachePolicy";
 import axios from "axios";
 
@@ -23,11 +22,6 @@ export const getCachePolicy = async (id: number): Promise<ICachePolicy> =>
         withCredentials: true,
     })).data;
 
-export const createCachePolicy = async (
-    payload: ICachePolicyPayload,
-): Promise<ICachePolicy> =>
-    (await axios.post(ROOT, payload, { withCredentials: true })).data;
-
 export const updateCachePolicy = async (
     id: number,
     payload: ICachePolicyPatch,
@@ -35,11 +29,6 @@ export const updateCachePolicy = async (
     (await axios.patch(API_ENDPOINTS.CACHE_POLICIES.byId(id), payload, {
         withCredentials: true,
     })).data;
-
-export const deleteCachePolicy = async (id: number): Promise<void> =>
-    await axios.delete(API_ENDPOINTS.CACHE_POLICIES.byId(id), {
-        withCredentials: true,
-    });
 
 export const invalidateCachePolicy = async (id: number): Promise<number> =>
     (await axios.post(
