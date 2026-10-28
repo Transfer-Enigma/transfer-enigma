@@ -248,7 +248,8 @@ Every policy write calls `registry.load()` in the admin process (so its settings
 
 **Unified cache seeder** (`data/cache/seed.py`):
 - Default settings live in `shared/setting_definitions.py`, default cache policies in `shared/cache_policy_definitions.py` (all enabled: rates TTL 3600s; all fesco base entities TTL 86400s; all fesco `*_today` entities TTL 600s — seeding only fills missing rows)
-- `ensure_settings()` / `ensure_cache_policies()` create only missing rows (existing rows are never touched); `ensure_all()` runs both — used by the user+admin lifespans and by the one-shot seeder
+- `ensure_settings()` / `ensure_cache_policies()` create only missing rows (existing rows are never touched); `ensure_all()` runs both — used by the user+admin lifespans (replacing the old standalone `ensure_settings()` call) and by the one-shot seeder
+- Settings (`shared/setting_definitions.py`) and cache policies (`shared/cache_policy_definitions.py`) are both filled via `ensure_all()` — `ensure_settings()` is no longer called directly from lifespans
 - One-shot service `dbseeder` (`docker-compose.yml` + `docker-compose.migrate.yml`, Dockerfile stage `db-seeder`, bake target `db-seeder`): `python -m data.cache.seed`, exit 0 on success. `calculator` and `backadmin` start only after it completes (`depends_on: service_completed_successfully`); `prod-update.sh` runs migrate first, then `up -d` triggers the seeder
 
 ### Locker System
