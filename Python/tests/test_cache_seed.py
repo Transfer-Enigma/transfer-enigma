@@ -23,7 +23,18 @@ def _patch_db(sqlite_db):
 
 async def test_definitions_are_valid():
     definitions = get_cache_policy_definitions()
-    assert definitions, "no default cache policies defined"
+    assert len(definitions) == 9
+    expected = {
+        (None, "rates"): (True, 3600),
+        ("fesco", "departures"): (True, 86400),
+        ("fesco", "destinations"): (True, 86400),
+        ("fesco", "containers"): (True, 86400),
+        ("fesco", "routes"): (True, 86400),
+        ("fesco", "departures_today"): (True, 600),
+        ("fesco", "destinations_today"): (True, 600),
+        ("fesco", "containers_today"): (True, 600),
+        ("fesco", "routes_today"): (True, 600),
+    }
     seen = set()
     for defn in definitions:
         CacheEntity(defn.entity)
@@ -32,6 +43,9 @@ async def test_definitions_are_valid():
         assert key not in seen, f"duplicate policy definition for {key}"
         seen.add(key)
         assert get_cache_policy_definition(defn.source, defn.entity) == defn
+        exp_enabled, exp_ttl = expected[key]
+        assert defn.enabled is exp_enabled
+        assert defn.ttl == exp_ttl
 
     assert get_cache_policy_definition("fesco", "no-such-entity") is None
 
