@@ -1,5 +1,4 @@
 from entrypoints.admin.schemas.data_browser import (
-    CachePolicyCreate,
     CachePolicyPatch,
     CachePolicyResponse,
 )
@@ -9,8 +8,6 @@ from shared.orm.cache_policy import CachePolicyModel
 
 class CRUDCachePolicies(CRUDBase):
     model = CachePolicyModel
-    create_schema = CachePolicyCreate
-    update_schema = CachePolicyCreate
     patch_schema = CachePolicyPatch
     response_schema = CachePolicyResponse
     list_filters = [
