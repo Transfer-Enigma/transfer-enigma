@@ -356,6 +356,12 @@ shared ───┬── entrypoints/auth
 - **User Frontend**: Vue 3 Composition API (`<script setup lang="ts">`), Pinia stores, Vue Router
 - **Admin Frontend**: React 19 functional components, React Router, Axios for API
 - Both use TypeScript, Bootstrap 5
+- **`defineModel` typing (Vue ≥ 3.5.44)**: `default` was removed from `PropOptions` in the model options type
+  (`DefineModelRuntimeOptions = Omit<PropOptions, 'default'> & DefineModelOptions`), so `default: undefined`
+  no longer compiles for object-typed models (e.g. `defineModel<IdIsExternal[]>({ required: false, default: undefined })`
+  → TS2769 + cascade TS2322 in the template). For optional models use `defineModel<T | undefined>({ required: false })`
+  — no `default`. Scalar models (`string`/`boolean`) may still pass `default: ""` / `default: false`.
+  Runtime is unaffected: `useModel()` ignores `options.default`.
 
 ---
 
