@@ -23,7 +23,7 @@ def _patch_db(sqlite_db):
 
 async def test_definitions_are_valid():
     definitions = get_cache_policy_definitions()
-    assert len(definitions) == 9
+    assert len(definitions) == 11
     expected = {
         (None, "rates"): (True, 3600),
         ("fesco", "departures"): (True, 86400),
@@ -34,6 +34,10 @@ async def test_definitions_are_valid():
         ("fesco", "destinations_today"): (True, 600),
         ("fesco", "containers_today"): (True, 600),
         ("fesco", "routes_today"): (True, 600),
+        ("fesco", "points"): (True, 86400),
+        ("internal", "points"): (False, 86400),
+        ("fesco", "points_today"): (True, 600),
+        ("internal", "points_today"): (False, 600),
     }
     seen = set()
     for defn in definitions:

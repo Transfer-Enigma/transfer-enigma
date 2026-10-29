@@ -19,6 +19,7 @@ class CacheEntity(StrEnum):
     CONTAINERS_TODAY = "containers_today"
     DEPARTURES_TODAY = "departures_today"
     DESTINATIONS_TODAY = "destinations_today"
+    POINTS_TODAY = "points_today"
 
 
 # Entities that can be cached under multiple sources (e.g. FESCO departures
@@ -36,6 +37,7 @@ MULTI_SOURCE_ENTITIES: frozenset[CacheEntity] = frozenset(
         CacheEntity.CONTAINERS_TODAY,
         CacheEntity.DEPARTURES_TODAY,
         CacheEntity.DESTINATIONS_TODAY,
+        CacheEntity.POINTS_TODAY,
     }
 )
 

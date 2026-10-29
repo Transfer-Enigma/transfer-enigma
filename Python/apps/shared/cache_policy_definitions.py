@@ -74,6 +74,34 @@ CACHE_POLICY_DEFINITIONS: list[CachePolicyDefinition] = [
         ttl=600,
         description="FESCO routes for today",
     ),
+    CachePolicyDefinition(
+        source="fesco",
+        entity="points",
+        enabled=True,
+        ttl=86400,
+        description="FESCO points for past and future dates",
+    ),
+    CachePolicyDefinition(
+        source="internal",
+        entity="points",
+        enabled=False,
+        ttl=86400,
+        description="Internal points for past and future dates",
+    ),
+    CachePolicyDefinition(
+        source="fesco",
+        entity="points_today",
+        enabled=True,
+        ttl=600,
+        description="FESCO points for today",
+    ),
+    CachePolicyDefinition(
+        source="internal",
+        entity="points_today",
+        enabled=False,
+        ttl=600,
+        description="Internal points for today",
+    ),
 ]
 
 

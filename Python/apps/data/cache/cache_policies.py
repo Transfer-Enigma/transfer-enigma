@@ -1,8 +1,14 @@
+"""Cache policy data layer.
+
+Creates default cache policies that are still missing.
+Existing rows are never touched.
+"""
+
 import logging
 
 from shared.cache import CacheEntity
 from shared.cache_policy_definitions import get_cache_policy_definitions
-from shared.database import get_database
+from shared.database import Base, get_database
 from shared.orm.cache_policy import CachePolicyModel
 from sqlalchemy import select
 
@@ -10,13 +16,15 @@ logger = logging.getLogger(__name__)
 
 
 async def ensure_cache_policies() -> None:
-    """Create the default cache policies that are still missing.
+    """Create cache policies that are still missing.
 
     Existing rows are left untouched: policies are admin-managed,
     the seeder only fills the gaps. Idempotent.
     """
     definitions = get_cache_policy_definitions()
     async with get_database().session_context() as session:
+        conn = await session.connection()
+        await conn.run_sync(Base.metadata.create_all)
         for defn in definitions:
             try:
                 CacheEntity(defn.entity)
@@ -42,5 +50,8 @@ async def ensure_cache_policies() -> None:
             await session.flush()
             logger.info(
                 "Created default cache policy: %s:%s enabled=%s ttl=%s",
-                defn.source, defn.entity, defn.enabled, defn.ttl,
+                defn.source,
+                defn.entity,
+                defn.enabled,
+                defn.ttl,
             )
