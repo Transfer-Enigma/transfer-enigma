@@ -1,21 +1,9 @@
 import datetime
 
 from shared.database import Base
-<<<<<<< HEAD
-<<<<<<<< HEAD:Python/apps/shared/orm/drop.py
 from shared.orm.company import CompanyModel
 from shared.orm.container import ContainerModel
 from shared.orm.point import PointModel
-========
-from shared.schemas.company import CompanyModel
-from shared.schemas.container import ContainerModel
-from shared.schemas.point import PointModel
->>>>>>>> a90e866f (Python: Rename packages by architecture layer):Python/apps/shared/schemas/drop.py
-=======
-from shared.orm.company import CompanyModel
-from shared.orm.container import ContainerModel
-from shared.orm.point import PointModel
->>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

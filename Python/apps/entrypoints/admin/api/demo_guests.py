@@ -9,13 +9,8 @@ from entrypoints.admin.dependencies.auth_context import bind_caller_context
 from pydantic import BaseModel, Field
 from shared.context import CallerContext
 from shared.database import Database, get_database
-<<<<<<< HEAD
-from shared.orm.demo_guest import DemoGuestModel
-from shared.repositories.demo_guest import get_demo_guest_by_uid, list_demo_guests
-=======
 from shared.repositories.demo_guest import get_demo_guest_by_uid, list_demo_guests
 from shared.schemas.demo_guest import DemoGuestModel
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 router = APIRouter(prefix="/demo-guests", tags=["demo-guests"])
 

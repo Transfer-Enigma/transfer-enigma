@@ -1,24 +1,10 @@
 import datetime
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 from shared.orm.company import CompanyModel
 from shared.orm.container import ContainerModel, ContainerType
 from shared.orm.drop import DropModel
 from shared.orm.point import PointModel
 from shared.orm.route import (
-<<<<<<< HEAD
-=======
-from shared.schemas.company import CompanyModel
-from shared.schemas.container import ContainerModel, ContainerType
-from shared.schemas.drop import DropModel
-from shared.schemas.point import PointModel
-from shared.schemas.route import (
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
-=======
->>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
     ContainerOwner,
     ContainerShipmentTerms,
     ContainerTransferTerms,
@@ -27,15 +13,7 @@ from shared.schemas.route import (
     RouteType,
     ServicePriceModel,
 )
-<<<<<<< HEAD
-<<<<<<< HEAD
 from shared.orm.service import ServiceModel
-=======
-from shared.schemas.service import ServiceModel
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
-=======
-from shared.orm.service import ServiceModel
->>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 
 __all__ = (
     "CompanyFactory",

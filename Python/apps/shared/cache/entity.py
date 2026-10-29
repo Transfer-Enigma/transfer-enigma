@@ -19,6 +19,7 @@ class CacheEntity(StrEnum):
     CONTAINERS_TODAY = "containers_today"
     DEPARTURES_TODAY = "departures_today"
     DESTINATIONS_TODAY = "destinations_today"
+    POINTS = "points"
     POINTS_TODAY = "points_today"
 
 

@@ -1,11 +1,7 @@
 from typing import Any
 
 from data.internal.query_domain.expr import ColumnRef
-<<<<<<< HEAD
-from shared.orm.route import RouteType
-=======
 from shared.schemas.route import RouteType
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 
 class Segment:

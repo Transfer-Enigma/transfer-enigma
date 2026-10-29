@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-from shared.dto.route import ContainerItem
-from shared.orm.container import ContainerModel
-=======
 from shared.models.route import ContainerItem
 from shared.schemas.container import ContainerModel
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 
 def transform_container(container: ContainerModel) -> ContainerItem:

@@ -2,11 +2,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-<<<<<<< HEAD
-from shared.orm.setting import SettingType
-=======
 from shared.schemas.setting import SettingType
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 
 @dataclass(frozen=True)

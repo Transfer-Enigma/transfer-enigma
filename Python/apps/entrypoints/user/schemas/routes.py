@@ -1,13 +1,5 @@
 from pydantic import BaseModel
-<<<<<<< HEAD
-<<<<<<< HEAD
 from shared.dto.route import DropItem, RouteSegment, ServiceItem
-=======
-from shared.models.route import DropItem, RouteSegment, ServiceItem
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
-=======
-from shared.dto.route import DropItem, RouteSegment, ServiceItem
->>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 
 from .errors import RouteError
 

@@ -1,7 +1,7 @@
 import logging
 
 from data.cache.registry import get_cache_registry
-from shared.cache import CacheEntity
+from shared.cache import CacheEntity, cache_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +23,15 @@ async def list_sources() -> list[dict]:
 
 async def list_keys(source: str, entity: str | None = None, limit: int = 100) -> list[str]:
     """The cached keys of a source, or of one of its entities."""
-    backend = get_cache_registry().backend(source)
+    registry = get_cache_registry()
     if entity is None:
-        return await backend.keys(limit=limit)
-    return await backend.keys(CacheEntity(entity), limit=limit)
+        keys: list[str] = []
+        for ent in registry.policies(source):
+            backend = registry.backend(ent, source)
+            keys.extend(await backend.keys(prefix=cache_prefix(ent, source), limit=limit))
+        return keys
+    backend = registry.backend(CacheEntity(entity), source)
+    return await backend.keys(prefix=cache_prefix(CacheEntity(entity), source), limit=limit)
 
 
 async def flush_source(source: str) -> int:

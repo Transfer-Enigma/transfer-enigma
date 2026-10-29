@@ -5,13 +5,8 @@ import pytest
 from data.internal.aggregators.routes import find_all_paths
 from services.route_calculation import deduplicate_routes
 from shared.database import Database
-<<<<<<< HEAD
-from shared.orm.container import ContainerType
-from shared.orm.route import ContainerOwner, RouteType
-=======
 from shared.schemas.container import ContainerType
 from shared.schemas.route import ContainerOwner, RouteType
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 from .factories import CompanyFactory, ContainerFactory, PointFactory, PriceFactory, RouteFactory
 

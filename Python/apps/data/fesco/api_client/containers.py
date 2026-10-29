@@ -3,11 +3,7 @@ import logging
 
 import aiohttp
 from shared.config import get_settings
-<<<<<<< HEAD
-from shared.dto.route import ContainerItem
-=======
 from shared.models.route import ContainerItem
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 from ..cache import containers_parts, get_containers_backend
 from .transformers.containers import transform_containers

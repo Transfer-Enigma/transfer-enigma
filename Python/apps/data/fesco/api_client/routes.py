@@ -4,11 +4,7 @@ from collections.abc import Iterable
 
 import aiohttp
 from shared.config import get_settings
-<<<<<<< HEAD
-from shared.dto.route import RouteResult
-=======
 from shared.models.route import RouteResult
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 from ..cache import get_routes_backend, routes_parts
 from .transformers.routes import transform_routes

@@ -2,11 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from services.route_calculation import _strip_demo_fields
-<<<<<<< HEAD
-from shared.dto.route import RouteSegment
-=======
 from shared.models.route import RouteSegment
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 
 class TestStripDemoFields:

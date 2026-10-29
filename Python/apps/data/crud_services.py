@@ -2,11 +2,7 @@ from typing import Any
 
 from entrypoints.admin.schemas.data_browser import ServiceCreate, ServicePatch, ServiceResponse
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-<<<<<<< HEAD
-from shared.orm.service import ServiceModel
-=======
 from shared.schemas.service import ServiceModel
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 
 class CRUDService(CRUDBase):

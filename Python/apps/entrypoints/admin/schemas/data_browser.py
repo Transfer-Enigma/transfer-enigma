@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from shared.schemas import SettingType
 from shared.schemas.company import CompanyModel
 from shared.schemas.container import ContainerModel
@@ -7,7 +7,7 @@ from shared.schemas.point import PointModel
 from shared.schemas.route import PriceModel, RouteModel, ServicePriceModel
 from shared.schemas.service import ServiceModel
 from shared.schemas.setting import SettingModel
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
+from shared.orm.cache_policy import CachePolicyModel
 
 # ─── Companies ────────────────────────────────────────────────────────────────
 

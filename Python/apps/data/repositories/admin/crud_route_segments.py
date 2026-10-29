@@ -13,13 +13,8 @@ from entrypoints.admin.schemas.data_browser import (
     RouteSegmentStatsResponse,
 )
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-<<<<<<< HEAD
-from shared.orm.company import CompanyModel
-from shared.orm.route import (
-=======
 from shared.schemas.company import CompanyModel
 from shared.schemas.route import (
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
     ContainerOwner,
     ContainerShipmentTerms,
     ContainerTransferTerms,

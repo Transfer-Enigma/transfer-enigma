@@ -3,10 +3,6 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Query
 from fastapi.params import Depends
 
-<<<<<<< HEAD
-from data.cache.settings import delete_settings_cache, set_settings_cache
-=======
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 from entrypoints.admin.dependencies.auth import request_auth
 from entrypoints.admin.schemas.data_browser import (
     CompanyCreate,
@@ -40,14 +36,9 @@ from entrypoints.admin.service.crud_points import crud_points
 from entrypoints.admin.service.crud_route_segments import crud_route_segments
 from entrypoints.admin.service.crud_services import crud_services
 from entrypoints.admin.service.crud_settings import crud_settings
-<<<<<<< HEAD
-from shared.database import Database, get_database
-from shared.dto.setting import SettingItem
-=======
 from shared.cache_settings import delete_settings_cache, set_settings_cache
 from shared.database import Database, get_database
 from shared.models.setting import SettingItem
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 router = APIRouter(prefix="/db", tags=["data-browser"])
 

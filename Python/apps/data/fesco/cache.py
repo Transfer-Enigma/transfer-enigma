@@ -1,84 +1,3 @@
-<<<<<<< HEAD
-import datetime
-import json
-
-from data.cache.registry import get_cache_registry
-from shared.cache import CacheBackend, CacheEntity
-
-# The FESCO API is a data source of its own.
-FESCO_SOURCE = "fesco"
-
-
-def get_backend(entity: CacheEntity) -> CacheBackend:
-    """The cache backend of the FESCO source for the given entity."""
-    return get_cache_registry().backend(entity, source=FESCO_SOURCE)
-
-
-def _today_or_base(today_entity: CacheEntity, base_entity: CacheEntity) -> CacheBackend:
-    """Today backend if it is enabled, otherwise the base one.
-
-    A missing or disabled today-policy falls back to the base policy, so
-    to turn caching off entirely, disable the base policy.
-    """
-    backend = get_backend(today_entity)
-    if backend.is_enabled():
-        return backend
-    return get_backend(base_entity)
-
-
-def get_routes_backend(date: datetime.date) -> CacheBackend:
-    """Routes backend that uses a longer TTL policy for today's date."""
-    if date == datetime.date.today():
-        return _today_or_base(CacheEntity.ROUTES_TODAY, CacheEntity.ROUTES)
-    return get_backend(CacheEntity.ROUTES)
-
-
-def get_containers_backend(date: datetime.date) -> CacheBackend:
-    """Containers backend that uses a longer TTL policy for today's date."""
-    if date == datetime.date.today():
-        return _today_or_base(CacheEntity.CONTAINERS_TODAY, CacheEntity.CONTAINERS)
-    return get_backend(CacheEntity.CONTAINERS)
-
-
-def get_departures_backend(date: datetime.date) -> CacheBackend:
-    """Departures backend that uses a longer TTL policy for today's date."""
-    if date == datetime.date.today():
-        return _today_or_base(CacheEntity.DEPARTURES_TODAY, CacheEntity.DEPARTURES)
-    return get_backend(CacheEntity.DEPARTURES)
-
-
-def get_destinations_backend(date: datetime.date) -> CacheBackend:
-    """Destinations backend that uses a longer TTL policy for today's date."""
-    if date == datetime.date.today():
-        return _today_or_base(CacheEntity.DESTINATIONS_TODAY, CacheEntity.DESTINATIONS)
-    return get_backend(CacheEntity.DESTINATIONS)
-
-
-def departures_parts(date: datetime.date) -> tuple[str, ...]:
-    return (date.isoformat(),)
-
-
-def destinations_parts(date: datetime.date, departure_point_id: str) -> tuple[str, ...]:
-    return (date.isoformat(), departure_point_id)
-
-
-def containers_parts(date: datetime.date, departure_id: str, destination_id: str) -> tuple[str, ...]:
-    return (date.isoformat(), departure_id, destination_id)
-
-
-def routes_parts(
-    date: datetime.date,
-    departure_id: str,
-    destination_id: str,
-    wte_ids: list[str],
-) -> tuple[str, ...]:
-    return (
-        date.isoformat(),
-        departure_id,
-        destination_id,
-        json.dumps(wte_ids, sort_keys=True),
-    )
-=======
 import asyncio
 import datetime
 import json
@@ -86,6 +5,8 @@ import logging
 from contextlib import suppress
 
 from pydantic import BaseModel
+from shared.cache import CacheEntity
+from shared.cache.registry import get_cache_registry
 from shared.concurrency import TaskAlreadyRunningError
 from shared.concurrency.local_locker import LocalLocker
 from shared.redis_client import get_redis
@@ -118,6 +39,64 @@ class CacheKeys:
 
 def get_points_ttl(date: datetime.date) -> int:
     return FESCO_POINTS_TODAY_TTL if date == datetime.date.today() else FESCO_POINTS_OTHER_TTL
+
+
+class _FESCOBackend:
+    def __init__(self, key_func, default_ttl: int):
+        self._key_func = key_func
+        self._default_ttl = default_ttl
+
+    async def get(self, *parts, model=None, many=True):
+        key = self._key_func(*parts)
+        return await get_cached(key, model)
+
+    async def silent_set_async(self, *parts, data=None, ttl=None, dump=False):
+        key = self._key_func(*parts)
+        await set_cache(key, data, ttl=ttl or self._default_ttl, model_dump=dump)
+
+
+def get_routes_backend(date: datetime.date):
+    return _FESCOBackend(
+        lambda dep, dest, wte: CacheKeys.get_routes_cache_key(date, dep, dest, wte),
+        FESCO_ROUTES_TTL,
+    )
+
+
+def routes_parts(date: datetime.date, departure_id: str, destination_id: str, wte_ids: list[str]):
+    return (CacheKeys.get_routes_cache_key(date, departure_id, destination_id, wte_ids),)
+
+
+def get_departures_backend(date: datetime.date):
+    return _FESCOBackend(
+        lambda dep: CacheKeys.get_departures_cache_key(date, dep),
+        FESCO_POINTS_OTHER_TTL,
+    )
+
+
+def departures_parts(date: datetime.date):
+    return (CacheKeys.get_departures_cache_key(date),)
+
+
+def get_destinations_backend(date: datetime.date):
+    return _FESCOBackend(
+        lambda dep: CacheKeys.get_destinations_cache_key(date, dep),
+        FESCO_POINTS_OTHER_TTL,
+    )
+
+
+def destinations_parts(date: datetime.date, departure_point_id: str):
+    return (CacheKeys.get_destinations_cache_key(date, departure_point_id),)
+
+
+def get_containers_backend(date: datetime.date):
+    return _FESCOBackend(
+        lambda dep, dest: CacheKeys.get_wte_cache_key(date, dep, dest),
+        FESCO_CONTAINERS_TTL,
+    )
+
+
+def containers_parts(date: datetime.date, departure_id: str, destination_id: str):
+    return (CacheKeys.get_wte_cache_key(date, departure_id, destination_id),)
 
 
 async def get_cached(cache_key: str, pydantic_class: type[BaseModel] | None = None):
@@ -157,4 +136,3 @@ def set_cache_async(key: str, data, ttl: int, model_dump: bool = False):
 def silent_set_cache_async(key: str, data, ttl: int, model_dump: bool = False):
     with suppress(TaskAlreadyRunningError):
         return set_cache_async(key, data, ttl, model_dump)
->>>>>>> a90e866f (Python: Rename packages by architecture layer)

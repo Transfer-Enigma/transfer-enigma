@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-from shared.dto.setting import SettingItem
-from shared.orm.setting import SettingModel
-=======
 from shared.models.setting import SettingItem
 from shared.schemas.setting import SettingModel
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

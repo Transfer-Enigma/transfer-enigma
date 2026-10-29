@@ -158,6 +158,11 @@ class CacheBackend:
         """Remove a single cached value."""
         await self._storage.delete(self.key(*parts))
 
+    async def keys(self, prefix: str | None = None, limit: int = 100) -> list[str]:
+        """Storage keys of this backend's policy, up to ``limit``."""
+        p = prefix or cache_prefix(self._entity, self.policy().source if self.policy() else None)
+        return await self._storage.keys(p, limit)
+
     async def entries(self, limit: int = 50) -> list[tuple[str, str]]:
         """The stored keys and values of this backend's policy, up to ``limit``.
 

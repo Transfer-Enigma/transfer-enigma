@@ -1,17 +1,8 @@
 import logging
 
-<<<<<<< HEAD
-from services.get_rates import get_rates
-<<<<<<< HEAD
 from shared.dto.route import RouteResult, RouteSegment
-=======
-from shared.models.route import RouteResult, RouteSegment
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
-=======
 from entrypoints.user.schemas.routes import NormalizedRoutes
 from services.get_rates import get_rates
-from shared.dto.route import RouteResult, RouteSegment
->>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +50,6 @@ def _apply_profit_to_segments(
             price.value = float(price.value) + converted_profit
 
 
-<<<<<<< HEAD
-=======
 async def apply_demo_profit_to_routes(
     routes: NormalizedRoutes,
     sea_profit: float,
@@ -81,7 +70,6 @@ async def apply_demo_profit_to_routes(
         _apply_profit_to_segments(route[0], sea_profit, sea_profit_currency, rail_profit, rail_profit_currency, rates)
 
 
->>>>>>> 26db16b4 (Python: Rename shared models and schemas packages)
 async def apply_demo_profit_to_route(
     route: RouteResult,
     sea_profit: float,

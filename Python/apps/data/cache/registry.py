@@ -94,6 +94,84 @@ class CacheRegistry:
             self._backends[cache_key] = backend
         return backend
 
+    def sources(self) -> list[str]:
+        """All sources that have at least one policy."""
+        sources: set[str] = set()
+        for entity_policies in self._policies.values():
+            for source in entity_policies:
+                if source is not None:
+                    sources.add(source)
+        return sorted(sources)
+
+    def policies(self, source: str) -> dict[CacheEntity, CachePolicy]:
+        """All policies of a source, keyed by entity."""
+        result: dict[CacheEntity, CachePolicy] = {}
+        for entity, source_policies in self._policies.items():
+            policy = source_policies.get(source)
+            if policy is not None:
+                result[entity] = policy
+        return result
+
+    async def flush(self, source: str) -> int:
+        """Remove every cached value of a source, return how many deleted."""
+        from shared.cache.storage.redis import RedisStorage
+
+        if not isinstance(self._storage, RedisStorage):
+            return 0
+        total = 0
+        for entity in self._policies:
+            policy = self._policies[entity].get(source)
+            if policy is None:
+                continue
+            backend = self.backend(entity, source)
+            prefix = cache_prefix(entity, source)
+            keys = await self._storage.keys(prefix, limit=10000)
+            total += len(keys)
+            for key in keys:
+                await self._storage.delete(key)
+        return total
+
+    async def save_policy(self, source: str, entity: str, *, enabled: bool, ttl: int) -> None:
+        """Store (upsert) the policy of an entity of a source."""
+        entity_enum = CacheEntity(entity)
+        policy = CachePolicy(source=source, entity=entity_enum, enabled=enabled, ttl=ttl)
+        self._policies.setdefault(entity_enum, {})[source] = policy
+        async with get_database().session_context() as session:
+            result = await session.execute(
+                select(CachePolicyModel).where(
+                    CachePolicyModel.source == source,
+                    CachePolicyModel.entity == entity,
+                ),
+            )
+            model = result.scalar_one_or_none()
+            if model is None:
+                session.add(
+                    CachePolicyModel(
+                        source=source,
+                        entity=entity,
+                        enabled=enabled,
+                        ttl=ttl,
+                    ),
+                )
+            else:
+                model.enabled = enabled
+                model.ttl = ttl
+            await session.flush()
+
+    async def remove_policies(self, source: str) -> int:
+        """Remove all policies of a source, return how many removed."""
+        count = 0
+        for entity in list(self._policies.keys()):
+            if source in self._policies[entity]:
+                del self._policies[entity][source]
+                count += 1
+        async with get_database().session_context() as session:
+            await session.execute(
+                CachePolicyModel.__table__.delete().where(CachePolicyModel.source == source)
+            )
+            await session.flush()
+        return count
+
 
 @cache
 def get_cache_registry() -> CacheRegistry:

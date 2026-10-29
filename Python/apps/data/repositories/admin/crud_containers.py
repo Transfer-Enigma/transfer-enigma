@@ -6,11 +6,7 @@ from entrypoints.admin.schemas.data_browser import (
     ContainerResponse,
 )
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-<<<<<<< HEAD
-from shared.orm.container import ContainerModel, ContainerType
-=======
 from shared.schemas.container import ContainerModel, ContainerType
->>>>>>> a90e866f (Python: Rename packages by architecture layer)
 
 
 class CRUDContainer(CRUDBase):

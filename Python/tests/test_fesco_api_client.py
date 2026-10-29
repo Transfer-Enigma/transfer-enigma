@@ -34,9 +34,7 @@ def _fesco_backend(storage, *entities: CacheEntity) -> CacheBackend:
     return CacheBackend(storage, entity, policies)
 
 
-# ============================================================
 # Container transformer tests
-# ============================================================
 
 
 class TestTransformContainer:
@@ -102,9 +100,7 @@ class TestTransformContainers:
         assert [c.id for c in result] == ["2", "3", "1"]
 
 
-# ============================================================
 # Service transformer tests
-# ============================================================
 
 
 class TestTransformService:
@@ -185,9 +181,7 @@ class TestTransformService:
         assert result.name == "Simple service"
 
 
-# ============================================================
 # Route transformer tests
-# ============================================================
 
 
 class TestTransformRoute:
@@ -439,9 +433,7 @@ class TestTransformRoutes:
         assert result[1].segments[0].type == "sea"
 
 
-# ============================================================
 # Point transformer tests
-# ============================================================
 
 
 class TestTransformPoint:
@@ -533,9 +525,7 @@ class TestTransformPoints:
         assert result[1]["id"] == "4"
 
 
-# ============================================================
 # HTTP client tests — mocked API response
-# ============================================================
 
 def _mock_aiohttp_session(json_data, status_ok=True):
     mock_resp = AsyncMock()
