@@ -1,6 +1,6 @@
 #!/bin/bash
 # Cache test for the post-removal API:
-# no default policies are seeded, creation/deletion endpoints are removed,
+# default policies are seeded by dbseeder, creation/deletion endpoints are removed,
 # only invalidation (+ entries) remain.
 set -uo pipefail
 
@@ -30,11 +30,11 @@ check() {
 }
 
 echo "=================================================================="
-echo "1. Default cache policies: none seeded (pre-branch state)"
+echo "1. Default cache policies: seeded by dbseeder"
 echo "=================================================================="
 POLICIES=$(curl -s -X GET "$BASE/admin/api/cache/policies" -H "$AUTH")
 COUNT=$(echo "$POLICES" | jq -r 'length // 0' 2>/dev/null)
-check "default policies count" "$COUNT" "0"
+check "default policies count" "$COUNT" "22"
 echo "  policies: $POLICIES"
 
 echo "=================================================================="

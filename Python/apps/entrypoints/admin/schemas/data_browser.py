@@ -1,16 +1,3 @@
-<<<<<<< HEAD
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-from shared.cache import CacheEntity, is_multi_source
-from shared.orm import SettingType
-from shared.orm.cache_policy import CachePolicyModel
-from shared.orm.company import CompanyModel
-from shared.orm.container import ContainerModel
-from shared.orm.drop import DropModel
-from shared.orm.point import PointModel
-from shared.orm.route import PriceModel, RouteModel, ServicePriceModel
-from shared.orm.service import ServiceModel
-from shared.orm.setting import SettingModel
-=======
 from pydantic import BaseModel
 from shared.schemas import SettingType
 from shared.schemas.company import CompanyModel
@@ -421,22 +408,6 @@ class SettingResponse(BaseModel):
 
 
 # ─── Cache Policies ────────────────────────────────────────────────────────
-
-
-class CachePolicyCreate(BaseModel):
-    source: str | None = None
-    entity: str
-    enabled: bool = True
-    ttl: int = Field(default=3600, ge=1)
-
-    @model_validator(mode="after")
-    def _validate_source(self) -> CachePolicyCreate:
-        entity = CacheEntity(self.entity)
-        if is_multi_source(entity) and not self.source:
-            raise ValueError(f"Entity {self.entity} requires a source")
-        if not is_multi_source(entity) and self.source:
-            raise ValueError(f"Entity {self.entity} is single-source, source must be None")
-        return self
 
 
 class CachePolicyPatch(BaseModel):
