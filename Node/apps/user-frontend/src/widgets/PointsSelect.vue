@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<Props>(), {
     clearSignal: false,
 });
 
-const selectedPointModel = defineModel<IdIsExternal[]>({ required: false, default: undefined });
+const selectedPointModel = defineModel<IdIsExternal[] | undefined>({ required: false });
 const searchTextModel = defineModel<string>("searchText", { required: false, default: "" });
 const isDisabledModel = defineModel<boolean>("isDisabled", { required: false, default: false });
 
