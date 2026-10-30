@@ -12,7 +12,11 @@ from starlette.status import (
 import gspread
 import pandas
 from entrypoints.admin.dependencies.auth import request_auth
-from entrypoints.admin.service.routes_loading.errors import (
+from gspread_dataframe import get_as_dataframe
+from services.routes_loading.processor import load_data
+from shared.config import get_settings
+from shared.database import get_database
+from shared.exceptions.routes_loading import (
     CompanyNotFoundException,
     InvalidDroppRow,
     InvalidRouteConditionException,
@@ -21,10 +25,6 @@ from entrypoints.admin.service.routes_loading.errors import (
     PointNotFoundException,
     PointsWithNanException,
 )
-from entrypoints.admin.service.routes_loading.processor import load_data
-from gspread_dataframe import get_as_dataframe
-from shared.config import get_settings
-from shared.database import get_database
 from shared.models.upoader_fields_config import UploaderFieldsConfig
 from shared.orm.route import RouteType
 from shared.resources import Resources
