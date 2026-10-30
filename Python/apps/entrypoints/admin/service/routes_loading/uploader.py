@@ -1,8 +1,8 @@
 from collections.abc import Iterable
 
 import pandas as pd
-from entrypoints.admin.models.upoader_fields_config import UploaderFieldsConfig
 from pandas import DataFrame
+from shared.models.upoader_fields_config import UploaderFieldsConfig
 from shared.orm.company import CompanyModel
 from shared.orm.container import ContainerModel, ContainerType
 from shared.orm.drop import DropModel

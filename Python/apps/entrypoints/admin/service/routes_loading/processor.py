@@ -3,8 +3,8 @@ from collections import defaultdict
 from typing import Any
 
 import pandas as pd
-from entrypoints.admin.models.upoader_fields_config import UploaderFieldsConfig
 from pandas import DataFrame
+from shared.models.upoader_fields_config import UploaderFieldsConfig
 from shared.orm.route import (
     ContainerOwner,
     ContainerShipmentTerms,

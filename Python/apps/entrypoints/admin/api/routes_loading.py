@@ -12,7 +12,6 @@ from starlette.status import (
 import gspread
 import pandas
 from entrypoints.admin.dependencies.auth import request_auth
-from entrypoints.admin.models.upoader_fields_config import UploaderFieldsConfig
 from entrypoints.admin.service.routes_loading.errors import (
     CompanyNotFoundException,
     InvalidDroppRow,
@@ -26,6 +25,7 @@ from entrypoints.admin.service.routes_loading.processor import load_data
 from gspread_dataframe import get_as_dataframe
 from shared.config import get_settings
 from shared.database import get_database
+from shared.models.upoader_fields_config import UploaderFieldsConfig
 from shared.orm.route import RouteType
 from shared.resources import Resources
 from sqlalchemy.ext.asyncio import AsyncSession
