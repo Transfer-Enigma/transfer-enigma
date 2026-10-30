@@ -14,6 +14,7 @@ import pandas
 from entrypoints.admin.dependencies.auth import request_auth
 from gspread_dataframe import get_as_dataframe
 from services.routes_loading.errors_parser import parse_all_warning_types
+from services.routes_loading.fields_map import get_fields_config_from_file
 from services.routes_loading.processor import load_data
 from shared.config import get_settings
 from shared.database import get_database
@@ -24,12 +25,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/data")
 settings = get_settings()
-
-
-def get_fields_config_from_file():
-    return UploaderFieldsConfig(
-        **Resources.get(settings.DEFAULT_UPLOADER_FIELDS_CONFIG_RESOURCE_NAME, scope="backend_admin").read_json(),
-    )
 
 
 @router.post("/update-from-gsheets")
