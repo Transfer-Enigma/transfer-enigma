@@ -12,7 +12,7 @@ from entrypoints.admin.schemas.data_browser import (
     RouteSegmentResponse,
     RouteSegmentStatsResponse,
 )
-from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
+from services.crud.base import CRUDBase, FilterDef
 from shared.orm.company import CompanyModel
 from shared.orm.route import (
     ContainerOwner,

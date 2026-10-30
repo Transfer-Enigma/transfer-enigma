@@ -2,7 +2,7 @@ import datetime
 from typing import Any
 
 from entrypoints.admin.schemas.data_browser import DropOffCreate, DropOffPatch, DropOffResponse
-from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
+from services.crud.base import CRUDBase, FilterDef
 from shared.orm import DropModel
 
 

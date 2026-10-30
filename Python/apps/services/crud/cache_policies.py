@@ -2,7 +2,7 @@ from entrypoints.admin.schemas.data_browser import (
     CachePolicyPatch,
     CachePolicyResponse,
 )
-from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
+from services.crud.base import CRUDBase, FilterDef
 from shared.orm.cache_policy import CachePolicyModel
 
 

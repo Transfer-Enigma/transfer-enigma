@@ -30,13 +30,13 @@ from entrypoints.admin.schemas.data_browser import (
     SettingPatch,
     SettingResponse,
 )
-from entrypoints.admin.service.crud_companies import crud_companies
-from entrypoints.admin.service.crud_containers import crud_containers
-from entrypoints.admin.service.crud_drop_off import crud_drop_off
-from entrypoints.admin.service.crud_points import crud_points
-from entrypoints.admin.service.crud_route_segments import crud_route_segments
-from entrypoints.admin.service.crud_services import crud_services
-from entrypoints.admin.service.crud_settings import crud_settings
+from services.crud.companies import crud_companies
+from services.crud.containers import crud_containers
+from services.crud.drop_off import crud_drop_off
+from services.crud.points import crud_points
+from services.crud.route_segments import crud_route_segments
+from services.crud.services import crud_services
+from services.crud.settings import crud_settings
 from shared.database import Database, get_database
 from shared.models.setting import SettingItem
 

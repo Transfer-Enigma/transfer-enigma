@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
 
 from entrypoints.admin.schemas.data_browser import SettingCreate, SettingPatch, SettingResponse
-from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
+from services.crud.base import CRUDBase, FilterDef
 from shared.models.setting import parse_setting_value
 from shared.orm.setting import SettingModel, SettingType
 from sqlalchemy.ext.asyncio import AsyncSession

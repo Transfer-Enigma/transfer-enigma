@@ -1,5 +1,5 @@
 from entrypoints.admin.schemas.data_browser import PointCreate, PointPatch, PointResponse
-from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
+from services.crud.base import CRUDBase, FilterDef
 from shared.orm.point import PointModel
 
 
