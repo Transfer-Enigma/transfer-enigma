@@ -57,7 +57,7 @@ async def update_from_gsheets(
     )
 
 
-@router.post("/update-from-gsheets-with-custom-fields")
+@router.post("/update-from-gsheets-with-custom-fields")  # TODO: add response code schemas
 async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheets
     db_session: Annotated[AsyncSession, Depends(get_database().session)],
     fields_config: UploaderFieldsConfig,
@@ -71,6 +71,7 @@ async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheet
     load_on_warnings: bool = True,
     data_file: Annotated[bytes | None, File()] = None,
 ):
+    # TODO: errors mapping
     data_downloader: DataDownloader
     if data_file:
         data_downloader = FileDownloader(data_file)

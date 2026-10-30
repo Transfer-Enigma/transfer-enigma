@@ -14,6 +14,8 @@ from shared.orm.route import ContainerOwner, RouteModel, RouteType
 
 from .transformers.routes import transform_routes
 
+# TODO: move flags reading and other business logic to services
+
 logger = logging.getLogger(__name__)
 
 

@@ -28,6 +28,8 @@ from shared.orm.service import ServiceModel
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
+# TODO: move all sqlalchemy operations to 'data'
+
 ContainerRawType = dict[str, str | int | ContainerType]
 ContainerUid = tuple[int, int, int]
 ContainerStore = dict[ContainerUid, ContainerModel]
