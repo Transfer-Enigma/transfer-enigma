@@ -8,7 +8,7 @@ from services.demo.profit import (
     _get_converted_profit,
     apply_demo_profit_to_routes,
 )
-from shared.dto.route import PriceItem, RouteSegment
+from shared.models.route_entities import PriceItem, RouteSegment
 
 _CB_RATES = {"USD": 90.0, "RUB": 1.0, "EUR": 100.0}
 

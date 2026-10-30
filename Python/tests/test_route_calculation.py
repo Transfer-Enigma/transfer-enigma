@@ -6,7 +6,7 @@ from entrypoints.user.api.v2.routes.post import _apply_demo_transforms, _normali
 from entrypoints.user.dependencies.auth_context import AuthContext
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from services.routes.calculation import _strip_demo_fields, calculate_routes
-from shared.dto.route import ContainerItem, PriceItem, RouteResult, RouteSegment
+from shared.models.route_entities import ContainerItem, PriceItem, RouteResult, RouteSegment
 
 
 def _make_segment(company: str = "CompanyA", **overrides) -> RouteSegment:

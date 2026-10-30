@@ -25,7 +25,7 @@ from data.fesco.api_client.transformers.routes import (
 from data.fesco.cache import containers_parts, routes_parts
 from services.cache.backend import CacheBackend
 from shared.dto.cache import CacheEntity, CachePolicy
-from shared.dto.route import ContainerItem
+from shared.models.route_entities import ContainerItem
 
 
 def _fesco_backend(storage, *entities: CacheEntity) -> CacheBackend:

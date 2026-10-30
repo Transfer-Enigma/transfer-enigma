@@ -2,7 +2,7 @@ import logging
 
 from entrypoints.user.schemas.routes import NormalizedRoutes
 from services.rates.get import get_rates
-from shared.dto.route import RouteResult, RouteSegment
+from shared.models.route_entities import RouteResult, RouteSegment
 
 logger = logging.getLogger(__name__)
 

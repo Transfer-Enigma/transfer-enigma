@@ -8,7 +8,7 @@ from data.internal import aggregators
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from entrypoints.user.schemas.routes import NormalizedRoutes
-from shared.dto.route import RouteResult
+from shared.models.route_entities import RouteResult
 
 logger = logging.getLogger(__name__)
 

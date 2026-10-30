@@ -7,7 +7,7 @@ import logging
 
 from data.setings.cached import set_settings_cache
 from shared.database import get_database
-from shared.dto.setting import SettingItem, parse_setting_value
+from shared.models.setting import SettingItem, parse_setting_value
 from shared.orm.setting import SettingModel
 from shared.setting_definitions import get_setting_definitions
 from sqlalchemy import select

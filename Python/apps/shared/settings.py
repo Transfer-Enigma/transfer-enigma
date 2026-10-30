@@ -1,5 +1,6 @@
+from shared.models.setting import SettingItem
+
 from .database import get_database
-from .dto.setting import SettingItem
 from .repositories.setting import get_setting as rget_setting
 
 

@@ -38,7 +38,7 @@ from entrypoints.admin.service.crud_route_segments import crud_route_segments
 from entrypoints.admin.service.crud_services import crud_services
 from entrypoints.admin.service.crud_settings import crud_settings
 from shared.database import Database, get_database
-from shared.dto.setting import SettingItem
+from shared.models.setting import SettingItem
 
 router = APIRouter(prefix="/db", tags=["data-browser"])
 

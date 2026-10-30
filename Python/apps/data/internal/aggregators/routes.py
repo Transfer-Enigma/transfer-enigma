@@ -7,7 +7,7 @@ from data.internal.query_domain import DropOff, RouteBuilder, Segment
 from data.internal.query_domain.expr import Condition
 from data.setings.cached import get_setting_cached
 from shared.database import Base, get_database
-from shared.dto.route import RouteResult
+from shared.models.route_entities import RouteResult
 from shared.orm.drop import DropModel
 from shared.orm.route import ContainerOwner, RouteModel, RouteType
 from shared.setting_definitions import get_setting_definition

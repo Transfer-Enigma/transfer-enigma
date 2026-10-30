@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Iterable
 
-from shared.dto.route import PriceItem, RouteResult, RouteSegment, ServiceItem
+from shared.models.route_entities import PriceItem, RouteResult, RouteSegment, ServiceItem
 
 from .containers import transform_container
 

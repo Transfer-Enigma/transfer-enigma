@@ -9,7 +9,7 @@ from entrypoints.user.dependencies.auth_context import AuthContext
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from services.routes.calculation import calculate_routes_stream
-from shared.dto.route import ContainerItem, PriceItem, RouteResult, RouteSegment
+from shared.models.route_entities import ContainerItem, PriceItem, RouteResult, RouteSegment
 
 
 def _make_segment(company: str = "CompanyA", **overrides) -> RouteSegment:

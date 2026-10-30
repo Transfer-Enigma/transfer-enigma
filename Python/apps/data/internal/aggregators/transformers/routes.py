@@ -1,5 +1,5 @@
 from shared.database import Base
-from shared.dto.route import (
+from shared.models.route_entities import (
     ContainerItem,
     DropItem,
     PriceItem,

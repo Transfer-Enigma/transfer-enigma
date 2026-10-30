@@ -10,7 +10,7 @@ from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_con
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from services.demo.profit import apply_demo_profit_to_route
 from services.routes.calculation import calculate_routes_stream
-from shared.dto.route import RouteResult
+from shared.models.route_entities import RouteResult
 
 router = APIRouter(prefix="/v3/routes", tags=["v3", "routes"])
 

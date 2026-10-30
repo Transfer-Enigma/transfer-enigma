@@ -1,4 +1,4 @@
-from shared.dto.route import ContainerItem
+from shared.models.route_entities import ContainerItem
 from shared.orm.container import ContainerModel
 
 

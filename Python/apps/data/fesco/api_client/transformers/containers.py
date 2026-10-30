@@ -1,6 +1,6 @@
 import re
 
-from shared.dto.route import ContainerItem
+from shared.models.route_entities import ContainerItem
 
 
 def transform_container(container):
