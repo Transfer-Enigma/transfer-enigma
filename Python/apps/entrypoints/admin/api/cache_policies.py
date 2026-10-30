@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from data.cache.registry import get_cache_registry
+from data.cache.storage import RedisStorage
 from entrypoints.admin.dependencies.auth import request_auth
 from entrypoints.admin.schemas.data_browser import (
     CacheEntriesResponse,
@@ -11,9 +11,11 @@ from entrypoints.admin.schemas.data_browser import (
     CachePolicyPatch,
     CachePolicyResponse,
 )
-from entrypoints.admin.service.crud_cache_policies import crud_cache_policies
-from shared.cache import CacheEntity, RedisStorage, cache_prefix, flush_cache
+from services.cache.backend import cache_prefix, flush_cache
+from services.cache.registry import get_cache_registry
+from services.crud.cache_policies import crud_cache_policies
 from shared.database import Database, get_database
+from shared.models.cache import CacheEntity
 
 router = APIRouter(prefix="/cache/policies", tags=["cache-policies"])
 

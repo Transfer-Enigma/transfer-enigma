@@ -5,8 +5,8 @@ import pytest
 from entrypoints.user.api.v2.routes.post import _apply_demo_transforms, _normalize_routes
 from entrypoints.user.dependencies.auth_context import AuthContext
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
-from services.route_calculation import _strip_demo_fields, calculate_routes
-from shared.dto.route import ContainerItem, PriceItem, RouteResult, RouteSegment
+from services.routes.calculation import _strip_demo_fields, calculate_routes
+from shared.models.route_entities import ContainerItem, PriceItem, RouteResult, RouteSegment
 
 
 def _make_segment(company: str = "CompanyA", **overrides) -> RouteSegment:
@@ -81,8 +81,8 @@ def _make_request(
 async def test_rail_only_internal():
     route = _make_full_route(company="CompanyA")
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(
             return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -107,8 +107,8 @@ async def test_rail_only_internal():
 async def test_sea_only_internal():
     route = _make_full_route(company="SeaLine", type="SEA")
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(
             return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -129,8 +129,8 @@ async def test_sea_only_internal():
 @pytest.mark.asyncio
 async def test_no_routes_found():
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(
             return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -150,8 +150,8 @@ async def test_no_routes_found():
 @pytest.mark.asyncio
 async def test_no_matching_containers():
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(return_value=[])
         mock_agg.search_container_ids = lambda containers, weight, size: []
@@ -170,8 +170,8 @@ async def test_no_matching_containers():
 async def test_multiple_internal_pairs():
     route_a = _make_full_route(company="CompanyA")
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(
             return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -192,8 +192,8 @@ async def test_multiple_internal_pairs():
 async def test_fesco_external_source():
     route = _make_full_route(company="FESCO")
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(return_value=[])
         mock_agg.search_container_ids = lambda containers, weight, size: []
@@ -216,8 +216,8 @@ async def test_mixed_internal_and_external():
     route_int = _make_full_route(company="CompanyA")
     route_ext = _make_full_route(company="FESCO")
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(
             return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -245,8 +245,8 @@ async def test_mixed_internal_and_external():
 async def test_fesco_api_error_does_not_break_all():
     route_int = _make_full_route(company="CompanyA")
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(
             return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -271,8 +271,8 @@ async def test_fesco_api_error_does_not_break_all():
 async def test_external_only_without_internal():
     route = _make_full_route(company="FESCO")
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(return_value=[])
         mock_agg.search_container_ids = lambda containers, weight, size: []
@@ -293,8 +293,8 @@ async def test_external_only_without_internal():
 @pytest.mark.asyncio
 async def test_empty_ids_lists_returns_empty():
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(return_value=[])
         mock_agg.search_container_ids = lambda containers, weight, size: []
@@ -313,8 +313,8 @@ async def test_empty_ids_lists_returns_empty():
 @pytest.mark.asyncio
 async def test_container_fetch_fails_gracefully():
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(side_effect=Exception("DB timeout"))
         mock_agg.search_container_ids = Mock()
@@ -361,7 +361,7 @@ async def test_apply_demo_transforms_does_not_strip_for_non_demo():
 
 @pytest.mark.asyncio
 @patch("entrypoints.user.api.v2.routes.post.get_setting_cached", new_callable=AsyncMock)
-@patch("services.profit.get_rates", new_callable=AsyncMock)
+@patch("services.demo.profit.get_rates", new_callable=AsyncMock)
 async def test_apply_demo_transforms_with_profit(mock_rates, mock_get_setting):
     mock_get_setting.return_value = Mock(value=["company"])
     mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
@@ -376,7 +376,7 @@ async def test_apply_demo_transforms_with_profit(mock_rates, mock_get_setting):
 
 @pytest.mark.asyncio
 @patch("entrypoints.user.api.v2.routes.post.get_setting_cached", new_callable=AsyncMock)
-@patch("services.profit.get_rates", new_callable=AsyncMock)
+@patch("services.demo.profit.get_rates", new_callable=AsyncMock)
 async def test_apply_demo_transforms_with_profit_and_rail(mock_rates, mock_get_setting):
     mock_get_setting.return_value = Mock(value=["company"])
     mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
@@ -399,8 +399,8 @@ def test_strip_demo_fields_empty_segments():
 async def test_truck_start_point_forwarded_to_internal():
     route = _make_full_route()
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(
             return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -424,8 +424,8 @@ async def test_truck_start_point_forwarded_to_internal():
 async def test_truck_end_point_forwarded_to_internal():
     route = _make_full_route()
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(
             return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -449,8 +449,8 @@ async def test_truck_end_point_forwarded_to_internal():
 async def test_no_truck_params_by_default():
     route = _make_full_route()
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(
             return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -474,8 +474,8 @@ async def test_no_truck_params_by_default():
 async def test_both_truck_params_forwarded_to_external():
     route = _make_full_route()
     with (
-        patch("services.route_calculation.aggregators") as mock_agg,
-        patch("services.route_calculation.api_client") as mock_fesco,
+        patch("services.routes.calculation.aggregators") as mock_agg,
+        patch("services.routes.calculation.api_client") as mock_fesco,
     ):
         mock_agg.get_containers = AsyncMock(return_value=[])
         mock_agg.search_container_ids = lambda containers, weight, size: []

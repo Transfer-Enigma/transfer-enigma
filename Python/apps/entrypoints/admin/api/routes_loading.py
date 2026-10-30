@@ -1,4 +1,3 @@
-from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException
@@ -9,35 +8,23 @@ from starlette.status import (
     HTTP_503_SERVICE_UNAVAILABLE,
 )
 
-import gspread
-import pandas
 from entrypoints.admin.dependencies.auth import request_auth
-from entrypoints.admin.models.upoader_fields_config import UploaderFieldsConfig
-from entrypoints.admin.service.routes_loading.errors import (
-    CompanyNotFoundException,
-    InvalidDroppRow,
-    InvalidRouteConditionException,
-    InvalidRouteTypeException,
-    NoPriceInRouteException,
-    PointNotFoundException,
-    PointsWithNanException,
+from services.routes_loading.data_downloader import (
+    DataDownloader,
+    FileDownloader,
+    GspreadDownloader,
 )
-from entrypoints.admin.service.routes_loading.processor import load_data
-from gspread_dataframe import get_as_dataframe
+from services.routes_loading.errors_parser import parse_all_warning_types
+from services.routes_loading.fields_map import get_fields_config_from_file
+from services.routes_loading.processor import load_data
 from shared.config import get_settings
 from shared.database import get_database
-from shared.orm.route import RouteType
-from shared.resources import Resources
+from shared.exceptions.routes_loading import PointsWithNanException
+from shared.models.upoader_fields_config import UploaderFieldsConfig
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/data")
 settings = get_settings()
-
-
-def get_fields_config_from_file():
-    return UploaderFieldsConfig(
-        **Resources.get(settings.DEFAULT_UPLOADER_FIELDS_CONFIG_RESOURCE_NAME, scope="backend_admin").read_json(),
-    )
 
 
 @router.post("/update-from-gsheets")
@@ -70,8 +57,8 @@ async def update_from_gsheets(
     )
 
 
-@router.post("/update-from-gsheets-with-custom-fields")
-async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split it by worksheets
+@router.post("/update-from-gsheets-with-custom-fields")  # TODO: add response code schemas
+async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheets
     db_session: Annotated[AsyncSession, Depends(get_database().session)],
     fields_config: UploaderFieldsConfig,
     gsheets_url: str = settings.DEFAULT_GSHEETS_URL,
@@ -84,34 +71,26 @@ async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split i
     load_on_warnings: bool = True,
     data_file: Annotated[bytes | None, File()] = None,
 ):
+    # TODO: errors mapping
+    data_downloader: DataDownloader
     if data_file:
-        def download_data(ws):
-            return pandas.read_excel(BytesIO(data_file), ws)
+        data_downloader = FileDownloader(data_file)
     else:
         try:
-            gs = gspread.service_account(
-                filename=Resources.get(settings.GOOGLE_SERVICE_ACCOUNT_RESOURCE_NAME, scope="backend_admin").path,
-            )
-            sources_gs = gs.open_by_url(gsheets_url)
+            data_downloader = GspreadDownloader(gsheets_url)
         except Exception as e:
             raise HTTPException(status_code=HTTP_503_SERVICE_UNAVAILABLE, detail={
                 "type": type(e).__name__,
                 "detail": str(e),
             }) from e
 
-        def download_data(ws):
-            return get_as_dataframe(
-                sources_gs.worksheet(ws),
-                evaluate_formulas=True,
-            )
-
     try:
-        sea_routes_df = download_data(sea_routes_ws_name)
-        rail_routes_df = download_data(rail_routes_ws_name)
-        truck_routes_df = download_data(truck_routes_ws_name)
-        dropp_routes_df = download_data(dropp_routes_ws_name)
-        services_df = download_data(services_ws_name)
-        points_df = download_data(points_ws_name) if points_ws_name else None
+        sea_routes_df = data_downloader.download_data(sea_routes_ws_name)
+        rail_routes_df = data_downloader.download_data(rail_routes_ws_name)
+        truck_routes_df = data_downloader.download_data(truck_routes_ws_name)
+        dropp_routes_df = data_downloader.download_data(dropp_routes_ws_name)
+        services_df = data_downloader.download_data(services_ws_name) if services_ws_name else None
+        points_df = data_downloader.download_data(points_ws_name) if points_ws_name else None
 
     except Exception as e:
         raise HTTPException(status_code=HTTP_503_SERVICE_UNAVAILABLE, detail={
@@ -159,77 +138,4 @@ async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split i
         "routesCount": str(routes_count),
         "routesInsertedCount": str(res_metadata),
         "warnings": parsed_warnings,
-    }
-
-
-def parse_all_warning_types(warnings, fc):
-    return list({
-        parse_error(err[0], err[1], err[2])
-        for err in warnings
-        if issubclass(type(err[0]), Exception)
-    }) + [
-        parse_warning(warning[0], warning[1], warning[2], fc)
-        for warning in warnings
-        if not issubclass(type(warning[0]), Exception)
-    ]
-
-
-def parse_error(error, row_number, routes_ws_type):
-    row_number += 2
-    routes_ws_map = {
-        RouteType.SEA: "МОРЕ",
-        RouteType.RAIL: "ЖД",
-        RouteType.TRUCK: "АВТО",
-        None: "ДРОПП",
-    }
-    routes_ws = routes_ws_map.get(routes_ws_type, "Неизвестный")
-
-    if isinstance(error, InvalidRouteConditionException):
-        return f"Неверные условия поставки: '{error.condition}' (лист {routes_ws}, строка {row_number})"
-
-    elif isinstance(error, PointNotFoundException):
-        return f"Не найден город или порт: '{error.error_key}' (лист {routes_ws}, строка {row_number})"
-
-    elif isinstance(error, CompanyNotFoundException):
-        return f"Не найдена компания: '{error.error_key}' (лист {routes_ws}, строка {row_number})"
-
-    elif isinstance(error, InvalidRouteTypeException):
-        return f"Неверный тип маршрута: '{error.route_type}' (лист {routes_ws}, строка {row_number})"
-
-    elif isinstance(error, NoPriceInRouteException):
-        return f"Отсутствуют цены в маршруте (лист {routes_ws}, строка {row_number})"
-
-    elif isinstance(error, InvalidDroppRow):
-        return f"Неверный формат данных в листе {routes_ws} на строке {row_number}"
-
-    return f"Неизвестная ошибка {type(error).__name__}: '{error}' (лист {routes_ws}, строка {row_number})"
-
-
-def parse_warning(key, value, routes_ws_name, fields_config: UploaderFieldsConfig):
-    if key == "MissingRoutesDataException":
-        missing_info_parsed = []
-        for invalid_row in value:
-            row_number = invalid_row["row_index"] + 2
-            missing_info_parsed.append({
-                "error": f"Ошибка в листе {routes_ws_name} на строке {row_number} в следующих ячейках:",
-                "row_number": row_number,
-                "columns": invalid_row["skipped_columns"],
-            })
-
-        return {
-            "error": f"Ошибка в листе {routes_ws_name}: не заполнены обязательные столбцы "
-                     f"в следующих строках ({len(value)}):",
-            "rows_list": missing_info_parsed,
-        }
-
-    elif key == "UnsupportedDateFormat":
-        return {
-            "error": f"Ошибка в листе {routes_ws_name}: неподдерживаемый формат столбцов "
-                     f"{fields_config.effective_from}/{fields_config.effective_to}:",
-            "row_numbers": [i + 2 for i in value],
-        }
-
-    return {
-        "error": f"Неизвестная ошибка '{key}' в листе {routes_ws_name}",
-        "row_numbers": [i + 2 for i in value],
     }

@@ -5,8 +5,8 @@ import pytest
 from data.internal.aggregators.containers import get_containers, search_container_ids
 from data.internal.aggregators.routes import find_all_paths, process_results
 from shared.database import Database
-from shared.dto.route import ContainerItem
-from shared.dto.setting import SettingItem
+from shared.models.route_entities import ContainerItem
+from shared.models.setting import SettingItem
 from shared.orm.container import ContainerType
 from shared.orm.route import ContainerOwner, RouteType
 from shared.orm.setting import SettingType

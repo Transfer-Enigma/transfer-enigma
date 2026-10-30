@@ -24,12 +24,6 @@ Three FastAPI microservices + shared libraries + CLI tools + Alembic migrations:
 Import root is `Python/apps` (`pythonpath = ["apps"]` in `pyproject.toml`), so modules are imported as
 `shared.*`, `entrypoints.*`, `services.*`, `data.*` (top-level absolute imports, no `apps.` prefix).
 
-> **Package rename (architecture refactor):** `module_shared` → `shared`, `backend_auth`/`backend_user`/`backend_admin`
-> → `entrypoints/auth|user|admin`, `module_data_internal` → `data/internal`, `module_data_fesco_api_adapter` → `data/fesco`,
-> `module_shared/models` (Pydantic) → `shared/dto`, `module_shared/schemas` (ORM) → `shared/orm`,
-> `module_shared/repositories/locker` → `shared/concurrency`, `module_shared/cache.py` → `shared/cache_controller.py`.
-> Some older sections below may still use the old names — translate via this table.
-
 ```
 Python/
 ├── cli/                   # CLI debugging tools (AI-assisted route debugging)
@@ -44,7 +38,7 @@ Python/
 │   │   ├── auth/          # Port 8081 — main.py: /login, /token/refresh, /logout, /me
 │   │   ├── user/          # Port 8080 — route calculator (user-facing API)
 │   │   │   ├── main.py, autodiscover.py
-│   │   │   ├── api/           # v1/, v2/, v3/ (SSE) versioned endpoints
+│   │   │   ├── api/           # v2/, v3/ (SSE) versioned endpoints
 │   │   │   ├── dependencies/  # auth.py (JWT), auth_context.py (JWT + X-Demo-User-UID)
 │   │   │   ├── schemas/       # form_requests, routes (RouteSegment/DropItem/ServiceItem), errors, get_points_responses
 │   │   │   └── utils/         # group_points.py
@@ -75,30 +69,28 @@ Python/
 │   │               └── errors.py          # PointNotFound, CompanyNotFound, NoPriceInRoute, ...
 │   │   └── initializer/   # One-shot seeding: settings + cache policies
 │   ├── services/          # cross-entrypoint business logic
-│   │   ├── route_calculation.py  # calculate_routes orchestration
-│   │   ├── get_rates.py          # CBR rates + Redis fallback
-│   │   └── profit.py             # demo profit + currency conversion
+│   │   ├── routes/            # calculation.py — calculate_routes orchestration
+│   │   ├── rates/             # get.py — CBR rates + cache fallback
+│   │   ├── demo/              # profit.py — demo profit + currency conversion
+│   │   ├── cache/             # backend.py (CacheBackend), registry.py (CacheRegistry), refresh.py (policy refresh), seed.py
+│   │   └── settings/          # seed.py — ensure_settings (creates missing settings rows + writes cache)
 │   ├── shared/            # shared kernel (old module_shared)
 │   │   ├── config.py, database.py, logger.py, resources.py, jwt_error_handler.py
-│   │   ├── cache_controller.py   # CacheController (Redis GET/SET + Pydantic validation + locker-guarded async writes)
-│   │   ├── cache_settings.py     # Settings Redis cache (cache-aside, TTL 12h) + ensure_settings
 │   │   ├── redis_client.py       # Redis async singleton (get_redis / get_redis_client)
 │   │   ├── settings.py, setting_definitions.py
-│   │   ├── dto/                  # Pydantic domain models (old models/): route.py, setting.py, errors.py
-│   │   │   ├── route.py          # ContainerItem, PriceItem, OnePrice, ServiceItem, DropItem, RouteSegment, RouteResult
-│   │   │   └── setting.py        # SettingItem with _parse_value validator + locked field
-│   │   ├── orm/                  # SQLAlchemy models + enums (old schemas/): company, container, demo_guest, drop, point, route, service, setting
+│   │   ├── models/               # Domain models (models/): ContainerItem, PriceItem, OnePrice, ServiceItem, DropItem, RouteSegment, RouteResult, SettingItem, CacheEntity, CachePolicy
+│   │   ├── orm/                  # SQLAlchemy models + enums (old schemas/): company, container, demo_guest, drop, point, route, service, setting, cache_policy
 │   │   ├── repositories/         # demo_guest.py, setting.py (get/list helpers)
 │   │   └── concurrency/          # Locker ABC, LocalLocker, RedisLocker, TaskAlreadyRunningError
 │   └── data/              # data sources
 │       ├── internal/      # internal DB data (old module_data_internal)
 │       │   ├── aggregators/    # containers, points, routes (find_all_paths, feature flags)
 │       │   └── query_domain/   # declarative query builder (README.md inside)
-│       └── fesco/         # FESCO API adapter (old module_data_fesco_api_adapter)
-│           ├── cache.py        # CacheKeys, TTLs, get_cache_controller
-│           └── api_client/     # containers, points, routes, transformers
-├── tests/                 # pytest (SQLite in-memory, `pythonpath = ["apps"]`)
-├── alembic/, alembic.ini, Dockerfile, pyproject.toml, uv.lock
+│       ├── fesco/         # FESCO API adapter (old module_data_fesco_api_adapter)
+│       │   ├── cache.py        # per-entity backend getters (get_routes_backend(date) etc.), FESCO_SOURCE
+│       │   └── api_client/     # containers, points, routes, transformers
+│       ├── cache/         # cache primitives: cache_policies.py (defaults + ensure_cache_policies + MULTI_SOURCE_ENTITIES + is_multi_source), storage/ (protocol, local, redis)
+│       └── setings/       # NOTE: package name is "setings" (one 't') — cached.py: get_setting_cached / set_settings_cache / delete_settings_cache
 ```
 
 ### Node Frontends (`Node/apps/`)
@@ -168,7 +160,7 @@ scripts/                  # Dev workflow scripts (run, stop, rebuild, migrate)
 
 The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/workspace/tests/`, and uses hardcoded `/workspace` paths in CMD (JSON exec form, no `ENV`/shell expansion needed). `APP_DIR` is a build-time `ARG` only (default `/workspace`), never used at runtime.
 
-**Hot-dev bind mounts** (`docker-compose.hot-dev.yml`, `docker-compose.hot-dev.backend.yml`): sources are mounted per-directory over the image (mounting all of `apps/` would hide `/workspace/.venv`). When adding a new top-level package under `Python/apps/` (e.g. `data/cache`), add an `:ro` bind mount to the affected services in **both** hot-dev files — otherwise the container imports the stale image copy and fails with `ModuleNotFoundError` for new packages. Currently mounted: `entrypoints/{user,admin,auth,initializer}`, `data/{cache,fesco,internal}`, `shared`, `services` (`services/` only for `calculator` and `initializer`). Alembic files are **not** mounted — rebuild `db-migration` (`docker buildx bake db-migration`) and run `docker compose -f docker-compose.migrate.yml run --rm dbmigrator upgrade head` for new migrations.
+**Hot-dev bind mounts** (`docker-compose.hot-dev.yml`, `docker-compose.hot-dev.backend.yml`): sources are mounted per-directory over the image (mounting all of `apps/` would hide `/workspace/.venv`). When adding a new top-level package under `Python/apps/` (e.g. `data/cache`), add an `:ro` bind mount to the affected services in **both** hot-dev files — otherwise the container imports the stale image copy and fails with `ModuleNotFoundError` for new packages. Currently mounted: `entrypoints/{user,admin,auth,initializer}`, `data/`, `shared`, `services` (in `hot-dev.yml` `data/` and `services/` are mounted whole for calculator/backadmin; in `hot-dev.backend.yml` also whole, except `initializer` which mounts `data/cache`, `data/setings` and `services/` per-directory). Alembic files are **not** mounted — rebuild `db-migration` (`docker buildx bake db-migration`) and run `docker compose -f docker-compose.migrate.yml run --rm dbmigrator upgrade head` for new migrations.
 
 ### Redis Caching
 
@@ -178,22 +170,23 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 - `decode_responses=True` — all values are strings (JSON serialized)
 - Config: `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, `REDIS_PASSWORD` from `shared/config.py`
 
-**Shared cache package** (`Python/apps/shared/cache/`):
-- `storage/protocol.py` — `CacheStorage` Protocol (`get`/`set`/`delete`/`delete_prefix`)
-- `storage/local.py` — `LocalStorage` — in-process storage; `set(key, value, ttl=None)` — `ttl=None` means no expiry, invalidated explicitly
-- `storage/redis.py` — `RedisStorage` — Redis-backed storage
-- `backend.py` — `CacheBackend(storage, entity, policies)` — per-entity cache access with `get`/`set`/`delete`; keys built as ``[source:]entity:parts`` where source comes from the policy (None for single-source entities). Also exports `cache_prefix(entity, source)` and `flush_cache(storage, entity, source)` for explicit invalidation
+**Shared cache package** (`Python/apps/data/cache/` + `Python/apps/services/cache/`):
+- `data/cache/storage/protocol.py` — `CacheStorage` Protocol (`get`/`set`/`delete`/`delete_prefix`/`keys`)
+- `data/cache/storage/local.py` — `LocalStorage` — in-process storage; `set(key, value, ttl=None)` — `ttl=None` means no expiry, invalidated explicitly
+- `data/cache/storage/redis.py` — `RedisStorage` — Redis-backed storage
+- `services/cache/backend.py` — `CacheBackend(storage, entity, policies)` — per-entity cache access with `get`/`set`/`delete`/`set_async`/`silent_set_async`; keys built as ``[source:]entity:parts`` where source comes from the policy (None for single-source entities). Also exports `cache_prefix(entity, source)` and `flush_cache(storage, entity, source)` for explicit invalidation
 - `entries(limit)` on the backend (backed by `CacheStorage.keys(prefix, limit)` in `storage/`) reads back up to `limit` key/value pairs of one policy — used by the admin `GET /{id}/entries` endpoint
-- `entity.py` — `CacheEntity` StrEnum (departures, destinations, containers, routes, points, rates, settings) + `MULTI_SOURCE_ENTITIES` (departures, destinations, containers, routes, points require source) + `is_multi_source(entity)`
-- `policy.py` — `CachePolicy(source: str | None, entity, enabled, ttl)` — source is None for single-source entities
-- `__init__.py` — re-exports all above
+- `shared/dto/cache.py` — `CacheEntity` StrEnum (departures, destinations, containers, routes, points, rates, settings + `*_TODAY` variants) + `CachePolicy` dataclass (`source: str | None, entity, enabled, ttl`; source is None for single-source entities)
+- `data/cache/cache_policies.py` — default (source, entity, enabled, ttl) rows + `ensure_cache_policies()` (fills missing rows only) + `MULTI_SOURCE_ENTITIES` + `is_multi_source(entity)`
+- `data/cache/__init__.py` — empty; import `CacheEntity`/`CachePolicy` from `shared.dto.cache`
 
-**Cache registry** (`Python/apps/data/cache/registry.py`):
+**Cache registry** (`Python/apps/services/cache/registry.py`):
 - `CacheRegistry` — loads policies from the `cache_policies` table and builds per-entity `CacheBackend` instances; there is no local policy cache
 - `registry.load()` — reads policies from DB, validates source/entity combinations, rebuilds backends **only when the policy set changed** (returns `True` then, `False` otherwise, so an unchanged refresh keeps in-flight `silent_set_async` writes)
 - `registry.backend(entity, source=None)` — returns or builds a `CacheBackend` for the entity
 - `get_cache_registry()` — per-process cached singleton
-- `data/cache/refresh.py` — `refresh_policies(interval)`, `start_policy_refresh()` and the `policy_refresh()` context manager; **both** user and admin reload policies every `CACHE_POLICIES_REFRESH_INTERVAL_SECONDS` (default `10`, `0` disables). Admin also reloads its registry immediately after cache policy writes, so the calculator is the only process that waits for the periodic refresh
+- `services/cache/refresh.py` — `refresh_policies(interval)`, `start_policy_refresh()` and the `policy_refresh()` context manager; **both** user and admin reload policies every `CACHE_POLICIES_REFRESH_INTERVAL_SECONDS` (default `10`, `0` disables). Admin also reloads its registry immediately after cache policy writes, so the calculator is the only process that waits for the periodic refresh
+- `services/cache/seed.py` — `do_seed()` wrapper around `ensure_cache_policies()` for the initializer
 
 **Cache key scheme** (storage key = ``[source:]entity:parts``):
 
@@ -212,7 +205,7 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 
 **Today-policy fallback** (`data/fesco/cache.py` `get_*_backend(date)`): when `date` is today but the `*_today` policy is missing or disabled, the base-entity backend is used instead (base keys, base TTL). To turn caching off entirely, disable the base policy.
 
-**Settings cache — transparent:** `Python/apps/data/cache/settings.py` implements cache-aside for DB-backed settings:
+**Settings cache — transparent:** `Python/apps/data/setings/cached.py` implements cache-aside for DB-backed settings (note the package name is `setings`, one 't'):
 - `get_setting_cached(group, name, *, session=None)` — Redis → DB → fire-and-forget write
 - `set_settings_cache(item)` — write single setting to Redis
 - `delete_settings_cache(group, name)` — remove single setting from Redis
@@ -227,7 +220,6 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 4. If both fail: `RuntimeError`
 
 **API endpoints:**
-- `GET /v1/rates` — returns `{USD: 90.0, ...}` (rates only, async now)
 - `GET /v2/rates` — returns `{rates: {...}, updated_at: "2026-06-16"}` (adds date)
 
 **Redis docker-compose:**
@@ -249,7 +241,7 @@ Every policy write calls `registry.load()` in the admin process (so its settings
 
 **Unified cache seeder** (`entrypoints/initializer/main.py`):
 - Default settings live in `shared/setting_definitions.py`, default cache policies are defined inline in `data/cache/cache_policies.py` (all FESCO entities enabled TTL 3600s/86400s/600s; all `internal` entities disabled; `rates` enabled, `settings` disabled — seeding only fills missing rows)
-- `ensure_settings()` / `ensure_cache_policies()` create only missing rows (existing rows are never touched); they are run by the one-shot initializer entrypoint (`entrypoints/initializer/main.py`), not by the user+admin lifespans
+- `ensure_settings()` (`services/settings/seed.py`) / `ensure_cache_policies()` (`data/cache/cache_policies.py`, wrapped by `services/cache/seed.py`) create only missing rows (existing rows are never touched); they are run by the one-shot initializer entrypoint (`entrypoints/initializer/main.py`), not by the user+admin lifespans
 - One-shot service `initializer` (`docker-compose.yml` + `docker-compose.migrate.yml`): `python -m entrypoints.initializer.main`, exit 0 on success. `calculator` and `backadmin` start only after it completes (`depends_on: service_completed_successfully`); `prod-update.sh` runs migrate first, then `up -d` triggers the initializer
 
 ### Locker System
@@ -257,7 +249,7 @@ Every policy write calls `registry.load()` in the admin process (so its settings
 `shared/concurrency/` — lock/unlock abstraction for preventing duplicate concurrent operations:
 
 - **`Locker` (ABC)** — sync/async `acquire`/`release`, context managers, class-level `@locked`/`@alocked` decorators that wrap functions with acquire/release semantics
-- **`LocalLocker`** — in-process threading-based lock (`threading.Lock` + `dict[str, bool]`). Used by `CacheController.set_cache_async` to prevent duplicate fire-and-forget writes for the same cache key
+- **`LocalLocker`** — in-process threading-based lock (`threading.Lock` + `dict[str, bool]`). Used by `CacheBackend.set_async` to prevent duplicate fire-and-forget writes for the same cache key
 - **`RedisLocker`** — distributed Redis-based lock using `SET NX EX` (async only; sync methods raise `RuntimeError`)
 - **`TaskAlreadyRunningError`** — raised on re-acquire
 
@@ -337,7 +329,7 @@ lookup — a lowercase code must never raise "валюта не найдена" 
     - `stores/rates.ts` — `setRates` uppercases rate keys; `setCurrentRate` uppercases the incoming value before the map lookup
     - `services/rates.ts` — `convertToCurrentRate` and `isConversationNeeded` uppercase their argument
     - `helpers/currency.ts` — `getCurrencySymbol` uppercases the symbol key
-- **Rate aliases**: `RUB` = `RUR` = `РУБ` = 1 — injected by `services/get_rates.py`, listed in frontend `isConversationNeeded`
+- **Rate aliases**: `RUB` = `RUR` = `РУБ` = 1 — injected by `services/rates/get.py`, listed in frontend `isConversationNeeded`
 - **Not normalized yet**: admin CRUD payloads (`entrypoints/admin/schemas/data_browser.py`) and demo-guest profit
   currencies — they accept any string, so normalize (`field_validator`) if you touch those write paths.
 
@@ -364,17 +356,18 @@ lookup — a lowercase code must never raise "валюта не найдена" 
     - `test_demo_guest_repo.py` — `get_demo_guest_by_uid` found/not found/profit overrides, `list_demo_guests` empty/multiple
     - `test_get_rates.py` — `get_rates` returns dict, caching, with datetime, API failure fallback
     - `test_setting_cache.py` — `get_setting_cached` cache hit/miss/not_found
+    - `test_cache_registry.py` — CacheRegistry load/rebuild, policy refresh, today-backend fallback
+    - `test_cache_seed.py` — `ensure_cache_policies` creates missing rows only
     - `test_fesco_api_client.py` — FESCO API transformations, container search, points, routes, caching
     - `test_deduplication.py` — route deduplication preserves distinct routes, multiple prices
     - `test_route_calculation_v3_sse.py` — SSE streaming, demo transforms, error handling
     - `test_query_domain_expr.py` — ColumnRef, Condition, Connector
-    - `test_query_domain_segment.py` — Segment construction, column access, repr
-    - `test_query_domain_drop_off.py` — DropOff column access, exists(), repr
     - `test_query_domain_builder.py` — RouteBuilder API tests + DB-backed build tests
+    - `test_resources_base_path.py` — settings/base-path resolution
 - **Test DB**: SQLite in-memory (`sqlite+aiosqlite`). Tables created via `Base.metadata.create_all()`, **not** via Alembic migrations (migrations have MySQL-specific code).
 - **Auth mocks**: patch `get_demo_guest_by_uid`, `get_database`, and `request_auth` directly
 - **FESCO API mocks**: use `unittest.mock.patch` on `data.fesco.api_client` directly
-- **Test data**: factory functions in `Python/tests/data/__init__.py` build ORM objects with sensible defaults
+- **Test data**: factory functions in `Python/tests/factories.py` build ORM objects with sensible defaults
 - **Currency rates**: tests use RUB-relative rates `{"USD": 90.0, "RUB": 1.0}`; `_convert_currency` formula is `amount * rates[from] / rates[to]`
 - Run: `make test` (Docker, profile `test` — won't start with plain `docker compose up`)
 
@@ -421,7 +414,7 @@ shared ───┬── entrypoints/auth
 ## Architecture & Design Decisions
 
 ### API Versioning
-- User API uses URL versioning: `/v1/`, `/v2/`, `/v3/`
+- User API uses URL versioning: `/v2/`, `/v3/`
 - Auth and Admin APIs are not versioned
 - `/v3/routes/calculate` (POST) is an SSE endpoint for progressive route streaming — each route/error is yielded as an SSE event when available
 
@@ -436,7 +429,6 @@ shared ───┬── entrypoints/auth
 - All demo auth is in `entrypoints/user` (old `backend_user`) — `entrypoints/auth` is NOT involved
 - Backend: `get_auth_context` dependency checks `X-Demo-User-UID` header → looks up `demo_guests` table → returns `AuthContext` (is_demo, profit overrides). If no header, falls through to JWT via `request_auth`.
 - V2 endpoints use `Depends(get_auth_context)` (supports both JWT and header auth)
-- V1 endpoints use `Depends(request_auth)` (JWT only)
 - Demo endpoints: `POST /api/v2/demo/validate` (validates UID), `GET /api/v2/demo/feature-flags` (returns blurred_fields list)
 - Frontend: `helpers/requests.ts` → `demoHeaders()` reads `useDemoAuth()` Pinia store → injects `X-Demo-User-UID` into every `fetchAsJSON()` call
 - Demo users see blurred company names via CSS class (driven by `useBlurredFields` composable ← `featureFlags` store)
@@ -484,9 +476,8 @@ shared ───┬── entrypoints/auth
 - V2 handler (`api/v2/routes/post.py`) owns: `_route_result_to_tuple`, `_normalize_routes`, `_apply_demo_transforms`
     - `_seg_to_price_dict` was removed — models are returned as-is (no OnePrice flattening to `price`/`currency`/`container`/`beginCond`/`finishCond` flat fields)
     - Response format: `[segments: list[RouteSegment], drop: DropItem | None, bool, services: list[ServiceItem]]` — tuple with raw model objects
-- V1 handler (`api/v1/routes/post.py`) has its own copies of these functions (legacy, separate format)
-- `_strip_demo_fields` stays in `services/route_calculation.py` (data manipulation, not format conversion)
-- No duplicate Pydantic response models — `entrypoints/user/schemas/routes.py` imports `RouteSegment`, `DropItem`, `ServiceItem` from `shared.dto.route`
+- `_strip_demo_fields` stays in `services/routes/calculation.py` (data manipulation, not format conversion)
+- No duplicate Pydantic response models — `entrypoints/user/schemas/routes.py` imports `RouteSegment`, `DropItem`, `ServiceItem` from `shared.models.route`
 
 ### Database
 - MariaDB, accessed via SQLAlchemy async + `aiomysql`
@@ -596,7 +587,7 @@ All output is JSON by default (for AI/script parsing).
 - `RouteSegmentStatsResponse` is returned by `GET /db/route-segments/stats`: totals, type/through/owner distribution, top 20 companies
 
 **Settings CRUD** (`crud_settings.py`) — value validation and cache sync:
-- `parse_setting_value(value, value_type)` in `shared/dto/setting.py` is a standalone function (also used by `SettingItem._parse_value` validator)
+- `parse_setting_value(value, value_type)` in `shared/models/setting.py` is a standalone function (also used by `SettingItem._parse_value` validator)
 - `_validate_value()` static method wraps it, raising `HTTPException(422)` on parse failure
 - `_build_instance` / `_apply_update` validate against `data.value_type` (known from request)
 - For PATCH: `patch()` method is overridden — gets the model from DB first, validates `data.value` against the **model's existing** `value_type`, then calls `_apply_patch` (which does no value validation)
@@ -624,16 +615,16 @@ All output is JSON by default (for AI/script parsing).
 
 ### Cache Pitfalls
 
-- `find_all_paths` in `api_client/routes.py` must call `list(data)` on the fetch result because `transform_routes` returns a `map` object (consumable iterator). Without `list()`, `CacheController.set_cache(model_dump=True)` inside `silent_set_cache_async` would exhaust the iterator before serialization. The `list()` call also ensures the result can be returned to the caller.
+- `find_all_paths` in `api_client/routes.py` must call `list(data)` on the fetch result because `transform_routes` returns a `map` object (consumable iterator). Without `list()`, `backend.silent_set_async(data=..., dump=True)` would exhaust the iterator before serialization. The `list()` call also ensures the result can be returned to the caller.
 - Points caching (`api_client/points.py`) is safe because its fetch functions return plain JSON dicts/lists, not iterators.
 - Container caching (`api_client/containers.py`) is also safe — `transform_containers` returns a sorted list.
 
 ### FESCO API Client Tests
 
 All tests in `test_fesco_api_client.py` that call `get_containers`, `get_departure_points_by_date`, `get_destination_points_by_date`, or `find_all_paths` must mock `redis` because these functions now use Redis caching directly. The mock targets:
-- `data.fesco.cache.get_redis` — for points/routes (functions go through `cache.py`)
-- `data.fesco.api_client.containers.get_cache_controller` — for containers (imports `get_cache_controller` from `cache.py`)
-- `data.fesco.api_client.routes.aiohttp.ClientSession` — for `find_all_paths` (uses `_fetch_all_paths`)
+- `data.fesco.api_client.points.aiohttp.ClientSession` — for points (backends go through `cache.py`)
+- `data.fesco.api_client.containers.get_containers_backend` — for containers
+- `data.fesco.api_client.routes.get_routes_backend` + `data.fesco.api_client.routes.aiohttp.ClientSession` — for `find_all_paths`
 
 ---
 

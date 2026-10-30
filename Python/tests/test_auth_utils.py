@@ -1,8 +1,8 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from services.route_calculation import _strip_demo_fields
-from shared.dto.route import RouteSegment
+from services.routes.calculation import _strip_demo_fields
+from shared.models.route_entities import RouteSegment
 
 
 class TestStripDemoFields:
@@ -137,7 +137,7 @@ async def test_get_auth_context_invalid_demo_uid(sqlite_db):
 
 @pytest.mark.asyncio
 async def test_strip_demo_fields_no_routes():
-    from services.route_calculation import _strip_demo_fields
+    from services.routes.calculation import _strip_demo_fields
 
     routes = []
     _strip_demo_fields(routes)
@@ -146,7 +146,7 @@ async def test_strip_demo_fields_no_routes():
 
 @pytest.mark.asyncio
 async def test_strip_demo_fields_empty_segments_list():
-    from services.route_calculation import _strip_demo_fields
+    from services.routes.calculation import _strip_demo_fields
 
     routes = [([], None, False, [])]
     _strip_demo_fields(routes)

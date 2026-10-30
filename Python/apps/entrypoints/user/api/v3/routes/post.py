@@ -5,12 +5,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Response
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 
-from data.cache.settings import get_setting_cached
+from data.settings.cached import get_setting_cached
 from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
-from services.profit import apply_demo_profit_to_route
-from services.route_calculation import calculate_routes_stream
-from shared.dto.route import RouteResult
+from services.demo.profit import apply_demo_profit_to_route
+from services.routes.calculation import calculate_routes_stream
+from shared.models.route_entities import RouteResult
 
 router = APIRouter(prefix="/v3/routes", tags=["v3", "routes"])
 

@@ -3,16 +3,18 @@ import datetime
 import logging
 from collections.abc import Iterable
 
-from data.cache.settings import get_setting_cached
 from data.internal.query_domain import DropOff, RouteBuilder, Segment
 from data.internal.query_domain.expr import Condition
+from data.settings.cached import get_setting_cached
+from data.settings.definitions import get_setting_definition
 from shared.database import Base, get_database
-from shared.dto.route import RouteResult
+from shared.models.route_entities import RouteResult
 from shared.orm.drop import DropModel
 from shared.orm.route import ContainerOwner, RouteModel, RouteType
-from shared.setting_definitions import get_setting_definition
 
 from .transformers.routes import transform_routes
+
+# TODO: move flags reading and other business logic to services
 
 logger = logging.getLogger(__name__)
 

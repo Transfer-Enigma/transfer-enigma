@@ -7,14 +7,16 @@ from fastapi.responses import StreamingResponse
 from starlette.status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR
 
 from entrypoints.admin.dependencies.auth import request_auth
-from entrypoints.admin.responses import DetailErrorResponse, ErrorDescriptor, MultiErrorResponse
 from entrypoints.admin.responses_fabric import (
     create_an_error_descriptor_from_an_exception,
     create_multi_error_response_from_an_array_of_exceptions,
 )
-from entrypoints.admin.service.db_management.db_dumper import create_db_dump
-from entrypoints.admin.service.db_management.db_eraser import clear_database_data
-from entrypoints.admin.service.db_management.db_loader import load_db_dump
+from entrypoints.admin.schemas.responses import (
+    DetailErrorResponse,
+    ErrorDescriptor,
+    MultiErrorResponse,
+)
+from services.db_management import clear_database_data, create_db_dump, load_db_dump
 from shared.database import Database, get_database
 
 router = APIRouter(prefix="/db")

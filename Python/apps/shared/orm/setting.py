@@ -1,16 +1,7 @@
-import enum
-
 from shared.database import Base
+from shared.models.settings import SettingType
 from sqlalchemy import Enum, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
-
-
-class SettingType(enum.Enum):
-    BOOL = "BOOL"
-    INT = "INT"
-    FLOAT = "FLOAT"
-    STRING = "STRING"
-    JSON = "JSON"
 
 
 class SettingModel(Base):
