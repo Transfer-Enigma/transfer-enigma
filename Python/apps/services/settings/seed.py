@@ -5,8 +5,8 @@ Creates default settings that are still missing.
 
 import logging
 
-from data.setings.cached import set_settings_cache
-from data.setings.definitions import get_setting_definitions
+from data.settings.cached import set_settings_cache
+from data.settings.definitions import get_setting_definitions
 from shared.database import get_database
 from shared.models.setting import SettingItem, parse_setting_value
 from shared.orm.setting import SettingModel

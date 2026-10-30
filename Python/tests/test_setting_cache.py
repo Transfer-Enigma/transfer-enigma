@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 from data.cache.storage import LocalStorage
-from data.setings.cached import delete_settings_cache, get_setting_cached
+from data.settings.cached import delete_settings_cache, get_setting_cached
 from services.cache.registry import CacheRegistry
 from shared.dto.cache import CacheEntity
 from shared.models.setting import SettingItem
@@ -47,7 +47,7 @@ async def test_get_setting_cached_cache_hit(sqlite_db, sqlite_session):
         data=_mock_setting(), dump=True,
     )
 
-    with patch("data.setings.cached.get_cache_registry", return_value=registry):
+    with patch("data.settings.cached.get_cache_registry", return_value=registry):
         result = await get_setting_cached("test_group", "test_key", session=sqlite_session)
 
     assert result is not None
@@ -64,7 +64,7 @@ async def test_get_setting_cached_cache_miss_db_found(sqlite_db, sqlite_session)
 
     registry = await _registry(sqlite_db, sqlite_session)
 
-    with patch("data.setings.cached.get_cache_registry", return_value=registry):
+    with patch("data.settings.cached.get_cache_registry", return_value=registry):
         result = await get_setting_cached("test_group", "test_key", session=sqlite_session)
 
     assert result is not None
@@ -77,7 +77,7 @@ async def test_get_setting_cached_cache_miss_db_found(sqlite_db, sqlite_session)
 async def test_get_setting_cached_not_found(sqlite_db, sqlite_session):
     registry = await _registry(sqlite_db, sqlite_session)
 
-    with patch("data.setings.cached.get_cache_registry", return_value=registry):
+    with patch("data.settings.cached.get_cache_registry", return_value=registry):
         result = await get_setting_cached("nonexistent", "key", session=sqlite_session)
 
     assert result is None
@@ -92,7 +92,7 @@ async def test_get_setting_cached_without_policy_is_not_cached(sqlite_db, sqlite
 
     registry = CacheRegistry(storage=LocalStorage())
 
-    with patch("data.setings.cached.get_cache_registry", return_value=registry):
+    with patch("data.settings.cached.get_cache_registry", return_value=registry):
         result = await get_setting_cached("test_group", "test_key", session=sqlite_session)
 
     assert result is not None
@@ -108,7 +108,7 @@ async def test_delete_settings_cache_removes_a_value(sqlite_db, sqlite_session):
     backend = registry.backend(CacheEntity.SETTINGS)
     await backend.set("test_group", "test_key", data=_mock_setting(), dump=True)
 
-    with patch("data.setings.cached.get_cache_registry", return_value=registry):
+    with patch("data.settings.cached.get_cache_registry", return_value=registry):
         await delete_settings_cache("test_group", "test_key")
 
     assert await backend.get("test_group", "test_key") is None

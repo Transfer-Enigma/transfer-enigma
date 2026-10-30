@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from data.setings.cached import get_setting_cached
+from data.settings.cached import get_setting_cached
 from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from entrypoints.user.schemas.routes import NormalizedRoutes, RoutesDataResponse

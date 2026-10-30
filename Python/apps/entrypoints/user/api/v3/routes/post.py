@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Response
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 
-from data.setings.cached import get_setting_cached
+from data.settings.cached import get_setting_cached
 from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
 from services.demo.profit import apply_demo_profit_to_route

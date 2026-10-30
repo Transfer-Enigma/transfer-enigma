@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Query
 from fastapi.params import Depends
 
-from data.setings.cached import delete_settings_cache, set_settings_cache
+from data.settings.cached import delete_settings_cache, set_settings_cache
 from entrypoints.admin.dependencies.auth import request_auth
 from entrypoints.admin.schemas.data_browser import (
     CompanyCreate,
