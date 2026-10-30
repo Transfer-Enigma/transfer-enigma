@@ -5,7 +5,6 @@ from fastapi import FastAPI
 
 from data.cache.refresh import policy_refresh
 from data.cache.registry import get_cache_registry
-from data.cache.settings import ensure_settings
 from fastapi_another_jwt_auth import AuthJWT
 from fastapi_another_jwt_auth.exceptions import AuthJWTException
 from shared.config import get_settings
@@ -37,7 +36,6 @@ async def lifespan(_: FastAPI):
     await get_database().init()
     await get_redis_client().init()
     await get_cache_registry().load()
-    await ensure_settings()
     async with policy_refresh():
         try:
             yield

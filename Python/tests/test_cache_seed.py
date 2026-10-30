@@ -86,4 +86,6 @@ async def test_ensure_cache_policies_is_idempotent(sqlite_db, sqlite_session):
 async def test_seed_cache_services_call_data_layer():
     """Test that seed services exist and are importable."""
     from services.cache.seed import do_seed as seed_cache_policies
+    from services.settings.seed import do_seed as seed_settings
     assert callable(seed_cache_policies)
+    assert callable(seed_settings)

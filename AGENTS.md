@@ -73,6 +73,7 @@ Python/
 │   │               ├── uploader.py        # ORM model creation (create_route, create_route_service, create_dropp)
 │   │               ├── helpers.py         # nan_to_none_mapper, price_filter, format_date
 │   │               └── errors.py          # PointNotFound, CompanyNotFound, NoPriceInRoute, ...
+│   │   └── initializer/   # One-shot seeding: settings + cache policies
 │   ├── services/          # cross-entrypoint business logic
 │   │   ├── route_calculation.py  # calculate_routes orchestration
 │   │   ├── get_rates.py          # CBR rates + Redis fallback
@@ -167,7 +168,7 @@ scripts/                  # Dev workflow scripts (run, stop, rebuild, migrate)
 
 The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/workspace/tests/`, and uses hardcoded `/workspace` paths in CMD (JSON exec form, no `ENV`/shell expansion needed). `APP_DIR` is a build-time `ARG` only (default `/workspace`), never used at runtime.
 
-**Hot-dev bind mounts** (`docker-compose.hot-dev.yml`, `docker-compose.hot-dev.backend.yml`): sources are mounted per-directory over the image (mounting all of `apps/` would hide `/workspace/.venv`). When adding a new top-level package under `Python/apps/` (e.g. `data/cache`), add an `:ro` bind mount to the affected services in **both** hot-dev files — otherwise the container imports the stale image copy and fails with `ModuleNotFoundError` for new packages. Currently mounted: `entrypoints/{user,admin,auth}`, `data/{cache,fesco,internal}`, `shared`, `services` (`services/` only for `calculator`). Alembic files are **not** mounted — rebuild `db-migration` (`docker buildx bake db-migration`) and run `docker compose -f docker-compose.migrate.yml run --rm dbmigrator upgrade head` for new migrations.
+**Hot-dev bind mounts** (`docker-compose.hot-dev.yml`, `docker-compose.hot-dev.backend.yml`): sources are mounted per-directory over the image (mounting all of `apps/` would hide `/workspace/.venv`). When adding a new top-level package under `Python/apps/` (e.g. `data/cache`), add an `:ro` bind mount to the affected services in **both** hot-dev files — otherwise the container imports the stale image copy and fails with `ModuleNotFoundError` for new packages. Currently mounted: `entrypoints/{user,admin,auth,initializer}`, `data/{cache,fesco,internal}`, `shared`, `services` (`services/` only for `calculator` and `initializer`). Alembic files are **not** mounted — rebuild `db-migration` (`docker buildx bake db-migration`) and run `docker compose -f docker-compose.migrate.yml run --rm dbmigrator upgrade head` for new migrations.
 
 ### Redis Caching
 
@@ -215,7 +216,7 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 - `get_setting_cached(group, name, *, session=None)` — Redis → DB → fire-and-forget write
 - `set_settings_cache(item)` — write single setting to Redis
 - `delete_settings_cache(group, name)` — remove single setting from Redis
-- `backend_user` lifespan calls `get_redis_client().init()`, `get_cache_registry().load()`, `ensure_settings()` and runs the policy refresh loop
+- `backend_user` lifespan calls `get_redis_client().init()`, `get_cache_registry().load()` and runs the policy refresh loop
 - `backend_admin` lifespan calls `get_redis_client().init()`, `get_cache_registry().load()` and runs the same policy refresh loop
 - Admin settings CRUD endpoints use `BackgroundTasks` to set/delete Redis values after the DB write, so settings changes are visible immediately
 
@@ -245,6 +246,11 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 - `GET /{id}/entries?limit=50` — read-only listing of what one policy holds right now; returns `{policy_id, prefix, count, entries: [{key, value}]}` with `limit` in `1..500` (values exactly as stored)
 
 Every policy write calls `registry.load()` in the admin process (so its settings-cache writes honour the new policy immediately). Other processes pick changes up via their periodic refresh; a disabled policy stops reads/writes in the calculator at the next refresh, while its keys expire by TTL.
+
+**Unified cache seeder** (`entrypoints/initializer/main.py`):
+- Default settings live in `shared/setting_definitions.py`, default cache policies are defined inline in `data/cache/cache_policies.py` (all FESCO entities enabled TTL 3600s/86400s/600s; all `internal` entities disabled; `rates` enabled, `settings` disabled — seeding only fills missing rows)
+- `ensure_settings()` / `ensure_cache_policies()` create only missing rows (existing rows are never touched); they are run by the one-shot initializer entrypoint (`entrypoints/initializer/main.py`), not by the user+admin lifespans
+- One-shot service `initializer` (`docker-compose.yml` + `docker-compose.migrate.yml`): `python -m entrypoints.initializer.main`, exit 0 on success. `calculator` and `backadmin` start only after it completes (`depends_on: service_completed_successfully`); `prod-update.sh` runs migrate first, then `up -d` triggers the initializer
 
 ### Locker System
 
@@ -517,7 +523,7 @@ shared ───┬── entrypoints/auth
 
 - All 7 route-related flags are read in `data/internal/aggregators/routes.py` → `find_all_paths()` via `get_setting_cached("feature-flag", name)` using the `_flags` list
 - `demo-excluded-fields` is read in `entrypoints/user/api/v2/demo/feature_flags.py` and several point/route handlers
-- All settings are defined in `shared/setting_definitions.py` and auto-synced to DB on startup via `ensure_settings()`
+- All settings are defined in `shared/setting_definitions.py` and auto-synced to DB on startup via `initializer`
 - Falls back to default value if setting not found or Redis/DB unavailable
 
 **TRUCK segment connection rules (in `routes.py`):**
