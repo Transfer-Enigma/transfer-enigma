@@ -4,12 +4,11 @@ import logging
 from collections.abc import Iterable, Mapping
 from contextlib import suppress
 
-from data.cache.entity import CacheEntity
-from data.cache.policy import CachePolicy
 from data.cache.storage import CacheStorage
 from pydantic import BaseModel
 from shared.concurrency import TaskAlreadyRunningError
 from shared.concurrency.local_locker import LocalLocker
+from shared.dto.cache import CacheEntity, CachePolicy
 
 logger = logging.getLogger(__name__)
 

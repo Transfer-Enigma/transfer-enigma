@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-from data.cache import CacheEntity
 from data.cache.storage import LocalStorage
 from data.fesco.cache import (
     get_containers_backend,
@@ -14,6 +13,7 @@ from data.fesco.cache import (
 )
 from services.cache.refresh import policy_refresh, refresh_policies, start_policy_refresh
 from services.cache.registry import CacheRegistry
+from shared.dto.cache import CacheEntity
 from shared.orm.cache_policy import CachePolicyModel
 
 

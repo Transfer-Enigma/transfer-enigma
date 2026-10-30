@@ -1,9 +1,9 @@
 import datetime
 import json
 
-from data.cache.entity import CacheEntity
 from services.cache.backend import CacheBackend
 from services.cache.registry import get_cache_registry
+from shared.dto.cache import CacheEntity
 
 # The FESCO API is a data source of its own.
 FESCO_SOURCE = "fesco"

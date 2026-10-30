@@ -1,10 +1,10 @@
 from unittest.mock import patch
 
 import pytest
-from data.cache import CacheEntity
 from data.cache.storage import LocalStorage
 from data.setings.cached import delete_settings_cache, get_setting_cached
 from services.cache.registry import CacheRegistry
+from shared.dto.cache import CacheEntity
 from shared.dto.setting import SettingItem
 from shared.orm.cache_policy import CachePolicyModel
 from shared.orm.setting import SettingModel, SettingType

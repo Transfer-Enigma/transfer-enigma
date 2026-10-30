@@ -7,12 +7,36 @@ Existing rows are never touched.
 import logging
 
 from shared.database import Base, get_database
+from shared.dto.cache import CacheEntity
 from shared.orm.cache_policy import CachePolicyModel
 from sqlalchemy import select
 
-from .entity import CacheEntity
-
 logger = logging.getLogger(__name__)
+
+# Entities that can be cached under multiple sources (e.g. FESCO departures
+# and internal departures). For these entities source is required in a policy.
+# All other entities are single-source: the entity itself identifies the
+# source, so source is None in their policy.
+MULTI_SOURCE_ENTITIES: frozenset[CacheEntity] = frozenset(
+    {
+        CacheEntity.DEPARTURES,
+        CacheEntity.DESTINATIONS,
+        CacheEntity.CONTAINERS,
+        CacheEntity.ROUTES,
+        CacheEntity.POINTS,
+        CacheEntity.ROUTES_TODAY,
+        CacheEntity.CONTAINERS_TODAY,
+        CacheEntity.DEPARTURES_TODAY,
+        CacheEntity.DESTINATIONS_TODAY,
+        CacheEntity.POINTS_TODAY,
+    }
+)
+
+
+def is_multi_source(entity: CacheEntity) -> bool:
+    """Whether the entity requires an explicit source in its policy."""
+    return entity in MULTI_SOURCE_ENTITIES
+
 
 # All supported (source, entity) combinations for cache policies.
 _DEFAULT_CACHE_POLICIES: list[tuple[str | None, CacheEntity, bool, int, str]] = [

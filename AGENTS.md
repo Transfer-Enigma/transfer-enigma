@@ -27,7 +27,7 @@ Import root is `Python/apps` (`pythonpath = ["apps"]` in `pyproject.toml`), so m
 > **Package rename (architecture refactor):** `module_shared` → `shared`, `backend_auth`/`backend_user`/`backend_admin`
 > → `entrypoints/auth|user|admin`, `module_data_internal` → `data/internal`, `module_data_fesco_api_adapter` → `data/fesco`,
 > `module_shared/models` (Pydantic) → `shared/dto`, `module_shared/schemas` (ORM) → `shared/orm`,
-> `module_shared/repositories/locker` → `shared/concurrency`, `module_shared/cache.py` → split into `data/cache/` (storage/entity/policy) + `services/cache/` (backend/registry/refresh).
+> `module_shared/repositories/locker` → `shared/concurrency`, `module_shared/cache.py` → split into `data/cache/` (storage/cache_policies) + `services/cache/` (backend/registry/refresh) + `shared/dto/cache.py`.
 > Some older sections below may still use the old names — translate via this table.
 
 ```
@@ -84,9 +84,10 @@ Python/
 │   │   ├── config.py, database.py, logger.py, resources.py, jwt_error_handler.py
 │   │   ├── redis_client.py       # Redis async singleton (get_redis / get_redis_client)
 │   │   ├── settings.py, setting_definitions.py
-│   │   ├── dto/                  # Pydantic domain models (old models/): route.py, setting.py, errors.py
+│   │   ├── dto/                  # Pydantic domain models (old models/): route.py, setting.py, errors.py, cache.py
 │   │   │   ├── route.py          # ContainerItem, PriceItem, OnePrice, ServiceItem, DropItem, RouteSegment, RouteResult
-│   │   │   └── setting.py        # SettingItem with _parse_value validator + locked field
+│   │   │   ├── setting.py        # SettingItem with _parse_value validator + locked field
+│   │   │   └── cache.py          # CacheEntity StrEnum (+ *_TODAY) and CachePolicy dataclass
 │   │   ├── orm/                  # SQLAlchemy models + enums (old schemas/): company, container, demo_guest, drop, point, route, service, setting, cache_policy
 │   │   ├── repositories/         # demo_guest.py, setting.py (get/list helpers)
 │   │   └── concurrency/          # Locker ABC, LocalLocker, RedisLocker, TaskAlreadyRunningError
@@ -97,7 +98,7 @@ Python/
 │       ├── fesco/         # FESCO API adapter (old module_data_fesco_api_adapter)
 │       │   ├── cache.py        # per-entity backend getters (get_routes_backend(date) etc.), FESCO_SOURCE
 │       │   └── api_client/     # containers, points, routes, transformers
-│       ├── cache/         # cache primitives: entity.py (CacheEntity + *_TODAY), policy.py (CachePolicy), storage/ (protocol, local, redis), cache_policies.py (defaults + ensure_cache_policies)
+│       ├── cache/         # cache primitives: cache_policies.py (defaults + ensure_cache_policies + MULTI_SOURCE_ENTITIES + is_multi_source), storage/ (protocol, local, redis)
 │       └── setings/       # NOTE: package name is "setings" (one 't') — cached.py: get_setting_cached / set_settings_cache / delete_settings_cache
 ```
 
@@ -168,7 +169,7 @@ scripts/                  # Dev workflow scripts (run, stop, rebuild, migrate)
 
 The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/workspace/tests/`, and uses hardcoded `/workspace` paths in CMD (JSON exec form, no `ENV`/shell expansion needed). `APP_DIR` is a build-time `ARG` only (default `/workspace`), never used at runtime.
 
-**Hot-dev bind mounts** (`docker-compose.hot-dev.yml`, `docker-compose.hot-dev.backend.yml`): sources are mounted per-directory over the image (mounting all of `apps/` would hide `/workspace/.venv`). When adding a new top-level package under `Python/apps/` (e.g. `data/cache`), add an `:ro` bind mount to the affected services in **both** hot-dev files — otherwise the container imports the stale image copy and fails with `ModuleNotFoundError` for new packages. Currently mounted: `entrypoints/{user,admin,auth,initializer}`, `data/{cache,fesco,internal,setings}`, `shared`, `services` (in `hot-dev.yml` `data/` and `services/` are mounted whole; in `hot-dev.backend.yml` per-directory, `services/` for `calculator`, `backadmin` and `initializer`). Alembic files are **not** mounted — rebuild `db-migration` (`docker buildx bake db-migration`) and run `docker compose -f docker-compose.migrate.yml run --rm dbmigrator upgrade head` for new migrations.
+**Hot-dev bind mounts** (`docker-compose.hot-dev.yml`, `docker-compose.hot-dev.backend.yml`): sources are mounted per-directory over the image (mounting all of `apps/` would hide `/workspace/.venv`). When adding a new top-level package under `Python/apps/` (e.g. `data/cache`), add an `:ro` bind mount to the affected services in **both** hot-dev files — otherwise the container imports the stale image copy and fails with `ModuleNotFoundError` for new packages. Currently mounted: `entrypoints/{user,admin,auth,initializer}`, `data/`, `shared`, `services` (in `hot-dev.yml` `data/` and `services/` are mounted whole for calculator/backadmin; in `hot-dev.backend.yml` also whole, except `initializer` which mounts `data/cache`, `data/setings` and `services/` per-directory). Alembic files are **not** mounted — rebuild `db-migration` (`docker buildx bake db-migration`) and run `docker compose -f docker-compose.migrate.yml run --rm dbmigrator upgrade head` for new migrations.
 
 ### Redis Caching
 
@@ -184,10 +185,9 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 - `data/cache/storage/redis.py` — `RedisStorage` — Redis-backed storage
 - `services/cache/backend.py` — `CacheBackend(storage, entity, policies)` — per-entity cache access with `get`/`set`/`delete`/`set_async`/`silent_set_async`; keys built as ``[source:]entity:parts`` where source comes from the policy (None for single-source entities). Also exports `cache_prefix(entity, source)` and `flush_cache(storage, entity, source)` for explicit invalidation
 - `entries(limit)` on the backend (backed by `CacheStorage.keys(prefix, limit)` in `storage/`) reads back up to `limit` key/value pairs of one policy — used by the admin `GET /{id}/entries` endpoint
-- `data/cache/entity.py` — `CacheEntity` StrEnum (departures, destinations, containers, routes, points, rates, settings + `*_TODAY` variants) + `MULTI_SOURCE_ENTITIES` + `is_multi_source(entity)`
-- `data/cache/policy.py` — `CachePolicy(source: str | None, entity, enabled, ttl)` — source is None for single-source entities
-- `data/cache/cache_policies.py` — default (source, entity, enabled, ttl) rows + `ensure_cache_policies()` (fills missing rows only)
-- `data/cache/__init__.py` — re-exports `CacheEntity`, `CachePolicy`, `is_multi_source`
+- `shared/dto/cache.py` — `CacheEntity` StrEnum (departures, destinations, containers, routes, points, rates, settings + `*_TODAY` variants) + `CachePolicy` dataclass (`source: str | None, entity, enabled, ttl`; source is None for single-source entities)
+- `data/cache/cache_policies.py` — default (source, entity, enabled, ttl) rows + `ensure_cache_policies()` (fills missing rows only) + `MULTI_SOURCE_ENTITIES` + `is_multi_source(entity)`
+- `data/cache/__init__.py` — empty; import `CacheEntity`/`CachePolicy` from `shared.dto.cache`
 
 **Cache registry** (`Python/apps/services/cache/registry.py`):
 - `CacheRegistry` — loads policies from the `cache_policies` table and builds per-entity `CacheBackend` instances; there is no local policy cache
