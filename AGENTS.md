@@ -24,12 +24,6 @@ Three FastAPI microservices + shared libraries + CLI tools + Alembic migrations:
 Import root is `Python/apps` (`pythonpath = ["apps"]` in `pyproject.toml`), so modules are imported as
 `shared.*`, `entrypoints.*`, `services.*`, `data.*` (top-level absolute imports, no `apps.` prefix).
 
-> **Package rename (architecture refactor):** `module_shared` → `shared`, `backend_auth`/`backend_user`/`backend_admin`
-> → `entrypoints/auth|user|admin`, `module_data_internal` → `data/internal`, `module_data_fesco_api_adapter` → `data/fesco`,
-> `module_shared/models` (Pydantic) → `shared/dto`, `module_shared/schemas` (ORM) → `shared/orm`,
-> `module_shared/repositories/locker` → `shared/concurrency`, `module_shared/cache.py` → split into `data/cache/` (storage/cache_policies) + `services/cache/` (backend/registry/refresh) + `shared/dto/cache.py`.
-> Some older sections below may still use the old names — translate via this table.
-
 ```
 Python/
 ├── cli/                   # CLI debugging tools (AI-assisted route debugging)
@@ -44,7 +38,7 @@ Python/
 │   │   ├── auth/          # Port 8081 — main.py: /login, /token/refresh, /logout, /me
 │   │   ├── user/          # Port 8080 — route calculator (user-facing API)
 │   │   │   ├── main.py, autodiscover.py
-│   │   │   ├── api/           # v1/, v2/, v3/ (SSE) versioned endpoints
+│   │   │   ├── api/           # v2/, v3/ (SSE) versioned endpoints
 │   │   │   ├── dependencies/  # auth.py (JWT), auth_context.py (JWT + X-Demo-User-UID)
 │   │   │   ├── schemas/       # form_requests, routes (RouteSegment/DropItem/ServiceItem), errors, get_points_responses
 │   │   │   └── utils/         # group_points.py
@@ -84,10 +78,7 @@ Python/
 │   │   ├── config.py, database.py, logger.py, resources.py, jwt_error_handler.py
 │   │   ├── redis_client.py       # Redis async singleton (get_redis / get_redis_client)
 │   │   ├── settings.py, setting_definitions.py
-│   │   ├── dto/                  # Pydantic domain models (old models/): route.py, setting.py, errors.py, cache.py
-│   │   │   ├── route.py          # ContainerItem, PriceItem, OnePrice, ServiceItem, DropItem, RouteSegment, RouteResult
-│   │   │   ├── setting.py        # SettingItem with _parse_value validator + locked field
-│   │   │   └── cache.py          # CacheEntity StrEnum (+ *_TODAY) and CachePolicy dataclass
+│   │   ├── models/               # Domain models (models/): ContainerItem, PriceItem, OnePrice, ServiceItem, DropItem, RouteSegment, RouteResult, SettingItem, CacheEntity, CachePolicy
 │   │   ├── orm/                  # SQLAlchemy models + enums (old schemas/): company, container, demo_guest, drop, point, route, service, setting, cache_policy
 │   │   ├── repositories/         # demo_guest.py, setting.py (get/list helpers)
 │   │   └── concurrency/          # Locker ABC, LocalLocker, RedisLocker, TaskAlreadyRunningError
@@ -229,7 +220,6 @@ The `test-runner` stage copies `apps/` to `/workspace/apps/`, `tests/` to `/work
 4. If both fail: `RuntimeError`
 
 **API endpoints:**
-- `GET /v1/rates` — returns `{USD: 90.0, ...}` (rates only, async now)
 - `GET /v2/rates` — returns `{rates: {...}, updated_at: "2026-06-16"}` (adds date)
 
 **Redis docker-compose:**
@@ -424,7 +414,7 @@ shared ───┬── entrypoints/auth
 ## Architecture & Design Decisions
 
 ### API Versioning
-- User API uses URL versioning: `/v1/`, `/v2/`, `/v3/`
+- User API uses URL versioning: `/v2/`, `/v3/`
 - Auth and Admin APIs are not versioned
 - `/v3/routes/calculate` (POST) is an SSE endpoint for progressive route streaming — each route/error is yielded as an SSE event when available
 
@@ -439,7 +429,6 @@ shared ───┬── entrypoints/auth
 - All demo auth is in `entrypoints/user` (old `backend_user`) — `entrypoints/auth` is NOT involved
 - Backend: `get_auth_context` dependency checks `X-Demo-User-UID` header → looks up `demo_guests` table → returns `AuthContext` (is_demo, profit overrides). If no header, falls through to JWT via `request_auth`.
 - V2 endpoints use `Depends(get_auth_context)` (supports both JWT and header auth)
-- V1 endpoints use `Depends(request_auth)` (JWT only)
 - Demo endpoints: `POST /api/v2/demo/validate` (validates UID), `GET /api/v2/demo/feature-flags` (returns blurred_fields list)
 - Frontend: `helpers/requests.ts` → `demoHeaders()` reads `useDemoAuth()` Pinia store → injects `X-Demo-User-UID` into every `fetchAsJSON()` call
 - Demo users see blurred company names via CSS class (driven by `useBlurredFields` composable ← `featureFlags` store)
@@ -487,9 +476,8 @@ shared ───┬── entrypoints/auth
 - V2 handler (`api/v2/routes/post.py`) owns: `_route_result_to_tuple`, `_normalize_routes`, `_apply_demo_transforms`
     - `_seg_to_price_dict` was removed — models are returned as-is (no OnePrice flattening to `price`/`currency`/`container`/`beginCond`/`finishCond` flat fields)
     - Response format: `[segments: list[RouteSegment], drop: DropItem | None, bool, services: list[ServiceItem]]` — tuple with raw model objects
-- V1 handler (`api/v1/routes/post.py`) has its own copies of these functions (legacy, separate format)
 - `_strip_demo_fields` stays in `services/routes/calculation.py` (data manipulation, not format conversion)
-- No duplicate Pydantic response models — `entrypoints/user/schemas/routes.py` imports `RouteSegment`, `DropItem`, `ServiceItem` from `shared.dto.route`
+- No duplicate Pydantic response models — `entrypoints/user/schemas/routes.py` imports `RouteSegment`, `DropItem`, `ServiceItem` from `shared.models.route`
 
 ### Database
 - MariaDB, accessed via SQLAlchemy async + `aiomysql`
@@ -599,7 +587,7 @@ All output is JSON by default (for AI/script parsing).
 - `RouteSegmentStatsResponse` is returned by `GET /db/route-segments/stats`: totals, type/through/owner distribution, top 20 companies
 
 **Settings CRUD** (`crud_settings.py`) — value validation and cache sync:
-- `parse_setting_value(value, value_type)` in `shared/dto/setting.py` is a standalone function (also used by `SettingItem._parse_value` validator)
+- `parse_setting_value(value, value_type)` in `shared/models/setting.py` is a standalone function (also used by `SettingItem._parse_value` validator)
 - `_validate_value()` static method wraps it, raising `HTTPException(422)` on parse failure
 - `_build_instance` / `_apply_update` validate against `data.value_type` (known from request)
 - For PATCH: `patch()` method is overridden — gets the model from DB first, validates `data.value` against the **model's existing** `value_type`, then calls `_apply_patch` (which does no value validation)
