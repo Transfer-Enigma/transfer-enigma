@@ -6,11 +6,11 @@ from collections.abc import Iterable
 from data.internal.query_domain import DropOff, RouteBuilder, Segment
 from data.internal.query_domain.expr import Condition
 from data.setings.cached import get_setting_cached
+from data.setings.definitions import get_setting_definition
 from shared.database import Base, get_database
 from shared.models.route_entities import RouteResult
 from shared.orm.drop import DropModel
 from shared.orm.route import ContainerOwner, RouteModel, RouteType
-from shared.setting_definitions import get_setting_definition
 
 from .transformers.routes import transform_routes
 
