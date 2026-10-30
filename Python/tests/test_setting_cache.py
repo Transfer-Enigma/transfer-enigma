@@ -4,7 +4,7 @@ import pytest
 from data.cache.storage import LocalStorage
 from data.settings.cached import delete_settings_cache, get_setting_cached
 from services.cache.registry import CacheRegistry
-from shared.dto.cache import CacheEntity
+from shared.models.cache import CacheEntity
 from shared.models.setting import SettingItem
 from shared.orm.cache_policy import CachePolicyModel
 from shared.orm.setting import SettingModel, SettingType

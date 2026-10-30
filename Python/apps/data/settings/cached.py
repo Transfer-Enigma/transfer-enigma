@@ -1,7 +1,7 @@
 import logging
 
 from services.cache.registry import get_cache_registry
-from shared.dto.cache import CacheEntity
+from shared.models.cache import CacheEntity
 from shared.models.setting import SettingItem
 from sqlalchemy.ext.asyncio import AsyncSession
 

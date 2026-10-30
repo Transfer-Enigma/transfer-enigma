@@ -1,4 +1,4 @@
-from shared.dto.settings import SettingDefinition
+from shared.models.settings import SettingDefinition
 from shared.orm.setting import SettingType
 
 SETTING_DEFINITIONS: list[SettingDefinition] = [

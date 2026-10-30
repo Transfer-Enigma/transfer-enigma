@@ -4,7 +4,7 @@ import logging
 
 from pycbrf.toolbox import ExchangeRates
 from services.cache.registry import get_cache_registry
-from shared.dto.cache import CacheEntity
+from shared.models.cache import CacheEntity
 
 logger = logging.getLogger(__name__)
 

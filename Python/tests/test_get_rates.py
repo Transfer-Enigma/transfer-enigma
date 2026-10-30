@@ -6,7 +6,7 @@ import pytest
 from data.cache.storage import LocalStorage
 from services.cache.registry import CacheRegistry
 from services.rates.get import RATES_CACHE_PART, _set_rates_cache, get_rates
-from shared.dto.cache import CacheEntity
+from shared.models.cache import CacheEntity
 from shared.orm.cache_policy import CachePolicyModel
 
 

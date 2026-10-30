@@ -7,7 +7,7 @@ Existing rows are never touched.
 import logging
 
 from shared.database import Base, get_database
-from shared.dto.cache import CacheEntity
+from shared.models.cache import CacheEntity
 from shared.orm.cache_policy import CachePolicyModel
 from sqlalchemy import select
 

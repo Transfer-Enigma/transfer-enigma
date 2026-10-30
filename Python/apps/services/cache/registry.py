@@ -5,7 +5,7 @@ from data.cache.cache_policies import is_multi_source
 from data.cache.storage import CacheStorage, RedisStorage
 from services.cache.backend import CacheBackend
 from shared.database import get_database
-from shared.dto.cache import CacheEntity, CachePolicy
+from shared.models.cache import CacheEntity, CachePolicy
 from shared.orm.cache_policy import CachePolicyModel
 from sqlalchemy import select
 

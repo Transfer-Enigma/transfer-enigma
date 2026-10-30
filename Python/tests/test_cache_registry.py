@@ -13,7 +13,7 @@ from data.fesco.cache import (
 )
 from services.cache.refresh import policy_refresh, refresh_policies, start_policy_refresh
 from services.cache.registry import CacheRegistry
-from shared.dto.cache import CacheEntity
+from shared.models.cache import CacheEntity
 from shared.orm.cache_policy import CachePolicyModel
 
 

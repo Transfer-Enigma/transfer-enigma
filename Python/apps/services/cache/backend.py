@@ -8,7 +8,7 @@ from data.cache.storage import CacheStorage
 from pydantic import BaseModel
 from shared.concurrency import TaskAlreadyRunningError
 from shared.concurrency.local_locker import LocalLocker
-from shared.dto.cache import CacheEntity, CachePolicy
+from shared.models.cache import CacheEntity, CachePolicy
 
 logger = logging.getLogger(__name__)
 

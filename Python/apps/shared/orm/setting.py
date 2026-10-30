@@ -1,5 +1,5 @@
 from shared.database import Base
-from shared.dto.settings import SettingType
+from shared.models.settings import SettingType
 from sqlalchemy import Enum, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 

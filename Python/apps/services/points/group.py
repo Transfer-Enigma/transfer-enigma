@@ -2,7 +2,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from shared.dto.group_points import (
+from shared.models.group_points import (
     Company,
     GroupedPoint,
     GroupedPointWithPort,

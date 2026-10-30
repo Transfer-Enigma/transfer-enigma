@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 from data.cache.cache_policies import ensure_cache_policies
-from shared.dto.cache import CacheEntity
+from shared.models.cache import CacheEntity
 from shared.orm.cache_policy import CachePolicyModel
 from sqlalchemy import func, select
 

@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 from typing import Any
 
-from shared.dto.point import PointItem
+from shared.models.point import PointItem
 
 
 def _is_invalid_point(point: dict[str, Any]) -> bool:
