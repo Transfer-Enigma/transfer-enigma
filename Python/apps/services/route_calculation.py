@@ -153,3 +153,23 @@ async def calculate_routes_stream(request: CalculateFormRequest):
         elif result:
             for route in list(result):
                 yield route
+
+
+def deduplicate_routes(routes: list[RouteResult]) -> list[RouteResult]:
+    """Remove duplicate routes, keeping distinct segment/price combinations."""
+    seen: set[tuple] = set()
+    result: list[RouteResult] = []
+    for route in routes:
+        seg = route.segments[0] if route.segments else None
+        prices = seg.prices if seg else None
+        key = (
+            seg.start_point_id if seg else None,
+            seg.end_point_id if seg else None,
+            seg.type if seg else None,
+            seg.container_owner if seg else None,
+            tuple(sorted((p.container_id, p.value, p.currency) for p in prices or [])) if prices else None,
+        )
+        if key not in seen:
+            seen.add(key)
+            result.append(route)
+    return result

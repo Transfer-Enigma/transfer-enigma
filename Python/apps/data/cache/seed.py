@@ -13,14 +13,14 @@ from shared.redis_client import get_redis_client
 
 from .cache_policies import ensure_cache_policies
 from .registry import get_cache_registry
-from .settings import ensure_settings
+from .settings import create_default_settings
 
 logger = logging.getLogger(__name__)
 
 
 async def ensure_all() -> None:
     """Create all missing cache defaults: settings, then cache policies."""
-    await ensure_settings()
+    await create_default_settings()
     await ensure_cache_policies()
 
 

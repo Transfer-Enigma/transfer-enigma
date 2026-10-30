@@ -8,8 +8,8 @@ from data.internal.query_domain.expr import ColumnRef, Condition
 from data.internal.query_domain.expr import Connector as ExprConnector
 from data.internal.query_domain.expr import PriceRef
 from data.internal.query_domain.segment import Segment
-from shared.schemas.drop import DropModel
-from shared.schemas.route import PriceModel, RouteModel, ServicePriceModel
+from shared.orm.drop import DropModel
+from shared.orm.route import PriceModel, RouteModel, ServicePriceModel
 from sqlalchemy import Select, and_, desc, not_, or_, select, true
 from sqlalchemy.orm import aliased, contains_eager, joinedload, selectinload
 
@@ -258,7 +258,7 @@ class RouteBuilder:
         for i, seg in enumerate(self._segments):
             alias = seg_aliases[i]
             if seg._type_filter is not None:
-                where_conds.append(alias.type == seg._type_filter.value)
+                where_conds.append(alias.type == seg._type_filter)
             where_conds.append(alias.effective_from <= self._date)
             where_conds.append(alias.effective_to >= self._date)
 

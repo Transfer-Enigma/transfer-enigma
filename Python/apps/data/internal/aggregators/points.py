@@ -2,9 +2,9 @@ import datetime
 from functools import partial
 
 from shared.database import get_database
-from shared.schemas.company import CompanyModel
-from shared.schemas.point import PointModel
-from shared.schemas.route import RouteModel, RouteType
+from shared.orm.company import CompanyModel
+from shared.orm.point import PointModel
+from shared.orm.route import RouteModel, RouteType
 from sqlalchemy import and_, select
 
 

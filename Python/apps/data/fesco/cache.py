@@ -5,8 +5,6 @@ import logging
 from contextlib import suppress
 
 from pydantic import BaseModel
-from shared.cache import CacheEntity
-from shared.cache.registry import get_cache_registry
 from shared.concurrency import TaskAlreadyRunningError
 from shared.concurrency.local_locker import LocalLocker
 from shared.redis_client import get_redis
@@ -68,7 +66,7 @@ def routes_parts(date: datetime.date, departure_id: str, destination_id: str, wt
 
 def get_departures_backend(date: datetime.date):
     return _FESCOBackend(
-        lambda dep: CacheKeys.get_departures_cache_key(date, dep),
+        lambda dep: CacheKeys.get_departures_cache_key(date),
         FESCO_POINTS_OTHER_TTL,
     )
 

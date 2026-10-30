@@ -3,8 +3,8 @@ from starlette.status import HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
 
 from entrypoints.admin.schemas.data_browser import SettingCreate, SettingPatch, SettingResponse
 from entrypoints.admin.service.crud_base import CRUDBase, FilterDef
-from shared.models.setting import parse_setting_value
-from shared.schemas.setting import SettingModel, SettingType
+from shared.dto.setting import parse_setting_value
+from shared.orm.setting import SettingModel, SettingType
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -65,7 +65,7 @@ class CRUDSetting(CRUDBase):
             )
 
     def _build_instance(self, data: SettingCreate) -> SettingModel:
-        self._validate_value(data.value, data.value_type)
+        self._validate_value(data.value, SettingType(data.value_type) if data.value_type else None)
         return SettingModel(
             group=data.group.strip(),
             name=data.name.strip(),
@@ -75,7 +75,7 @@ class CRUDSetting(CRUDBase):
         )
 
     def _apply_update(self, model: SettingModel, data: SettingCreate) -> None:
-        self._validate_value(data.value, data.value_type)
+        self._validate_value(data.value, SettingType(data.value_type) if data.value_type else None)
         model.group = data.group.strip()
         model.name = data.name.strip()
         model.description = data.description.strip() if data.description else None
@@ -106,7 +106,7 @@ class CRUDSetting(CRUDBase):
         model = await self._get_or_404(session, id)
         self._check_locked_patch(model, data)
         if data.value is not None:
-            self._validate_value(data.value, data.value_type or model.value_type)
+            self._validate_value(data.value, SettingType(data.value_type) if data.value_type else None)
         self._apply_patch(model, data)
         await session.flush()
         await session.refresh(model)

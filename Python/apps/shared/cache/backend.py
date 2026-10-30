@@ -160,7 +160,8 @@ class CacheBackend:
 
     async def keys(self, prefix: str | None = None, limit: int = 100) -> list[str]:
         """Storage keys of this backend's policy, up to ``limit``."""
-        p = prefix or cache_prefix(self._entity, self.policy().source if self.policy() else None)
+        policy = self.policy()
+        p = prefix or cache_prefix(self._entity, policy.source if policy else None)
         return await self._storage.keys(p, limit)
 
     async def entries(self, limit: int = 50) -> list[tuple[str, str]]:

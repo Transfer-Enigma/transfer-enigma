@@ -1,7 +1,7 @@
 from typing import Any
 
 from data.internal.query_domain.expr import ColumnRef
-from shared.schemas.route import RouteType
+from shared.orm.route import RouteType
 
 
 class Segment:
@@ -31,5 +31,5 @@ class Segment:
     def __repr__(self) -> str:
         parts = []
         if self._type_filter is not None:
-            parts.append(f"type={self._type_filter.value}")
+            parts.append(f"type={self._type_filter}")
         return f"Segment({', '.join(parts)})" if parts else "Segment()"

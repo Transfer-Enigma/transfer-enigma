@@ -1,12 +1,12 @@
 import logging
 
 from data.repositories.settings import get_setting as rget_setting
-from data.repositories.settings import load_setting
 from data.repositories.settings_definitions import get_setting_definitions
 from shared.cache import CacheEntity
 from shared.database import get_database
 from shared.dto.setting import SettingItem
 from shared.orm.setting import SettingModel
+from shared.settings import get_setting as _get_setting
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +28,7 @@ async def get_setting_cached(group: str, name: str, *, session: AsyncSession | N
     if session:
         item = await rget_setting(session, group, name)
     else:
-        item = await load_setting(group, name)
+        item = await _get_setting(group, name)
 
     if item is not None:
         backend.silent_set_async(group, name, data=item, dump=True)

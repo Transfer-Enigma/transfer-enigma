@@ -4,7 +4,7 @@ from collections.abc import Iterable
 
 import aiohttp
 from shared.config import get_settings
-from shared.models.route import RouteResult
+from shared.dto.route import RouteResult
 
 from ..cache import get_routes_backend, routes_parts
 from .transformers.routes import transform_routes

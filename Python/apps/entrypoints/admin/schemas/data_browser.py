@@ -1,16 +1,10 @@
-from pydantic import BaseModel, ConfigDict, Field
-from shared.schemas import SettingType
-from shared.schemas.company import CompanyModel
-from shared.schemas.container import ContainerModel
-from shared.schemas.drop import DropModel
-from shared.schemas.point import PointModel
-from shared.schemas.route import PriceModel, RouteModel, ServicePriceModel
-from shared.schemas.service import ServiceModel
-from shared.schemas.setting import SettingModel
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from shared.cache import CacheEntity, is_multi_source
 from shared.orm.cache_policy import CachePolicyModel
+from shared.orm.company import CompanyModel
+from shared.orm.setting import SettingModel
 
 # ─── Companies ────────────────────────────────────────────────────────────────
-
 
 class CompanyCreate(BaseModel):
     name: str
@@ -25,12 +19,16 @@ class CompanyResponse(BaseModel):
     name: str
 
     @classmethod
-    def from_model(cls, model: CompanyModel) -> CompanyResponse:
+    def from_model(cls, model: CompanyModel) -> CompanyModel:
         return cls(id=model.id, name=model.name)
 
 
-# ─── Points ───────────────────────────────────────────────────────────────────
+class CompanyListResponse(BaseModel):
+    id: int  # noqa: A003
+    name: str
 
+
+# ─── Points ───────────────────────────────────────────────────────────────────
 
 class PointCreate(BaseModel):
     city: str
@@ -50,11 +48,11 @@ class PointResponse(BaseModel):
     id: int  # noqa: A003
     city: str
     country: str
-    RU_city: str | None
-    RU_country: str | None
+    RU_city: str | None = None
+    RU_country: str | None = None
 
     @classmethod
-    def from_model(cls, model: PointModel) -> PointResponse:
+    def from_model(cls, model: CompanyModel) -> PointResponse:
         return cls(
             id=model.id,
             city=model.city,
@@ -64,130 +62,125 @@ class PointResponse(BaseModel):
         )
 
 
-# ─── Containers ───────────────────────────────────────────────────────────────
+class PointListResponse(BaseModel):
+    id: int  # noqa: A003
+    city: str
+    country: str
+    RU_city: str | None = None
+    RU_country: str | None = None
 
+
+# ─── Containers ───────────────────────────────────────────────────────────────
 
 class ContainerCreate(BaseModel):
     size: int
-    weight_from: float
-    weight_to: float
+    type: str  # noqa: A003
+    weight_from: int
+    weight_to: int
     name: str
-    type: str  # noqa: A003  # "DC" or "HC"
 
 
 class ContainerPatch(BaseModel):
     size: int | None = None
-    weight_from: float | None = None
-    weight_to: float | None = None
+    type: str | None = None
+    weight_from: int | None = None
+    weight_to: int | None = None
     name: str | None = None
-    type: str | None = None  # noqa: A003
 
 
 class ContainerResponse(BaseModel):
     id: int  # noqa: A003
     size: int
-    weight_from: float
-    weight_to: float
-    name: str
     type: str  # noqa: A003
+    weight_from: int
+    weight_to: int
+    name: str
 
     @classmethod
-    def from_model(cls, model: ContainerModel) -> ContainerResponse:
+    def from_model(cls, model: CompanyModel) -> ContainerResponse:
         return cls(
             id=model.id,
             size=model.size,
+            type=model.type,
             weight_from=model.weight_from,
             weight_to=model.weight_to,
             name=model.name,
-            type=model.type.value,
         )
 
 
-# ─── Route Segments (composite) ────────────────────────────────────────────────
-
-
-class PricePayload(BaseModel):
-    container_id: int
-    value: float | None = None
-    currency: str
-    conversation_percents: float = 0
-
-
-class ServicePricePayload(BaseModel):
-    service_id: int
-    container_id: int | None = None
-    currency: str
-    price: float
-
-
-class PriceResponse(BaseModel):
+class ContainerListResponse(BaseModel):
     id: int  # noqa: A003
-    container_id: int
-    value: float | None
+    size: int
+    type: str  # noqa: A003
+    weight_from: int
+    weight_to: int
+    name: str
+
+
+# ─── Route Segments ───────────────────────────────────────────────────────────
+
+class RouteSegmentCreate(BaseModel):
+    route_id: int
+    start_point_id: int
+    end_point_id: int
+    company_id: int
+    container_owner: str | None = None
+    container_type: str | None = None
+    price: float
+    currency: str
+    conversation_percents: float = 0.0
+
+
+class RouteSegmentPatch(BaseModel):
+    start_point_id: int | None = None
+    end_point_id: int | None = None
+    company_id: int | None = None
+    container_owner: str | None = None
+    container_type: str | None = None
+    price: float | None = None
+    currency: str | None = None
+    conversation_percents: float | None = None
+
+
+class RouteSegmentResponse(BaseModel):
+    id: int  # noqa: A003
+    route_id: int
+    start_point_id: int
+    end_point_id: int
+    company_id: int
+    container_owner: str | None = None
+    container_type: str | None = None
+    price: float
     currency: str
     conversation_percents: float
 
     @classmethod
-    def from_model(cls, model: PriceModel) -> PriceResponse:
+    def from_model(cls, model: CompanyModel) -> RouteSegmentResponse:
         return cls(
             id=model.id,
-            container_id=model.container_id,
-            value=model.value,
+            route_id=model.route_id,
+            start_point_id=model.start_point_id,
+            end_point_id=model.end_point_id,
+            company_id=model.company_id,
+            container_owner=model.container_owner,
+            container_type=model.container_type,
+            price=model.price,
             currency=model.currency,
             conversation_percents=model.conversation_percents,
         )
 
 
-class ServicePriceResponse(BaseModel):
+class RouteSegmentListResponse(BaseModel):
     id: int  # noqa: A003
-    service_id: int
-    container_id: int | None
-    currency: str
-    price: float
-
-    @classmethod
-    def from_model(cls, model: ServicePriceModel) -> ServicePriceResponse:
-        return cls(
-            id=model.id,
-            service_id=model.service_id,
-            container_id=model.container_id,
-            currency=model.currency,
-            price=model.price,
-        )
-
-
-class RouteSegmentCreate(BaseModel):
-    company_id: int
+    route_id: int
     start_point_id: int
     end_point_id: int
-    dropp_off_point_id: int | None = None
-    effective_from: str  # YYYY-MM-DD
-    effective_to: str  # YYYY-MM-DD
-    comment: str | None = None
-    timetable: str | None = None
-    is_through: bool = True
-    type: str  # noqa: A003  # "SEA" or "RAIL"
-    container_transfer_terms: str  # FIFO, FILO, LIFO, LILO
-    container_shipment_terms: str  # FOR, FOB, FCA
-    container_owner: str  # COC, SOC
-    prices: list[PricePayload] = []
-    services: list[ServicePricePayload] = []
-
-
-class RouteSegmentPatch(BaseModel):
-    company_id: int | None = None
-    start_point_id: int | None = None
-    end_point_id: int | None = None
-    dropp_off_point_id: int | None = None
-    effective_from: str | None = None
-    effective_to: str | None = None
-    comment: str | None = None
-    timetable: str | None = None
-    is_through: bool | None = None
-    type: str | None = None  # noqa: A003
-    container_transfer_terms: str | None = None
-    container_shipment_terms: str | None = None
+    company_id: int
     container_owner: str | None = None
+    container_type: str | None = None
+    price: float
+    currency: str
+    conversation_percents: float
 
 
 class RouteSegmentStatsResponse(BaseModel):
@@ -198,86 +191,15 @@ class RouteSegmentStatsResponse(BaseModel):
     top_companies: list[dict]
 
 
-class RouteSegmentListResponse(BaseModel):
-    id: int  # noqa: A003
-    company_id: int
-    start_point_id: int
-    end_point_id: int
-    type: str  # noqa: A003
-    effective_from: str
-    effective_to: str
-    is_through: bool
-    container_transfer_terms: str | None = None
-    container_shipment_terms: str | None = None
-    container_owner: str
-
-    @classmethod
-    def from_model(cls, model: RouteModel) -> RouteSegmentListResponse:
-        return cls(
-            id=model.id,
-            company_id=model.company_id,
-            start_point_id=model.start_point_id,
-            end_point_id=model.end_point_id,
-            type=model.type.value,
-            effective_from=model.effective_from.isoformat(),
-            effective_to=model.effective_to.isoformat(),
-            is_through=model.is_through,
-            container_transfer_terms=model.container_transfer_terms.value,
-            container_shipment_terms=model.container_shipment_terms.value,
-            container_owner=model.container_owner.value,
-        )
-
-
-class RouteSegmentResponse(BaseModel):
-    id: int  # noqa: A003
-    company_id: int
-    start_point_id: int
-    end_point_id: int
-    dropp_off_point_id: int | None
-    effective_from: str
-    effective_to: str
-    comment: str | None
-    timetable: str | None
-    is_through: bool
-    type: str  # noqa: A003
-    container_transfer_terms: str
-    container_shipment_terms: str
-    container_owner: str
-    prices: list[PriceResponse]
-    services: list[ServicePriceResponse]
-
-    @classmethod
-    def from_model(cls, model: RouteModel) -> RouteSegmentResponse:
-        return cls(
-            id=model.id,
-            company_id=model.company_id,
-            start_point_id=model.start_point_id,
-            end_point_id=model.end_point_id,
-            dropp_off_point_id=model.dropp_off_point_id,
-            effective_from=model.effective_from.isoformat(),
-            effective_to=model.effective_to.isoformat(),
-            comment=model.comment,
-            timetable=model.timetable,
-            is_through=model.is_through,
-            type=model.type.value,
-            container_transfer_terms=model.container_transfer_terms.value,
-            container_shipment_terms=model.container_shipment_terms.value,
-            container_owner=model.container_owner.value,
-            prices=[PriceResponse.from_model(p) for p in model.prices],
-            services=[ServicePriceResponse.from_model(s) for s in model.services],
-        )
-
-
 # ─── Services ─────────────────────────────────────────────────────────────────
-
 
 class ServiceCreate(BaseModel):
     name: str
-    internal_name: str
-    description: str
+    internal_name: str | None = None
+    description: str | None = None
     hint: str | None = None
     mandatory: bool = False
-    default: bool = True
+    default: bool = False
 
 
 class ServicePatch(BaseModel):
@@ -292,14 +214,14 @@ class ServicePatch(BaseModel):
 class ServiceResponse(BaseModel):
     id: int  # noqa: A003
     name: str
-    internal_name: str
-    description: str
-    hint: str | None
+    internal_name: str | None = None
+    description: str | None = None
+    hint: str | None = None
     mandatory: bool
     default: bool
 
     @classmethod
-    def from_model(cls, model: ServiceModel) -> ServiceResponse:
+    def from_model(cls, model: CompanyModel) -> ServiceResponse:
         return cls(
             id=model.id,
             name=model.name,
@@ -311,30 +233,31 @@ class ServiceResponse(BaseModel):
         )
 
 
-# ─── Drop-off ─────────────────────────────────────────────────────────────────
+class ServiceListResponse(BaseModel):
+    id: int  # noqa: A003
+    name: str
+    internal_name: str | None = None
+    description: str | None = None
+    hint: str | None = None
+    mandatory: bool
+    default: bool
 
+
+# ─── Drop-off ─────────────────────────────────────────────────────────────────
 
 class DropOffCreate(BaseModel):
     container_id: int
     company_id: int
-    start_point_id: int | None = None
-    end_point_id: int | None = None
-    effective_from: str  # YYYY-MM-DD
-    effective_to: str  # YYYY-MM-DD
-    price: float = 0
-    conversation_percents: float = 0
+    dates: str
+    price: float
     currency: str
 
 
 class DropOffPatch(BaseModel):
     container_id: int | None = None
     company_id: int | None = None
-    start_point_id: int | None = None
-    end_point_id: int | None = None
-    effective_from: str | None = None
-    effective_to: str | None = None
+    dates: str | None = None
     price: float | None = None
-    conversation_percents: float | None = None
     currency: str | None = None
 
 
@@ -342,57 +265,56 @@ class DropOffResponse(BaseModel):
     id: int  # noqa: A003
     container_id: int
     company_id: int
-    start_point_id: int | None
-    end_point_id: int | None
-    effective_from: str
-    effective_to: str
+    dates: str
     price: float
-    conversation_percents: float
     currency: str
 
     @classmethod
-    def from_model(cls, model: DropModel) -> DropOffResponse:
+    def from_model(cls, model: CompanyModel) -> DropOffResponse:
         return cls(
             id=model.id,
             container_id=model.container_id,
             company_id=model.company_id,
-            start_point_id=model.start_point_id,
-            end_point_id=model.end_point_id,
-            effective_from=model.effective_from.isoformat(),
-            effective_to=model.effective_to.isoformat(),
+            dates=model.dates,
             price=model.price,
-            conversation_percents=model.conversation_percents,
             currency=model.currency,
         )
 
 
-# ─── Settings ──────────────────────────────────────────────────────────────────
+class DropOffListResponse(BaseModel):
+    id: int  # noqa: A003
+    container_id: int
+    company_id: int
+    dates: str
+    price: float
+    currency: str
 
+
+# ─── Settings ─────────────────────────────────────────────────────────────────
 
 class SettingCreate(BaseModel):
     group: str
     name: str
     description: str | None = None
-    value_type: SettingType
+    value_type: str
     value: str | None = None
+    locked: bool = False
 
 
 class SettingPatch(BaseModel):
-    group: str | None = None
-    name: str | None = None
-    description: str | None = None
-    value_type: SettingType | None = None
     value: str | None = None
+    value_type: str | None = None
+    locked: bool | None = None
 
 
 class SettingResponse(BaseModel):
     id: int  # noqa: A003
     group: str
     name: str
-    description: str | None
-    value_type: SettingType
-    value: str | None
-    locked: bool = False
+    description: str | None = None
+    value_type: str
+    value: str | None = None
+    locked: bool
 
     @classmethod
     def from_model(cls, model: SettingModel) -> SettingResponse:
@@ -407,7 +329,22 @@ class SettingResponse(BaseModel):
         )
 
 
-# ─── Cache Policies ────────────────────────────────────────────────────────
+# ─── Cache Policies ───────────────────────────────────────────────────────────
+
+class CachePolicyCreate(BaseModel):
+    source: str | None = None
+    entity: str
+    enabled: bool = True
+    ttl: int = Field(default=3600, ge=1)
+
+    @model_validator(mode="after")
+    def _validate_source(self) -> CachePolicyCreate:
+        entity = CacheEntity(self.entity)
+        if is_multi_source(entity) and not self.source:
+            raise ValueError(f"Entity {self.entity} requires a source")
+        if not is_multi_source(entity) and self.source:
+            raise ValueError(f"Entity {self.entity} is single-source, source must be None")
+        return self
 
 
 class CachePolicyPatch(BaseModel):
@@ -419,18 +356,6 @@ class CachePolicyPatch(BaseModel):
 
 class CacheInvalidateResponse(BaseModel):
     deleted: int
-
-
-class CacheEntryItem(BaseModel):
-    key: str
-    value: str
-
-
-class CacheEntriesResponse(BaseModel):
-    policy_id: int
-    prefix: str
-    count: int
-    entries: list[CacheEntryItem]
 
 
 class CachePolicyResponse(BaseModel):

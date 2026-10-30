@@ -7,6 +7,7 @@ from shared.cache import (
     CachePolicy,
     CacheStorage,
     RedisStorage,
+    cache_prefix,
     is_multi_source,
 )
 from shared.database import get_database
@@ -123,7 +124,6 @@ class CacheRegistry:
             policy = self._policies[entity].get(source)
             if policy is None:
                 continue
-            backend = self.backend(entity, source)
             prefix = cache_prefix(entity, source)
             keys = await self._storage.keys(prefix, limit=10000)
             total += len(keys)

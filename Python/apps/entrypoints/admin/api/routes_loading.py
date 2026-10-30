@@ -28,7 +28,7 @@ from gspread_dataframe import get_as_dataframe
 from shared.config import get_settings
 from shared.context import CallerContext
 from shared.database import get_database
-from shared.schemas.route import RouteType
+from shared.orm.route import RouteType
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/data")

@@ -3,7 +3,7 @@ import logging
 
 import aiohttp
 from shared.config import get_settings
-from shared.models.route import ContainerItem
+from shared.dto.route import ContainerItem
 
 from ..cache import containers_parts, get_containers_backend
 from .transformers.containers import transform_containers
