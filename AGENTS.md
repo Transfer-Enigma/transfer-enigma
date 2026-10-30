@@ -448,6 +448,13 @@ shared ───┬── entrypoints/auth
 - `immediate: true` ensures correct state on initial load
 - Feature flags are **not cleared explicitly** — the watcher auto-updates when `demoUid` changes (clearing demoUid → fetch without header → empty blurred_fields)
 
+### Provide/Inject Conventions (User Frontend)
+
+- `editable`, `isDemoModeActive` are provided by **both** `CalculatorPage.vue` and `RoutePage.vue` (the single-route page mounted by `/route` and `/demo/:uid/route`). Any new page rendering `ResultsWidget` must provide them too.
+- The single-route page is **always non-editable** — `RoutePage` never provides `editable`; children fall back to the inject default `ref(false)`.
+- Always pass the default as the **2nd argument** of `inject(key, ref(false))` — the `inject(key) || ref(false)` pattern triggers Vue dev warnings ("injection ... not found") whenever no provider is in the tree.
+- **Price ranges**: `processRoutes` stores a total as a `[min, max]` array when segment prices differ (e.g. detail endpoint returns prices for all containers). Detect ranges with `Array.isArray(...)` — `Number.isNaN(array)` is always `false` and caused "не число" (ru-locale `NaN`) instead of "min – max" (see `ResultRouteView.vue`, sort in `calculator.ts`).
+
 ### Domain Models
 
 **`shared/dto/route.py`** — Route entities (Pydantic V2 `BaseModel`):

@@ -53,9 +53,21 @@ def _segment_from_orm(route: RouteModel) -> RouteSegment:
     )
 
 
-def _services_from_segment(route: RouteModel, segment_id: int | str) -> list[ServiceItem]:
+def _services_from_segment(
+    route: RouteModel,
+    segment_id: int | str,
+    container_ids: list[int] | None = None,
+) -> list[ServiceItem]:
+    services = route.services
+    if container_ids:
+        services = [
+            s for s in services
+            if s.container_id is None or s.container_id in container_ids
+        ]
+
     return [
         ServiceItem(
+            id=s.id,
             segment_id=segment_id,
             name=s.service.name,
             description=s.service.description,
@@ -65,7 +77,7 @@ def _services_from_segment(route: RouteModel, segment_id: int | str) -> list[Ser
             checked=s.service.default,
             mandatory=s.service.mandatory,
         )
-        for s in route.services
+        for s in services
     ]
 
 

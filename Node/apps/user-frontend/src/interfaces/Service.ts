@@ -1,4 +1,5 @@
 export interface IService {
+    id: number | null;
     segment_id: string | number;
     name: string;
     description: string;

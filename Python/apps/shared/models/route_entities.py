@@ -20,6 +20,7 @@ class PriceItem(BaseModel):
 
 
 class ServiceItem(BaseModel):
+    id: int | str | None = None  # noqa: A003
     segment_id: int | str
     name: str
     description: str
