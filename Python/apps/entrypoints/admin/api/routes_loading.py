@@ -1,4 +1,3 @@
-from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException
@@ -9,10 +8,12 @@ from starlette.status import (
     HTTP_503_SERVICE_UNAVAILABLE,
 )
 
-import gspread
-import pandas
 from entrypoints.admin.dependencies.auth import request_auth
-from gspread_dataframe import get_as_dataframe
+from services.routes_loading.data_downloader import (
+    DataDownloader,
+    FileDownloader,
+    GspreadDownloader,
+)
 from services.routes_loading.errors_parser import parse_all_warning_types
 from services.routes_loading.fields_map import get_fields_config_from_file
 from services.routes_loading.processor import load_data
@@ -20,7 +21,6 @@ from shared.config import get_settings
 from shared.database import get_database
 from shared.exceptions.routes_loading import PointsWithNanException
 from shared.models.upoader_fields_config import UploaderFieldsConfig
-from shared.resources import Resources
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/data")
@@ -58,7 +58,7 @@ async def update_from_gsheets(
 
 
 @router.post("/update-from-gsheets-with-custom-fields")
-async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split it by worksheets
+async def update_from_gsheets_with_custom_fields(  # TODO: split it by worksheets
     db_session: Annotated[AsyncSession, Depends(get_database().session)],
     fields_config: UploaderFieldsConfig,
     gsheets_url: str = settings.DEFAULT_GSHEETS_URL,
@@ -71,34 +71,25 @@ async def update_from_gsheets_with_custom_fields(  # noqa: C901  # TODO: split i
     load_on_warnings: bool = True,
     data_file: Annotated[bytes | None, File()] = None,
 ):
+    data_downloader: DataDownloader
     if data_file:
-        def download_data(ws):
-            return pandas.read_excel(BytesIO(data_file), ws)
+        data_downloader = FileDownloader(data_file)
     else:
         try:
-            gs = gspread.service_account(
-                filename=Resources.get(settings.GOOGLE_SERVICE_ACCOUNT_RESOURCE_NAME, scope="backend_admin").path,
-            )
-            sources_gs = gs.open_by_url(gsheets_url)
+            data_downloader = GspreadDownloader(gsheets_url)
         except Exception as e:
             raise HTTPException(status_code=HTTP_503_SERVICE_UNAVAILABLE, detail={
                 "type": type(e).__name__,
                 "detail": str(e),
             }) from e
 
-        def download_data(ws):
-            return get_as_dataframe(
-                sources_gs.worksheet(ws),
-                evaluate_formulas=True,
-            )
-
     try:
-        sea_routes_df = download_data(sea_routes_ws_name)
-        rail_routes_df = download_data(rail_routes_ws_name)
-        truck_routes_df = download_data(truck_routes_ws_name)
-        dropp_routes_df = download_data(dropp_routes_ws_name)
-        services_df = download_data(services_ws_name)
-        points_df = download_data(points_ws_name) if points_ws_name else None
+        sea_routes_df = data_downloader.download_data(sea_routes_ws_name)
+        rail_routes_df = data_downloader.download_data(rail_routes_ws_name)
+        truck_routes_df = data_downloader.download_data(truck_routes_ws_name)
+        dropp_routes_df = data_downloader.download_data(dropp_routes_ws_name)
+        services_df = data_downloader.download_data(services_ws_name) if services_ws_name else None
+        points_df = data_downloader.download_data(points_ws_name) if points_ws_name else None
 
     except Exception as e:
         raise HTTPException(status_code=HTTP_503_SERVICE_UNAVAILABLE, detail={
