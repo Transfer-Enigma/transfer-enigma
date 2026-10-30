@@ -1,67 +1,19 @@
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass, field
 from typing import Any
 
-_id_type = int | str
-
-
-@dataclass
-class Company:
-    id: _id_type  # noqa: A003
-    name: str
-
-
-@dataclass
-class Translation:
-    """Translation for a point includes country"""
-    name: str
-    country: str
-
-
-@dataclass
-class PortTranslation:
-    """Translation for a port (only name, no country)."""
-    name: str
-
-
-_translations_map = dict[str, Translation]
-_port_translations_map = dict[str, PortTranslation | None]
-
-
-@dataclass
-class RawPoint:
-    """Raw input point with a single company."""
-    id: _id_type  # noqa: A003
-    company: Company
-    translates: _translations_map = field(default_factory=dict)
-
-
-@dataclass
-class GroupedPoint:
-    """Point after company grouping – contains all companies and IDs for a given full name."""
-    ids: set[int] = field(default_factory=set)
-    external_ids: set[str] = field(default_factory=set)
-    companies: list[Company] = field(default_factory=list)
-    translates: _translations_map = field(default_factory=dict)
-
-
-@dataclass
-class GroupedPort:
-    ids: set[int] = field(default_factory=set)
-    external_ids: set[str] = field(default_factory=set)
-    companies: list[Company] = field(default_factory=list)
-    translates: _port_translations_map = field(default_factory=dict)
-
-
-@dataclass
-class GroupedPointWithPort:
-    """Final point after port grouping. Contains all original IDs that map to this base point."""
-    ids: set[int] = field(default_factory=set)
-    external_ids: set[str] = field(default_factory=set)
-    companies: list[Company] = field(default_factory=list)
-    translates: _translations_map = field(default_factory=dict)
-    ports: list[GroupedPort] = field(default_factory=list)
+from shared.dto.group_points import (
+    Company,
+    GroupedPoint,
+    GroupedPointWithPort,
+    GroupedPort,
+    PortTranslation,
+    RawPoint,
+    Translation,
+    id_type,
+    port_translations_map_type,
+    translations_map_type,
+)
 
 
 def _extract_port_from_name(name: str) -> tuple[str, str | None]:
@@ -75,9 +27,9 @@ def _extract_port_from_name(name: str) -> tuple[str, str | None]:
     return point, port
 
 
-def _extract_ports_from_all_translates(point: GroupedPoint) -> tuple[_translations_map, _port_translations_map]:
-    point_translates: _translations_map = {}
-    port_translates: _port_translations_map = {}
+def _extract_ports_from_all_translates(point: GroupedPoint) -> tuple[translations_map_type, port_translations_map_type]:
+    point_translates: translations_map_type = {}
+    port_translates: port_translations_map_type = {}
 
     for lang, translation in point.translates.items():
         point_name, port_name = _extract_port_from_name(translation.name)
@@ -93,14 +45,14 @@ def _extract_ports_from_all_translates(point: GroupedPoint) -> tuple[_translatio
     return point_translates, port_translates
 
 
-def _convert_point_to_port(point: GroupedPoint) -> tuple[GroupedPort, _translations_map]:
+def _convert_point_to_port(point: GroupedPoint) -> tuple[GroupedPort, translations_map_type]:
     """
     Converts a point to port
     :param point: a point descriptor
     :return: object with replaced translations
     """
     point_translates, port_translates = _extract_ports_from_all_translates(point)
-    translates: _port_translations_map = {}
+    translates: port_translations_map_type = {}
     result = GroupedPort(
         ids=point.ids,
         external_ids=point.external_ids,
@@ -164,7 +116,7 @@ def group_companies(
 
 def group_transfers(
     grouped_by_company_points: list[GroupedPoint],
-    excluded_company_ids: set[_id_type] | None = None,
+    excluded_company_ids: set[id_type] | None = None,
     base_lang: str = "ru",
 ) -> list[GroupedPointWithPort]:
     if not excluded_company_ids:

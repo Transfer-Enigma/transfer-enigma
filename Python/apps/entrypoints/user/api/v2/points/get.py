@@ -15,7 +15,7 @@ from data.setings.cached import get_setting_cached
 from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.get_points_responses import PointsDataResponse
-from entrypoints.user.utils.group_points import (
+from services.points.group import (
     group_companies,
     group_transfers,
     raw_point_from_dict,
