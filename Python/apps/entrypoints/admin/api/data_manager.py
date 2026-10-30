@@ -12,9 +12,7 @@ from entrypoints.admin.responses_fabric import (
     create_an_error_descriptor_from_an_exception,
     create_multi_error_response_from_an_array_of_exceptions,
 )
-from entrypoints.admin.service.db_management.db_dumper import create_db_dump
-from entrypoints.admin.service.db_management.db_eraser import clear_database_data
-from entrypoints.admin.service.db_management.db_loader import load_db_dump
+from services.db_management import clear_database_data, create_db_dump, load_db_dump
 from shared.database import Database, get_database
 
 router = APIRouter(prefix="/db")
