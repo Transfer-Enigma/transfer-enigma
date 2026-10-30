@@ -6,6 +6,7 @@ import DataImport from "@/pages/DataImport";
 import DemoGuests from "@/pages/DemoGuests";
 import RequireAuth from "@/providers/RequireAuth";
 import Settings from "@/pages/Settings";
+import CachePolicies from "@/pages/CachePolicies";
 import EmptyLayout from "@/layouts/EmptyLayout";
 import Login from "@/pages/Login";
 
@@ -25,6 +26,7 @@ export const routesConfig = [
             { path: ROUTES.DATA_IMPORT, element: <DataImport /> },
             { path: ROUTES.DEMO_GUESTS, element: <DemoGuests /> },
             { path: ROUTES.SETTINGS, element: <Settings /> },
+            { path: ROUTES.CACHE, element: <CachePolicies /> },
         ],
     },
 ];

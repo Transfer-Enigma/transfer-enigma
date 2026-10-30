@@ -1,65 +1,23 @@
+"""Settings seed service.
+
+Creates default settings that are still missing.
+"""
+
 import logging
-from functools import cache
 
+from data.cache.settings import set_settings_cache
+from shared.database import get_database
+from shared.dto.setting import SettingItem, parse_setting_value
+from shared.orm.setting import SettingModel
+from shared.setting_definitions import get_setting_definitions
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from .cache_controller import CacheController
-from .database import get_database
-from .dto.setting import SettingItem, parse_setting_value
-from .orm.setting import SettingModel
-from .redis_client import get_redis
-from .repositories import setting as rsettings
-from .setting_definitions import get_setting_definitions
-from .settings import get_setting as _get_setting
 
 logger = logging.getLogger(__name__)
 
-SETTINGS_CACHE_TTL = 43200  # 12 hours
-SETTINGS_CACHE_PREFIX = "backend_user:settings"
 
-
-@cache
-def get_cache_controller():
-    return CacheController(logger)
-
-
-def _settings_cache_key(group: str, name: str) -> str:
-    return f"{SETTINGS_CACHE_PREFIX}:{group}:{name}"
-
-
-async def get_setting_cached(group: str, name: str, *, session: AsyncSession | None = None) -> SettingItem | None:
-    key = _settings_cache_key(group, name)
-    cache_controller = get_cache_controller()
-    cached = await cache_controller.get_cached(key, SettingItem, False)
-    if cached:
-        return cached
-
-    if session:
-        item = await rsettings.get_setting(session, group, name)
-    else:
-        item = await _get_setting(group, name)
-
-    if item is not None:
-        cache_controller.silent_set_cache_async(key, item, SETTINGS_CACHE_TTL)
-
-    return item
-
-
-async def set_settings_cache(item: SettingItem) -> None:
-    key = _settings_cache_key(item.group, item.name)
-    cache_controller = get_cache_controller()
-    await cache_controller.set_cache(key, item, SETTINGS_CACHE_TTL, True)
-
-
-async def delete_settings_cache(group: str, name: str) -> None:
-    key = _settings_cache_key(group, name)
-    try:
-        redis = get_redis()
-        await redis.delete(key)
-        logger.debug("Settings cache deleted: %s", key)
-    except Exception:
-        logger.exception("Failed to delete settings cache: %s", key)
+async def do_seed() -> None:
+    """Create missing default settings."""
+    await ensure_settings()
 
 
 async def ensure_settings() -> None:

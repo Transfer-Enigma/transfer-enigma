@@ -1,0 +1,78 @@
+"""Cache policy data layer.
+
+Creates default cache policies that are still missing.
+Existing rows are never touched.
+"""
+
+import logging
+
+from shared.cache import CacheEntity
+from shared.database import Base, get_database
+from shared.orm.cache_policy import CachePolicyModel
+from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
+
+# All supported (source, entity) combinations for cache policies.
+_DEFAULT_CACHE_POLICIES: list[tuple[str | None, CacheEntity, bool, int, str]] = [
+    # Single-source entities.
+    (None, CacheEntity.RATES, True, 3600, "Currency rates from the CBR API"),
+    (None, CacheEntity.SETTINGS, False, 3600, "Application settings"),
+    # Multi-source entities: FESCO (external) + internal (database).
+    ("fesco", CacheEntity.DEPARTURES, True, 43200, "FESCO departure points"),
+    ("internal", CacheEntity.DEPARTURES, False, 86400, "Internal departure points"),
+    ("fesco", CacheEntity.DESTINATIONS, True, 43200, "FESCO destination points"),
+    ("internal", CacheEntity.DESTINATIONS, False, 86400, "Internal destination points"),
+    ("fesco", CacheEntity.CONTAINERS, True, 86400, "FESCO containers"),
+    ("internal", CacheEntity.CONTAINERS, False, 86400, "Internal containers"),
+    ("fesco", CacheEntity.ROUTES, True, 43200, "FESCO routes"),
+    ("internal", CacheEntity.ROUTES, False, 86400, "Internal routes"),
+    ("fesco", CacheEntity.DEPARTURES_TODAY, True, 86400, "FESCO departure points for today"),
+    ("internal", CacheEntity.DEPARTURES_TODAY, False, 86400, "Internal departure points for today"),
+    ("fesco", CacheEntity.DESTINATIONS_TODAY, True, 86400, "FESCO destination points for today"),
+    ("internal", CacheEntity.DESTINATIONS_TODAY, False, 86400, "Internal destination points for today"),
+    ("fesco", CacheEntity.CONTAINERS_TODAY, True, 86400, "FESCO containers for today"),
+    ("internal", CacheEntity.CONTAINERS_TODAY, False, 86400, "Internal containers for today"),
+    ("fesco", CacheEntity.ROUTES_TODAY, True, 43200, "FESCO routes for today"),
+    ("internal", CacheEntity.ROUTES_TODAY, False, 43200, "Internal routes for today"),
+    ("fesco", CacheEntity.POINTS, True, 86400, "FESCO points"),
+    ("internal", CacheEntity.POINTS, False, 86400, "Internal points"),
+    ("fesco", CacheEntity.POINTS_TODAY, True, 86400, "FESCO points for today"),
+    ("internal", CacheEntity.POINTS_TODAY, False, 86400, "Internal points for today"),
+]
+
+
+async def ensure_cache_policies() -> None:
+    """Create cache policies that are still missing.
+
+    Existing rows are left untouched: policies are admin-managed,
+    the seeder only fills the gaps. Idempotent.
+    """
+    async with get_database().session_context() as session:
+        conn = await session.connection()
+        await conn.run_sync(Base.metadata.create_all)
+        for source, entity, enabled, ttl, _description in _DEFAULT_CACHE_POLICIES:
+            result = await session.execute(
+                select(CachePolicyModel).where(
+                    CachePolicyModel.source == source,
+                    CachePolicyModel.entity == entity,
+                ),
+            )
+            if result.scalar_one_or_none() is not None:
+                continue
+            session.add(
+                CachePolicyModel(
+                    source=source,
+                    entity=entity,
+                    enabled=enabled,
+                    ttl=ttl,
+                ),
+            )
+            await session.flush()
+            logger.info(
+                "Created default cache policy: %s:%s enabled=%s ttl=%s",
+                source,
+                entity,
+                enabled,
+                ttl,
+            )

@@ -1,5 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from shared.orm import SettingType
+from shared.orm.cache_policy import CachePolicyModel
 from shared.orm.company import CompanyModel
 from shared.orm.container import ContainerModel
 from shared.orm.drop import DropModel
@@ -403,4 +404,48 @@ class SettingResponse(BaseModel):
             value_type=model.value_type,
             value=model.value,
             locked=model.locked,
+        )
+
+
+# ─── Cache Policies ────────────────────────────────────────────────────────
+
+
+class CachePolicyPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool | None = None
+    ttl: int | None = Field(default=None, ge=1)
+
+
+class CacheInvalidateResponse(BaseModel):
+    deleted: int
+
+
+class CacheEntryItem(BaseModel):
+    key: str
+    value: str
+
+
+class CacheEntriesResponse(BaseModel):
+    policy_id: int
+    prefix: str
+    count: int
+    entries: list[CacheEntryItem]
+
+
+class CachePolicyResponse(BaseModel):
+    id: int  # noqa: A003
+    source: str | None
+    entity: str
+    enabled: bool
+    ttl: int
+
+    @classmethod
+    def from_model(cls, model: CachePolicyModel) -> CachePolicyResponse:
+        return cls(
+            id=model.id,
+            source=model.source,
+            entity=model.entity,
+            enabled=model.enabled,
+            ttl=model.ttl,
         )

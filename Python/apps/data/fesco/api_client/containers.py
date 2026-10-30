@@ -5,20 +5,22 @@ import aiohttp
 from shared.config import get_settings
 from shared.dto.route import ContainerItem
 
-from ..cache import FESCO_CONTAINERS_TTL, CacheKeys, get_cached, silent_set_cache_async
+from ..cache import containers_parts, get_containers_backend
 from .transformers.containers import transform_containers
 
 logger = logging.getLogger(__name__)
 
 
 async def get_containers(date: datetime.date, departure_id: str, destination_id: str):
-    cache_key = CacheKeys.get_wte_cache_key(date, departure_id, destination_id)
-    cached_data = await get_cached(cache_key, ContainerItem)
+    backend = get_containers_backend(date)
+    parts = containers_parts(date, departure_id, destination_id)
+
+    cached_data = await backend.get(*parts, model=ContainerItem)
     if cached_data:
         return cached_data
 
     containers = await _fetch_containers(date, departure_id, destination_id)
-    silent_set_cache_async(cache_key, containers, FESCO_CONTAINERS_TTL, True)
+    backend.silent_set_async(*parts, data=containers, dump=True)
     return containers
 
 

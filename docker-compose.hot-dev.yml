@@ -20,9 +20,11 @@ services:
   calculator:
     volumes:
       - "./Python/apps/entrypoints/user/:/workspace/entrypoints/user/:ro"
+      - "./Python/apps/data/cache/:/workspace/data/cache/:ro"
       - "./Python/apps/data/fesco/:/workspace/data/fesco/:ro"
       - "./Python/apps/data/internal/:/workspace/data/internal/:ro"
       - "./Python/apps/shared/:/workspace/shared/:ro"
+      - "./Python/apps/services/:/workspace/services/:ro"
       - "./resources/:/workspace/resources/:rw"
       - "./logs/:/var/log/app/:rw"
     command:
@@ -48,6 +50,7 @@ services:
   backadmin:
     volumes:
       - "./Python/apps/entrypoints/admin/:/workspace/entrypoints/admin/:ro"
+      - "./Python/apps/data/cache/:/workspace/data/cache/:ro"
       - "./Python/apps/data/fesco/:/workspace/data/fesco/:ro"
       - "./Python/apps/data/internal/:/workspace/data/internal/:ro"
       - "./Python/apps/shared/:/workspace/shared/:ro"
@@ -60,6 +63,17 @@ services:
       - "--port"
       - "8082"
       - "--reload"
+  initializer:
+    image: danielgreen1806/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
+    entrypoint:
+      - "python3"
+      - "-m"
+      - "entrypoints.initializer.main"
+    volumes:
+      - "./Python/apps/data/cache/:/workspace/data/cache/:ro"
+      - "./Python/apps/entrypoints/initializer/:/workspace/entrypoints/initializer/:ro"
+      - "./Python/apps/services/:/workspace/services/:ro"
+      - "./Python/apps/shared/:/workspace/shared/:ro"
 
   ### FRONT
   frontend:

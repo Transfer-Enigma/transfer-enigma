@@ -1,12 +1,13 @@
 import asyncio
 import datetime
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends, Query
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
+from data.cache.settings import get_setting_cached
 from data.fesco import api_client
 from data.fesco.api_client.transformers.points import transform_points as map_fesco
 from data.internal import aggregators
@@ -19,7 +20,6 @@ from entrypoints.user.utils.group_points import (
     group_transfers,
     raw_point_from_dict,
 )
-from shared.cache_settings import get_setting_cached
 from shared.orm.company import CompanyModel
 from shared.orm.point import PointModel
 
@@ -66,7 +66,7 @@ async def all_departure_by_date(date: datetime.date, auth: Annotated[AuthContext
     )
 
     errors = []
-    data: list[dict[str, Any]] = []
+    data: list[Mapping[str, Any]] = []
 
     if isinstance(fesco_points, BaseException):
         errors.append(RouteError(error_type=str(type(fesco_points)), error_text=str(fesco_points), source="external"))
@@ -108,7 +108,7 @@ async def all_destination_by_date(
     )
 
     errors = []
-    data: list[dict[str, Any]] = []
+    data: list[Mapping[str, Any]] = []
 
     if not results:
         raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, detail="Unknown error: no results")

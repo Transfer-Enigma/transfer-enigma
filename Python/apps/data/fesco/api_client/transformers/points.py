@@ -1,13 +1,15 @@
 from collections.abc import Iterable
 from typing import Any
 
+from shared.dto.point import PointItem
+
 
 def _is_invalid_point(point: dict[str, Any]) -> bool:
     point_loc_name = point.get("name")
     return not point_loc_name or "DEFAULT LOCATION" in point_loc_name
 
 
-def _transform_point(point: dict[str, Any]) -> dict[str, Any] | None:
+def _transform_point(point: dict[str, Any]) -> PointItem | None:
     if _is_invalid_point(point):
         return None
 
@@ -18,7 +20,7 @@ def _transform_point(point: dict[str, Any]) -> dict[str, Any] | None:
         "vn": {"name_field": "nameVN", "country_field": "countryVN"},
     }
 
-    result: dict[str, Any] = {
+    result: PointItem = {
         "id": point["id"],
         "company": {"id": "FESCO", "name": "FESCO"},
         "translates": {},
@@ -37,5 +39,5 @@ def _transform_point(point: dict[str, Any]) -> dict[str, Any] | None:
     return result
 
 
-def transform_points(points: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]:
+def transform_points(points: Iterable[dict[str, Any]]) -> Iterable[PointItem]:
     return filter(None, map(_transform_point, points))
