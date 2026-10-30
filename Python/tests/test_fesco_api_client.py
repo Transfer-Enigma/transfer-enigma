@@ -2,6 +2,8 @@ import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from data.cache import CacheEntity, CachePolicy
+from data.cache.storage import LocalStorage
 from data.fesco.api_client.containers import get_containers, search_container_ids
 from data.fesco.api_client.points import (
     get_departure_points_by_date,
@@ -22,7 +24,7 @@ from data.fesco.api_client.transformers.routes import (
     transform_service,
 )
 from data.fesco.cache import containers_parts, routes_parts
-from shared.cache import CacheBackend, CacheEntity, CachePolicy, LocalStorage
+from services.cache.backend import CacheBackend
 from shared.dto.route import ContainerItem
 
 

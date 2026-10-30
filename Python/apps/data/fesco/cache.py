@@ -1,8 +1,9 @@
 import datetime
 import json
 
-from data.cache.registry import get_cache_registry
-from shared.cache import CacheBackend, CacheEntity
+from data.cache.entity import CacheEntity
+from services.cache.backend import CacheBackend
+from services.cache.registry import get_cache_registry
 
 # The FESCO API is a data source of its own.
 FESCO_SOURCE = "fesco"
@@ -58,11 +59,11 @@ def departures_parts(date: datetime.date) -> tuple[str, ...]:
 
 
 def destinations_parts(date: datetime.date, departure_point_id: str) -> tuple[str, ...]:
-    return (date.isoformat(), departure_point_id)
+    return date.isoformat(), departure_point_id
 
 
 def containers_parts(date: datetime.date, departure_id: str, destination_id: str) -> tuple[str, ...]:
-    return (date.isoformat(), departure_id, destination_id)
+    return date.isoformat(), departure_id, destination_id
 
 
 def routes_parts(

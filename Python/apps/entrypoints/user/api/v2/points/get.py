@@ -7,11 +7,11 @@ from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends, Query
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
-from data.cache.settings import get_setting_cached
 from data.fesco import api_client
 from data.fesco.api_client.transformers.points import transform_points as map_fesco
 from data.internal import aggregators
 from data.internal.aggregators.transformers.points import transform_points as map_custom
+from data.setings.cached import get_setting_cached
 from entrypoints.user.dependencies.auth_context import AuthContext, get_auth_context
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.get_points_responses import PointsDataResponse

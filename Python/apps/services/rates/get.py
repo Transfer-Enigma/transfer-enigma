@@ -2,9 +2,9 @@ import asyncio
 import datetime
 import logging
 
-from data.cache.registry import get_cache_registry
+from data.cache import CacheEntity
 from pycbrf.toolbox import ExchangeRates
-from shared.cache import CacheEntity
+from services.cache.registry import get_cache_registry
 
 logger = logging.getLogger(__name__)
 

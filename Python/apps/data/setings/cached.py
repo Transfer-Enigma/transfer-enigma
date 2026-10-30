@@ -1,12 +1,11 @@
 import logging
 
-from shared.cache import CacheEntity
+from data.cache import CacheEntity
+from services.cache.registry import get_cache_registry
 from shared.dto.setting import SettingItem
 from shared.repositories import setting as rsettings
 from shared.settings import get_setting as _get_setting
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from .registry import get_cache_registry
 
 logger = logging.getLogger(__name__)
 

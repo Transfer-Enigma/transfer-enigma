@@ -3,7 +3,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
-from data.cache.registry import get_cache_registry
+from services.cache.registry import get_cache_registry
 from shared.config import get_settings
 
 logger = logging.getLogger(__name__)

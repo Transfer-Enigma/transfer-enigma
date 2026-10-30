@@ -6,10 +6,11 @@ Existing rows are never touched.
 
 import logging
 
-from shared.cache import CacheEntity
 from shared.database import Base, get_database
 from shared.orm.cache_policy import CachePolicyModel
 from sqlalchemy import select
+
+from .entity import CacheEntity
 
 logger = logging.getLogger(__name__)
 

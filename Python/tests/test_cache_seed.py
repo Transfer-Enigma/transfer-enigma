@@ -1,8 +1,8 @@
 from unittest.mock import patch
 
 import pytest
+from data.cache import CacheEntity
 from data.cache.cache_policies import ensure_cache_policies
-from shared.cache import CacheEntity
 from shared.orm.cache_policy import CachePolicyModel
 from sqlalchemy import func, select
 

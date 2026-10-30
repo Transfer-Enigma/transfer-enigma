@@ -8,7 +8,7 @@ from entrypoints.user.api.v3.routes.post import _sse_generator
 from entrypoints.user.dependencies.auth_context import AuthContext
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
-from services.route_calculation import calculate_routes_stream
+from services.routes.calculation import calculate_routes_stream
 from shared.dto.route import ContainerItem, PriceItem, RouteResult, RouteSegment
 
 
@@ -208,7 +208,7 @@ class TestSSEGenerator:
 
     @pytest.mark.asyncio
     @patch("entrypoints.user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
-    @patch("services.profit.get_rates", new_callable=AsyncMock)
+    @patch("services.demo.profit.get_rates", new_callable=AsyncMock)
     async def test_sse_demo_transforms_with_profit(self, mock_rates, mock_get_setting):
         mock_get_setting.return_value = Mock(value=["company"])
         mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
@@ -256,8 +256,8 @@ class TestCalculateRoutesStream:
         route2 = _make_full_route(company="CompanyB")
 
         with (
-            patch("services.route_calculation.aggregators") as mock_agg,
-            patch("services.route_calculation.api_client") as mock_fesco,
+            patch("services.routes.calculation.aggregators") as mock_agg,
+            patch("services.routes.calculation.api_client") as mock_fesco,
         ):
             mock_agg.get_containers = AsyncMock(
                 return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -283,8 +283,8 @@ class TestCalculateRoutesStream:
     @pytest.mark.asyncio
     async def test_stream_yields_errors(self):
         with (
-            patch("services.route_calculation.aggregators") as mock_agg,
-            patch("services.route_calculation.api_client") as mock_fesco,
+            patch("services.routes.calculation.aggregators") as mock_agg,
+            patch("services.routes.calculation.api_client") as mock_fesco,
         ):
             mock_agg.get_containers = AsyncMock(
                 return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -312,8 +312,8 @@ class TestCalculateRoutesStream:
         route_ext = _make_full_route(company="FESCO")
 
         with (
-            patch("services.route_calculation.aggregators") as mock_agg,
-            patch("services.route_calculation.api_client") as mock_fesco,
+            patch("services.routes.calculation.aggregators") as mock_agg,
+            patch("services.routes.calculation.api_client") as mock_fesco,
         ):
             mock_agg.get_containers = AsyncMock(
                 return_value=[ContainerItem(id=1, size=20, weight_from=0, weight_to=28000, type="DC", name="20DC")]
@@ -340,8 +340,8 @@ class TestCalculateRoutesStream:
     @pytest.mark.asyncio
     async def test_stream_empty_ids(self):
         with (
-            patch("services.route_calculation.aggregators") as mock_agg,
-            patch("services.route_calculation.api_client") as mock_fesco,
+            patch("services.routes.calculation.aggregators") as mock_agg,
+            patch("services.routes.calculation.api_client") as mock_fesco,
         ):
             mock_agg.get_containers = AsyncMock(return_value=[])
             mock_agg.search_container_ids = lambda containers, weight, size: []

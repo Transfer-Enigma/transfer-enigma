@@ -3,10 +3,10 @@ from importlib.util import find_spec
 
 from fastapi import FastAPI
 
-from data.cache.refresh import policy_refresh
-from data.cache.registry import get_cache_registry
 from fastapi_another_jwt_auth import AuthJWT
 from fastapi_another_jwt_auth.exceptions import AuthJWTException
+from services.cache.refresh import policy_refresh
+from services.cache.registry import get_cache_registry
 from shared.config import get_settings
 from shared.database import get_database
 from shared.jwt_error_handler import authjwt_exception_handler

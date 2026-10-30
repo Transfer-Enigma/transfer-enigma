@@ -1,14 +1,13 @@
 import logging
 from functools import cache
 
-from shared.cache import (
-    CacheBackend,
+from data.cache import (
     CacheEntity,
     CachePolicy,
-    CacheStorage,
-    RedisStorage,
     is_multi_source,
 )
+from data.cache.storage import CacheStorage, RedisStorage
+from services.cache.backend import CacheBackend
 from shared.database import get_database
 from shared.orm.cache_policy import CachePolicyModel
 from sqlalchemy import select

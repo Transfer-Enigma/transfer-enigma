@@ -32,9 +32,7 @@ services:
       file: docker-compose.yml
     volumes:
       - "./Python/apps/entrypoints/user/:/workspace/entrypoints/user/:ro"
-      - "./Python/apps/data/cache/:/workspace/data/cache/:ro"
-      - "./Python/apps/data/fesco/:/workspace/data/fesco/:ro"
-      - "./Python/apps/data/internal/:/workspace/data/internal/:ro"
+      - "./Python/apps/data/:/workspace/data/:ro"
       - "./Python/apps/shared/:/workspace/shared/:ro"
       - "./Python/apps/services/:/workspace/services/:ro"
       - "./resources/:/workspace/resources/:rw"
@@ -68,10 +66,9 @@ services:
       file: docker-compose.yml
     volumes:
       - "./Python/apps/entrypoints/admin/:/workspace/entrypoints/admin/:ro"
-      - "./Python/apps/data/cache/:/workspace/data/cache/:ro"
-      - "./Python/apps/data/fesco/:/workspace/data/fesco/:ro"
-      - "./Python/apps/data/internal/:/workspace/data/internal/:ro"
+      - "./Python/apps/data/:/workspace/data/:ro"
       - "./Python/apps/shared/:/workspace/shared/:ro"
+      - "./Python/apps/services/:/workspace/services/:ro"
       - "./resources/:/workspace/resources/:rw"
       - "./logs/:/workspace/logs/:rw"
     command:
@@ -90,7 +87,7 @@ services:
       - "-m"
       - "entrypoints.initializer.main"
     volumes:
-      - "./Python/apps/data/cache/:/workspace/data/cache/:ro"
+      - "./Python/apps/data/:/workspace/data/:ro"
       - "./Python/apps/entrypoints/initializer/:/workspace/entrypoints/initializer/:ro"
       - "./Python/apps/services/:/workspace/services/:ro"
       - "./Python/apps/shared/:/workspace/shared/:ro"
