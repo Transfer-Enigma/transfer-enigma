@@ -3,9 +3,9 @@ import logging
 from services.cache.registry import get_cache_registry
 from shared.dto.cache import CacheEntity
 from shared.models.setting import SettingItem
-from shared.repositories import setting as rsettings
-from shared.settings import get_setting as _get_setting
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from .get import get_setting, get_setting_with_session
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,9 @@ async def get_setting_cached(group: str, name: str, *, session: AsyncSession | N
         return cached
 
     if session:
-        item = await rsettings.get_setting(session, group, name)
+        item = await get_setting_with_session(session, group, name)
     else:
-        item = await _get_setting(group, name)
+        item = await get_setting(group, name)
 
     if item is not None:
         backend.silent_set_async(group, name, data=item, dump=True)
