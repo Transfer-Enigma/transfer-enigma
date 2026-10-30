@@ -81,6 +81,30 @@ services:
       - "--port"
       - "8082"
       - "--reload"
+  initializer:
+    image: danielgreen1806/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
+    env_file:
+      - ".env"
+    entrypoint:
+      - "python3"
+      - "-m"
+      - "entrypoints.initializer.main"
+    volumes:
+      - "./Python/apps/data/cache/:/workspace/data/cache/:ro"
+      - "./Python/apps/entrypoints/initializer/:/workspace/entrypoints/initializer/:ro"
+      - "./Python/apps/services/:/workspace/services/:ro"
+      - "./Python/apps/shared/:/workspace/shared/:ro"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: no
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges
+    user: 1000:1000
+    networks:
+      db:
 
   ### PROXY
   reverseproxy:

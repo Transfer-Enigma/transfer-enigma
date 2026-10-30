@@ -56,6 +56,25 @@ services:
     user: 1000:1000
     networks:
       db:
+  initializer:
+    image: danielgreen1806/calculator-python-apps:${DOCKER_PROD_IMAGES_TAG}
+    env_file:
+      - ".env"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: no
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges
+    user: 1000:1000
+    networks:
+      db:
+    entrypoint:
+      - "python3"
+      - "-m"
+      - "entrypoints.initializer.main"
 
 networks:
   db:
