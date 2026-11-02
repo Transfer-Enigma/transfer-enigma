@@ -15,11 +15,14 @@ export default function DemoGuests() {
     const [ error, setError ] = useState<string | null>(null);
 
     useEffect(() => {
-        fetch("/api/v1/rates/")
+        fetch("/api/v2/rates")
             .then(r => r.ok ? r.json() : null)
             .then(data => {
-                if (data && typeof data === "object") {
-                    const all = Object.keys(data as Record<string, unknown>);
+                const rates = data && typeof data === "object"
+                    ? (data as { rates?: Record<string, unknown> }).rates
+                    : null;
+                if (rates && typeof rates === "object") {
+                    const all = Object.keys(rates);
                     const main = MAIN_CURRENCIES.filter(c => all.includes(c));
                     const rest = all.filter(c => !main.includes(c));
                     setCurrencies([ ...main, ...rest ]);

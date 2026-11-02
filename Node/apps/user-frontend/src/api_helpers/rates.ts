@@ -1,4 +1,11 @@
 import { fetchAsJSON } from "@/helpers/requests";
 
-export const getRates = async (): Promise<Record<string, number>> =>
-    (await fetchAsJSON("/api/v1/rates/")) as Record<string, number>;
+interface RatesResponse {
+    rates: Record<string, number>;
+    updated_at: string;
+}
+
+export const getRates = async (): Promise<Record<string, number>> => {
+    const { rates } = (await fetchAsJSON("/api/v2/rates")) as RatesResponse;
+    return rates;
+};
