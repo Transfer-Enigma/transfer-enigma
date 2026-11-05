@@ -69,9 +69,9 @@ Python/
 │   │               └── errors.py          # PointNotFound, CompanyNotFound, NoPriceInRoute, ...
 │   │   └── initializer/   # One-shot seeding: settings + cache policies
 │   ├── services/          # cross-entrypoint business logic
-│   │   ├── routes/            # calculation.py — calculate_routes orchestration
+│   │   ├── routes/            # calculation.py — calculate_routes orchestration, links.py — route link detail resolution
 │   │   ├── rates/             # get.py — CBR rates + cache fallback
-│   │   ├── demo/              # profit.py — demo profit + currency conversion
+│   │   ├── demo/              # profit.py — demo profit + currency conversion, transforms.py — demo transforms/strip
 │   │   ├── cache/             # backend.py (CacheBackend), registry.py (CacheRegistry), refresh.py (policy refresh), seed.py
 │   │   └── settings/          # seed.py — ensure_settings (creates missing settings rows + writes cache)
 │   ├── shared/            # shared kernel (old module_shared)
@@ -351,7 +351,7 @@ lookup — a lowercase code must never raise "валюта не найдена" 
     - `test_route_calculation.py` — route calculation (service-level: internal, FESCO, mixed, errors; handler-level: format conversion, demo transforms/strip/profit)
     - `test_internal_aggregators.py` — containers, paths (rail/sea/COC/SOC/expired/services/drop/dropp_off/no_data/process_results), hide-sea-soc + route-type feature flags + TRUCK routes (direct, truck→rail, rail→truck, truck→rail→truck, truck→sea→rail→truck, truck→rail→sea→truck, sea+rail with truck, base queries for "without delivery" button)
     - `test_profit.py` — currency conversion, profit application, segment type filtering, mixed segments, currency conversion in profit
-    - `test_auth_utils.py` — `_strip_demo_fields`, `get_auth_context` with/without/invalid demo header, empty routes
+    - `test_auth_utils.py` — `strip_demo_fields`, `get_auth_context` with/without/invalid demo header, empty routes
     - `test_get_points.py` — `get_departure_points`, `get_destination_points`, no routes, multiple companies
     - `test_demo_guest_repo.py` — `get_demo_guest_by_uid` found/not found/profit overrides, `list_demo_guests` empty/multiple
     - `test_get_rates.py` — `get_rates` returns dict, caching, with datetime, API failure fallback
@@ -418,6 +418,13 @@ shared ───┬── entrypoints/auth
 - Auth and Admin APIs are not versioned
 - `/v3/routes/calculate` (POST) is an SSE endpoint for progressive route streaming — each route/error is yielded as an SSE event when available
 
+### Route Link Detail Endpoint
+- `GET /v2/routes/detail?segments=1,2&included-services=3&container=4` (in `api/v3/routes/get.py`, URL prefix is v2) rebuilds a single route from explicit ids — powers the shareable `/route` and `/demo/:uid/route` pages
+- Query params are comma-separated id lists parsed by `parse_link_ids` (`services/routes/links.py`); invalid/unknown ids → 404
+- `get_route_by_link` validates: segments exist, chain via `end_point == start_point`, services belong to the selected segments; `container_ids` filter prices, container-specific services and drop-off rows (parity with calculator container filtering)
+- Demo guests get transforms via `apply_demo_transforms_to_route`; an unknown `X-Demo-User-UID` header is explicitly 404 (the dependency falls through to a non-demo context instead of raising)
+- Share links are built in `ResultRouteView.vue` (`shareLink`): segment ids + checked service ids + container ids from prices
+
 ### Auth Flow
 1. Login sets JWT access + refresh cookies (httpOnly)
 2. Frontend refreshes token on interval via `POST /token/refresh`
@@ -448,6 +455,14 @@ shared ───┬── entrypoints/auth
 - `immediate: true` ensures correct state on initial load
 - Feature flags are **not cleared explicitly** — the watcher auto-updates when `demoUid` changes (clearing demoUid → fetch without header → empty blurred_fields)
 
+### Provide/Inject Conventions (User Frontend)
+
+- `isDemoModeActive` is provided by **both** `CalculatorPage.vue` and `RoutePage.vue` (the single-route page mounted by `/route` and `/demo/:uid/route`). Any new page rendering `ResultsWidget` must provide it too.
+- The single-route page is **always non-editable** — `RoutePage` never provides `editable`; children fall back to the inject default `ref(false)`.
+- **`singleRouteMode`** (`provide("singleRouteMode", true)` in `RoutePage.vue`, `inject("singleRouteMode", ref(false))` in `ResultRouteView.vue`) marks the share view, which has no commercial-offer concept: it hides the "Маршрут не будет отображаться в КП" banner, the green/red `included`/`excluded` card borders and the "Скопировать ссылку на маршрут" button. Calculator behavior is unchanged (`singleRouteMode` stays `false` there). It cannot be detected via `editable` — that is `false` on the calculator too (until "Режим редактирования КП" is toggled on).
+- Always pass the default as the **2nd argument** of `inject(key, ref(false))` — the `inject(key) || ref(false)` pattern triggers Vue dev warnings ("injection ... not found") whenever no provider is in the tree.
+- **Price ranges**: `processRoutes` stores a total as a `[min, max]` array when segment prices differ (e.g. detail endpoint returns prices for all containers). Detect ranges with `Array.isArray(...)` — `Number.isNaN(array)` is always `false` and caused "не число" (ru-locale `NaN`) instead of "min – max" (see `ResultRouteView.vue`, sort in `calculator.ts`).
+
 ### Domain Models
 
 **`shared/dto/route.py`** — Route entities (Pydantic V2 `BaseModel`):
@@ -469,14 +484,15 @@ shared ───┬── entrypoints/auth
 - Used in services (no source) and points handlers (`"internal"`/`"external"`)
 
 ### Service/API Separation (Single Responsibility)
-- **Services** (`services/`) handle data work: fetching, aggregating, manipulating (e.g., `_strip_demo_fields`)
+- **Services** (`services/`) handle data work: fetching, aggregating, manipulating (e.g., `strip_demo_fields`)
 - **API handlers** (`entrypoints/user/api/`) handle format conversion: model → tuple for HTTP response
 - Models in `shared/dto/route.py` are Pydantic V2 `BaseModel` (not dataclasses) — they serve as both domain objects and response schemas
 - `calculate_routes()` returns `tuple[list[RouteResult], list[RouteError]]` (raw Pydantic models + errors)
-- V2 handler (`api/v2/routes/post.py`) owns: `_route_result_to_tuple`, `_normalize_routes`, `_apply_demo_transforms`
+- V2 handler (`api/v2/routes/post.py`) owns the response assembly: `normalize_routes` (in `entrypoints/user/schemas/routes.py`) converts `RouteResult` → tuple
     - `_seg_to_price_dict` was removed — models are returned as-is (no OnePrice flattening to `price`/`currency`/`container`/`beginCond`/`finishCond` flat fields)
     - Response format: `[segments: list[RouteSegment], drop: DropItem | None, bool, services: list[ServiceItem]]` — tuple with raw model objects
-- `_strip_demo_fields` stays in `services/routes/calculation.py` (data manipulation, not format conversion)
+- **Demo transforms** live in `services/demo/transforms.py`: `apply_demo_transforms_to_route(route, auth)` (profit + strip, no-op for non-demo) and `strip_demo_fields(segments, excluded_fields)` — shared by the v2 calculate handler, the v3 SSE stream and the v2 detail endpoint; never import handler-private functions across modules
+- ORM → DTO mapping is public API of `data/internal/aggregators/transformers/routes.py`: `segment_from_orm`, `services_from_segment` (used by `services/routes/links.py`)
 - No duplicate Pydantic response models — `entrypoints/user/schemas/routes.py` imports `RouteSegment`, `DropItem`, `ServiceItem` from `shared.models.route`
 
 ### Database
