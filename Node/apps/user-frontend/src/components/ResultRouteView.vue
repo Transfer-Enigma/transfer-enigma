@@ -10,6 +10,8 @@ import SinglePriceSegment from "@/components/routes/SinglePriceSegment.vue";
 import PriceWithCurrency from "@/components/PriceWithCurrency.vue";
 
 import { useRates } from "@/stores/rates";
+import { useDemoAuth } from "@/stores/demoAuth";
+import { useToast } from "@/composables/useToast";
 import { computed, inject, nextTick, ref, watch } from "vue";
 
 import type { Ref } from "vue";
@@ -31,10 +33,11 @@ const drop = computed(
     () => props.route[0][1]
 );
 
-const editMode: Ref<boolean> = inject("editable") || ref(false);
-const allRoutesSelected: Ref<boolean> = inject("allRoutesSelected") || ref(false);
-const allRoutesSelectedSignalRef: Ref<boolean> = inject("allRoutesSelectedSignal") || ref(false);
-const isDemoModeActive: Ref<boolean> = inject("isDemoModeActive") || ref(false);
+const editMode: Ref<boolean> = inject("editable", ref(false));
+const singleRouteMode: Ref<boolean> = inject("singleRouteMode", ref(false));
+const allRoutesSelected: Ref<boolean> = inject("allRoutesSelected", ref(false));
+const allRoutesSelectedSignalRef: Ref<boolean> = inject("allRoutesSelectedSignal", ref(false));
+const isDemoModeActive: Ref<boolean> = inject("isDemoModeActive", ref(false));
 const routeSelected = ref<boolean>(props.route[1][2]);
 
 let quiteSelect: boolean = false;
@@ -54,12 +57,57 @@ watch(() => props.route, async (newRoute: RouteExtendedDescriptor) => {
 });
 
 watch(allRoutesSelectedSignalRef, () => (routeSelected.value = allRoutesSelected.value));
+
+const shareLink = computed((): string | null => {
+    const routeSegments = segments.value;
+    if (!routeSegments.length || !routeSegments.every((segment) => typeof segment.id === "number"))
+        return null;
+
+    const segmentIds = routeSegments.map((segment) => String(segment.id)).join(",");
+    const serviceIds = (props.route[0][3] ?? [])
+        .filter((service) => service.checked && typeof service.id === "number" && service.id !== null)
+        .map((service) => String(service.id))
+        .join(",");
+
+    const containerIds = [...new Set(
+        routeSegments.flatMap((segment) =>
+            ("prices" in segment && segment.prices
+                ? segment.prices.map((price) => price.container?.id)
+                : []
+            ).filter((id): id is number => typeof id === "number")
+        )
+    )];
+
+    const demoUid = useDemoAuth().demoUid;
+    const base = demoUid ? `/demo/${encodeURIComponent(demoUid)}/route` : "/route";
+    const params = new URLSearchParams({ segments: segmentIds });
+    if (serviceIds)
+        params.set("included-services", serviceIds);
+    if (containerIds.length)
+        params.set("container", containerIds.join(","));
+
+    return `${base}?${params.toString()}`;
+});
+
+async function copyShareLink() {
+    if (!shareLink.value)
+        return;
+
+    const url = `${window.location.origin}${shareLink.value}`;
+    try {
+        await navigator.clipboard.writeText(url);
+        useToast().show("Ссылка на маршрут скопирована", "success");
+    } catch (e) {
+        console.log(e);
+        useToast().show(url, "warning", 10000);
+    }
+}
 </script>
 
 <template>
-    <div class="p-3 mb-4 border rounded shadow-sm result-item" :class="isDemoModeActive ? '' : routeSelected ? 'included' : 'excluded'">
+    <div class="p-3 mb-4 border rounded shadow-sm result-item" :class="singleRouteMode || isDemoModeActive ? '' : routeSelected ? 'included' : 'excluded'">
         <label v-if="editMode"><input type="checkbox" v-model="routeSelected" class="select-route-checkbox"></label>
-        <b v-else-if="!isDemoModeActive && !routeSelected">Маршрут не будет отображаться в КП</b>
+        <b v-else-if="!singleRouteMode && !isDemoModeActive && !routeSelected">Маршрут не будет отображаться в КП</b>
 
         <div v-if="props.route[0][2]" class="alert alert-warning d-flex align-items-center" role="alert">
             <svg class="flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Warning:"><use xlink:href="#exclamation-triangle-fill"/></svg>
@@ -116,12 +164,18 @@ watch(allRoutesSelectedSignalRef, () => (routeSelected.value = allRoutesSelected
 
         <hr>
 
+        <div v-if="shareLink && !singleRouteMode" class="mb-2">
+            <button class="btn btn-outline-primary btn-sm" @click="copyShareLink">
+                Скопировать ссылку на маршрут
+            </button>
+        </div>
+
         <div class="row">
             <div class="col-md-7">
                 Суммарная стоимость в валюте запроса:
             </div>
             <div class="col-md-5">
-                <b v-if="Number.isNaN(route[1][0])">
+                <b v-if="Array.isArray(route[1][0])">
                     <PriceWithCurrency :price="(route[1][0] as PriceRange)[0]" :currency="currentRate" />
                     &nbsp;&ndash;&nbsp;
                     <PriceWithCurrency :price="(route[1][0] as PriceRange)[1]" :currency="currentRate" />
@@ -135,7 +189,7 @@ watch(allRoutesSelectedSignalRef, () => (routeSelected.value = allRoutesSelected
                 В рублях по курсу ЦБ на дату выставления счёта с учётом конвертации:
             </div>
             <div class="col-md-5">
-                <b v-if="Number.isNaN(route[1][1])">
+                <b v-if="Array.isArray(route[1][1])">
                     <PriceWithCurrency :price="(route[1][1] as PriceRange)[0]" :currency="currentRate" />
                     -
                     <PriceWithCurrency :price="(route[1][1] as PriceRange)[1]" :currency="currentRate" />
