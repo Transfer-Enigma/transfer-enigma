@@ -24,6 +24,7 @@ export interface IDrop {
 }
 
 interface ISegment {
+    id: string | number;
     company: string;
     type: RouteType;
 
@@ -63,6 +64,7 @@ export interface IPrice {
 }
 
 export interface IContainer {
+    id?: number | string;
     name: string;
     size: number;
     type: "HC" | "DC";
