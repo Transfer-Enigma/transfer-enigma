@@ -169,7 +169,7 @@ class TestSSEGenerator:
             assert events[0].id == "6"
 
     @pytest.mark.asyncio
-    @patch("entrypoints.user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
+    @patch("services.demo.transforms.get_setting_cached", new_callable=AsyncMock)
     async def test_sse_demo_transforms_strips_company(self, mock_get_setting):
         mock_get_setting.return_value = Mock(value=["company"])
         route = _make_full_route(company="CompanyA")
@@ -207,7 +207,7 @@ class TestSSEGenerator:
             assert events[0].data.segments[0].company == "CompanyA"
 
     @pytest.mark.asyncio
-    @patch("entrypoints.user.api.v3.routes.post.get_setting_cached", new_callable=AsyncMock)
+    @patch("services.demo.transforms.get_setting_cached", new_callable=AsyncMock)
     @patch("services.demo.profit.get_rates", new_callable=AsyncMock)
     async def test_sse_demo_transforms_with_profit(self, mock_rates, mock_get_setting):
         mock_get_setting.return_value = Mock(value=["company"])

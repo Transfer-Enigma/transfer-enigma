@@ -7,21 +7,9 @@ from data.fesco import api_client
 from data.internal import aggregators
 from entrypoints.user.schemas.errors import RouteError
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
-from entrypoints.user.schemas.routes import NormalizedRoutes
 from shared.models.route_entities import RouteResult
 
 logger = logging.getLogger(__name__)
-
-
-def _strip_demo_fields(routes: NormalizedRoutes, excluded_fields: Iterable[str] | None = None) -> None:
-    if excluded_fields is None:
-        return
-
-    for route in routes:
-        segments = route[0]
-        for segment in segments:
-            for field in excluded_fields:
-                setattr(segment, field, None)
 
 
 async def _get_routes(
