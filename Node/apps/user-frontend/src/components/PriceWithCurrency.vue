@@ -9,7 +9,7 @@ const props = defineProps<{
     currency: string,
 }>();
 
-const editable: Ref<boolean> = inject("editable") || ref(false);
+const editable: Ref<boolean> = inject("editable", ref(false));
 
 const currencySymbol = computed(
     () => getCurrencySymbol(props.currency)
