@@ -23,7 +23,7 @@ def _transform_container_from_orm(price: PriceModel) -> ContainerItem:
     )
 
 
-def _segment_from_orm(route: RouteModel) -> RouteSegment:
+def segment_from_orm(route: RouteModel) -> RouteSegment:
     prices: list[PriceItem] = [
         PriceItem(
             container=_transform_container_from_orm(p),
@@ -53,9 +53,21 @@ def _segment_from_orm(route: RouteModel) -> RouteSegment:
     )
 
 
-def _services_from_segment(route: RouteModel, segment_id: int | str) -> list[ServiceItem]:
+def services_from_segment(
+    route: RouteModel,
+    segment_id: int | str,
+    container_ids: list[int] | None = None,
+) -> list[ServiceItem]:
+    services = route.services
+    if container_ids:
+        services = [
+            s for s in services
+            if s.container_id is None or s.container_id in container_ids
+        ]
+
     return [
         ServiceItem(
+            id=s.id,
             segment_id=segment_id,
             name=s.service.name,
             description=s.service.description,
@@ -65,7 +77,7 @@ def _services_from_segment(route: RouteModel, segment_id: int | str) -> list[Ser
             checked=s.service.default,
             mandatory=s.service.mandatory,
         )
-        for s in route.services
+        for s in services
     ]
 
 
@@ -83,9 +95,9 @@ def _route_from_orm(
     mapped_segments: list[RouteSegment] = []
 
     for segment in segments_raw:
-        seg = _segment_from_orm(segment)
+        seg = segment_from_orm(segment)
         mapped_segments.append(seg)
-        all_services.extend(_services_from_segment(segment, seg.id))
+        all_services.extend(services_from_segment(segment, seg.id))
 
     drop: DropItem | None = None
     if drop_model is not None:
