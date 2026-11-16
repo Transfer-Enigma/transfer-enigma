@@ -13,7 +13,7 @@ prod:
 	docker compose up $(ARGS);
 
 dev:
-	@trap './scripts/stop-dev.sh' EXIT;
+	@trap 'docker compose -f docker-compose.hot-dev.yml down' EXIT;
 	docker compose -f docker-compose.hot-dev.yml up $(ARGS);
 
 stop-prod:

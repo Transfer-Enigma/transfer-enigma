@@ -2,10 +2,11 @@ import datetime
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from entrypoints.user.api.v2.routes.post import _apply_demo_transforms, _normalize_routes
 from entrypoints.user.dependencies.auth_context import AuthContext
 from entrypoints.user.schemas.form_requests import CalculateFormRequest
-from services.routes.calculation import _strip_demo_fields, calculate_routes
+from entrypoints.user.schemas.routes import normalize_routes
+from services.demo.transforms import apply_demo_transforms_to_route, strip_demo_fields
+from services.routes.calculation import calculate_routes
 from shared.models.route_entities import ContainerItem, PriceItem, RouteResult, RouteSegment
 
 
@@ -336,63 +337,64 @@ async def test_container_fetch_fails_gracefully():
 
 
 @pytest.mark.asyncio
-@patch("entrypoints.user.api.v2.routes.post.get_setting_cached", new_callable=AsyncMock)
+@patch("services.demo.transforms.get_setting_cached", new_callable=AsyncMock)
 async def test_apply_demo_transforms_strips_company(mock_get_setting):
     mock_get_setting.return_value = Mock(value=["company"])
     seg = _make_segment(company="CompanyA")
     route = RouteResult(segments=[seg])
-    formatted = _normalize_routes([route])
     auth = AuthContext(is_demo=True)
-    await _apply_demo_transforms(formatted, auth)
+    await apply_demo_transforms_to_route(route, auth)
 
-    assert not formatted[0][0][0].company
+    assert route.segments[0].company is None
 
 
 @pytest.mark.asyncio
 async def test_apply_demo_transforms_does_not_strip_for_non_demo():
     seg = _make_segment(company="CompanyA")
     route = RouteResult(segments=[seg])
-    formatted = _normalize_routes([route])
     auth = AuthContext(is_demo=False)
-    await _apply_demo_transforms(formatted, auth)
+    await apply_demo_transforms_to_route(route, auth)
 
-    assert formatted[0][0][0].company == "CompanyA"
+    assert route.segments[0].company == "CompanyA"
 
 
 @pytest.mark.asyncio
-@patch("entrypoints.user.api.v2.routes.post.get_setting_cached", new_callable=AsyncMock)
+@patch("services.demo.transforms.get_setting_cached", new_callable=AsyncMock)
 @patch("services.demo.profit.get_rates", new_callable=AsyncMock)
 async def test_apply_demo_transforms_with_profit(mock_rates, mock_get_setting):
     mock_get_setting.return_value = Mock(value=["company"])
     mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
     seg = _make_segment(company="CompanyA", type="sea")
     route = RouteResult(segments=[seg])
-    formatted = _normalize_routes([route])
     auth = AuthContext(is_demo=True, sea_profit=100.0, sea_profit_currency="USD")
-    await _apply_demo_transforms(formatted, auth)
+    await apply_demo_transforms_to_route(route, auth)
 
-    assert formatted[0][0][0].company is None
+    assert route.segments[0].company is None
 
 
 @pytest.mark.asyncio
-@patch("entrypoints.user.api.v2.routes.post.get_setting_cached", new_callable=AsyncMock)
+@patch("services.demo.transforms.get_setting_cached", new_callable=AsyncMock)
 @patch("services.demo.profit.get_rates", new_callable=AsyncMock)
 async def test_apply_demo_transforms_with_profit_and_rail(mock_rates, mock_get_setting):
     mock_get_setting.return_value = Mock(value=["company"])
     mock_rates.return_value = ({"RUB": 1, "USD": 90, "EUR": 100}, datetime.date.today())
     seg = _make_segment(company="CompanyA", type="rail")
     route = RouteResult(segments=[seg])
-    formatted = _normalize_routes([route])
     auth = AuthContext(is_demo=True, rail_profit=50.0, rail_profit_currency="USD")
-    await _apply_demo_transforms(formatted, auth)
+    await apply_demo_transforms_to_route(route, auth)
 
-    assert formatted[0][0][0].company is None
+    assert route.segments[0].company is None
+
+
+def test_normalize_routes():
+    route = RouteResult(segments=[], drop=None, may_be_invalid=False, services=[])
+    assert normalize_routes([route]) == [([], None, False, [])]
 
 
 def test_strip_demo_fields_empty_segments():
-    routes = [([], None, False, [])]
-    _strip_demo_fields(routes)
-    assert routes[0][0] == []
+    segments: list[RouteSegment] = []
+    strip_demo_fields(segments)
+    assert segments == []
 
 
 @pytest.mark.asyncio
